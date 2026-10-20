@@ -8,6 +8,7 @@ import '../engine/splits.dart';
 import '../models/models.dart';
 import '../services/inbody_scanner.dart';
 import '../state/app_state.dart';
+import 'widgets/account_sheet.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
 class ProfileScreen extends StatelessWidget {
@@ -181,6 +182,9 @@ class ProfileScreen extends StatelessWidget {
               onChanged: (v) => _edit(state, (p) => p.includeCardio = v),
             ),
           ]),
+
+          // 계정
+          const _Section(title: '계정 · 동기화', children: [AccountSection()]),
 
           // 보안/연동
           _Section(title: '보안 · 연동', children: [

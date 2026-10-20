@@ -18,10 +18,17 @@ class AppData {
     List<Gym>? gyms,
     List<DayPlan>? plans,
     Map<String, Map<String, ExerciseProgress>>? progress,
+    DateTime? updatedAt,
   })  : profiles = profiles ?? [],
         gyms = gyms ?? [],
         plans = plans ?? [],
-        progress = progress ?? {};
+        progress = progress ?? {},
+        updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 마지막 변경 시각. 클라우드와 어느 쪽이 최신인지 비교할 때 쓴다.
+  DateTime updatedAt;
+
+  bool get isEmpty => profiles.isEmpty && gyms.isEmpty && plans.isEmpty;
 
   /// 로그인 코드 (요구사항 4). 기본 23007344, 설정에서 변경 가능.
   String accessCode;
@@ -38,6 +45,7 @@ class AppData {
 
   Map<String, dynamic> toJson() => {
         'version': 1,
+        'updatedAt': updatedAt.toIso8601String(),
         'accessCode': accessCode,
         'apiKey': apiKey,
         'currentUserId': currentUserId,
@@ -51,6 +59,7 @@ class AppData {
       };
 
   factory AppData.fromJson(Map<String, dynamic> j) => AppData(
+        updatedAt: j['updatedAt'] == null ? null : DateTime.tryParse(j['updatedAt'] as String),
         accessCode: j['accessCode'] as String? ?? '23007344',
         apiKey: j['apiKey'] as String? ?? '',
         currentUserId: j['currentUserId'] as String?,

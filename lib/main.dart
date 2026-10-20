@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/store_io.dart' if (dart.library.js_interop) 'core/store_web.dart';
+import 'firebase_options.dart';
+import 'services/cloud_sync.dart';
 import 'state/app_state.dart';
 import 'ui/home_shell.dart';
 import 'ui/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await CloudSync.init(firebaseOptions);
   final state = AppState(await createStore());
   await state.load();
   runApp(FitRoutineApp(state: state));

@@ -48,6 +48,15 @@ run_web.bat
 
 코드를 고친 뒤 그 터미널에서 `r`(핫 리로드) 또는 `R`(재시작). 카메라/앨범 대신 파일 선택창이 뜹니다.
 
+## 계정 동기화 (Firebase)
+
+`lib/firebase_options.dart`에 Firebase 웹앱 config를 넣으면 **내 정보 → 계정 로그인/가입**이 활성화됩니다.
+이메일/비밀번호 계정으로 로그인하면 폰·노트북 어디서 열어도 같은 데이터(프로필·헬스장·계획·기록)를 봅니다.
+로컬 저장이 항상 1차라 오프라인에서도 동작하고, 변경 1초 뒤 Firestore `users/{uid}/data/app`에 올라갑니다.
+다른 기기에서 더 최신이면 앱 시작/로그인 시 내려받습니다.
+
+Firebase 콘솔 설정: Authentication → 이메일/비밀번호 사용, Firestore 생성, 규칙은 `firestore.rules` 내용을 붙여넣기.
+
 ## 개발
 
 ```bash

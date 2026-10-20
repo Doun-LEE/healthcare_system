@@ -12,6 +12,7 @@ import '../engine/progression.dart';
 import '../engine/session_generator.dart';
 import '../models/models.dart';
 import '../engine/load_estimator.dart';
+import '../services/cloud_sync.dart';
 import '../services/inbody_scanner.dart';
 import '../services/routine_share.dart';
 
@@ -68,11 +69,151 @@ class AppState extends ChangeNotifier {
     _data = await _store.load();
     _loaded = true;
     notifyListeners();
+    if (cloudSignedIn) {
+      // 다른 기기에서 바꾼 내용이 있으면 내려받는다 (실패해도 로컬로 계속).
+      try {
+        await _pullIfNewer();
+      } catch (_) {}
+    }
   }
 
   Future<void> _save() async {
+    _data.updatedAt = DateTime.now();
     await _store.save(_data);
     notifyListeners();
+    if (cloudSignedIn) _pushDebounce(_pushNow);
+  }
+
+  // ───────── 계정 / 클라우드 동기화 ─────────
+
+  final _pushDebounce = Debouncer(const Duration(seconds: 1));
+  String? syncError;
+  DateTime? lastSyncedAt;
+  bool syncing = false;
+
+  bool get cloudAvailable => CloudSync.isConfigured;
+  bool get cloudSignedIn => cloudAvailable && CloudSync.instance.signedIn;
+  String? get cloudEmail => cloudAvailable ? CloudSync.instance.email : null;
+
+  Future<void> _pushNow() async {
+    syncing = true;
+    syncError = null;
+    notifyListeners();
+    try {
+      await CloudSync.instance.push(_data);
+      lastSyncedAt = DateTime.now();
+    } catch (e) {
+      syncError = '업로드 실패: $e';
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
+  }
+
+  /// 클라우드가 로컬보다 최신이면 내려받아 교체.
+  Future<bool> _pullIfNewer() async {
+    final remote = await CloudSync.instance.pull();
+    if (remote == null) return false;
+    final (data, _) = remote;
+    if (data.updatedAt.isAfter(_data.updatedAt)) {
+      _data = data;
+      await _store.save(_data);
+      lastSyncedAt = DateTime.now();
+      notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  /// 로그인 또는 회원가입 뒤 호출. 반환값은 사용자에게 보여줄 결과 메시지.
+  ///
+  /// - 클라우드에 데이터가 있으면 그걸 기준으로 하고, 이 기기에만 있던 것은 합친다.
+  /// - 클라우드가 비어 있으면 지금 기기의 데이터를 올린다(첫 가입).
+  Future<String> cloudSignIn(String email, String password, {bool create = false}) async {
+    if (!cloudAvailable) throw CloudException('클라우드가 설정되지 않았습니다.');
+    syncing = true;
+    syncError = null;
+    notifyListeners();
+    try {
+      if (create) {
+        await CloudSync.instance.signUp(email, password);
+      } else {
+        await CloudSync.instance.signIn(email, password);
+      }
+      final remote = await CloudSync.instance.pull();
+      if (remote != null && !remote.$1.isEmpty) {
+        final local = _data;
+        _data = remote.$1;
+        _mergeFrom(local);
+        _data.updatedAt = DateTime.now();
+        await _store.save(_data);
+        await CloudSync.instance.push(_data);
+        lastSyncedAt = DateTime.now();
+        notifyListeners();
+        return '계정의 데이터를 불러왔어요. 이제 어느 기기에서든 같은 데이터를 봅니다.';
+      }
+      await CloudSync.instance.push(_data);
+      lastSyncedAt = DateTime.now();
+      notifyListeners();
+      return create ? '가입 완료. 이 기기의 데이터를 계정에 올렸어요.' : '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
+  }
+
+  /// 이 기기에만 있던 프로필/헬스장/계획/진행을 현재 데이터에 합친다(같은 것은 현재 우선).
+  void _mergeFrom(AppData local) {
+    for (final p in local.profiles) {
+      if (!_data.profiles.any((x) => x.id == p.id)) _data.profiles.add(p);
+    }
+    for (final g in local.gyms) {
+      if (!_data.gyms.any((x) => x.id == g.id)) _data.gyms.add(g);
+    }
+    for (final pl in local.plans) {
+      final dup = _data.plans.any((x) =>
+          x.id == pl.id || (x.userId == pl.userId && dateKey(x.date) == dateKey(pl.date)));
+      if (!dup) _data.plans.add(pl);
+    }
+    for (final e in local.progress.entries) {
+      final target = _data.progress.putIfAbsent(e.key, () => {});
+      for (final p in e.value.entries) {
+        target.putIfAbsent(p.key, () => p.value);
+      }
+    }
+    _data.currentUserId ??= local.currentUserId;
+    if (_data.currentUserId != null && !_data.profiles.any((p) => p.id == _data.currentUserId)) {
+      _data.currentUserId = _data.profiles.firstOrNull?.id;
+    }
+  }
+
+  Future<void> cloudSignOut() async {
+    if (!cloudAvailable) return;
+    _pushDebounce.cancel();
+    await CloudSync.instance.signOut();
+    notifyListeners();
+  }
+
+  Future<void> cloudResetPassword(String email) => CloudSync.instance.resetPassword(email);
+
+  /// 수동 동기화: 더 최신이면 내려받고, 아니면 올린다.
+  Future<String> syncNow() async {
+    if (!cloudSignedIn) return '계정에 로그인되어 있지 않아요.';
+    syncing = true;
+    syncError = null;
+    notifyListeners();
+    try {
+      final pulled = await _pullIfNewer();
+      if (!pulled) await CloudSync.instance.push(_data);
+      lastSyncedAt = DateTime.now();
+      return pulled ? '다른 기기의 최신 데이터를 내려받았어요.' : '이 기기의 데이터를 올렸어요.';
+    } catch (e) {
+      syncError = '동기화 실패: $e';
+      return syncError!;
+    } finally {
+      syncing = false;
+      notifyListeners();
+    }
   }
 
   // ───────── 인증 / 프로필 ─────────

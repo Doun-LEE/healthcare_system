@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'widgets/account_sheet.dart';
 
 /// 로그인: 프로필 선택(또는 새로 만들기) + 접근 코드.
 class LoginScreen extends StatefulWidget {
@@ -115,6 +116,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: () => setState(() => _creating = !_creating),
                       child: Text(_creating ? '기존 프로필로 로그인' : '새 프로필 만들기'),
+                    ),
+                  if (state.cloudAvailable && !state.cloudSignedIn) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => AccountSheet.show(context),
+                      icon: const Icon(Icons.cloud_outlined),
+                      label: const Text('다른 기기에서 쓰던 계정으로 불러오기'),
+                    ),
+                  ],
+                  if (state.cloudSignedIn)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text('계정 ${state.cloudEmail} 동기화 중',
+                          textAlign: TextAlign.center,
+                          style: text.bodySmall?.copyWith(color: cs.primary)),
                     ),
                 ],
               ),
