@@ -325,6 +325,374 @@ const List<EquipmentInfo> equipmentCatalog = [
     strengths: ['어디서나', '코어·복근'],
     groups: [MuscleGroup.abs, MuscleGroup.chest, MuscleGroup.legs],
   ),
+
+  // ───── 프리웨이트 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.ezBar,
+    summary: '손목 각도가 자연스러운 굽은 바. 컬·스컬크러셔에 손목 부담이 적다.',
+    strengths: ['이두 컬(손목 편함)', '스컬 크러셔', '업라이트 로우'],
+    groups: [MuscleGroup.arms],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.trapBar,
+    summary: '안에 들어가서 드는 육각 바. 데드리프트가 허리 부담 적고 사두 개입이 크다.',
+    strengths: ['데드리프트 입문', '허리 부담 ↓', '대퇴사두+후면 사슬'],
+    groups: [MuscleGroup.legs, MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.safetySquatBar,
+    summary: '어깨에 패드가 있는 스쿼트 바. 어깨 가동성이 안 좋아도 스쿼트 가능, 상체가 세워진다.',
+    strengths: ['상체 직립 스쿼트', '어깨·손목 부담 ↓', '대퇴사두·상부 등'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.fixedBarbell,
+    summary: '무게가 고정된 짧은 바벨 세트. 원판 교체 없이 빠르게 컬/프레스.',
+    strengths: ['빠른 무게 교체', '컬·오버헤드 익스텐션', '드롭세트'],
+    groups: [MuscleGroup.arms, MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.medicineBall,
+    summary: '던지고 내리치는 공. 코어 파워·컨디셔닝.',
+    strengths: ['슬램(전신 파워)', '러시안 트위스트', '월볼'],
+    groups: [MuscleGroup.abs, MuscleGroup.cardio],
+  ),
+
+  // ───── 벤치·랙 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.declineBench,
+    summary: '머리가 아래로 가는 벤치. 아랫가슴과 디클라인 싯업.',
+    strengths: ['아랫가슴', '디클라인 싯업(복근)'],
+    groups: [MuscleGroup.chest, MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.halfRack,
+    summary: '기둥 2개짜리 랙. 파워랙과 같은 운동을 적은 공간에서.',
+    strengths: ['스쿼트·OHP·랙풀', '좁은 공간'],
+    groups: [MuscleGroup.legs, MuscleGroup.back, MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.assistedPullUp,
+    summary: '무릎 패드가 체중을 덜어주는 풀업/딥 머신. 풀업 못 하는 사람의 필수 코스.',
+    strengths: ['풀업·딥스 입문', '보조 무게로 점진적 진행', '광배·삼두'],
+    groups: [MuscleGroup.back, MuscleGroup.arms, MuscleGroup.chest],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.ghd,
+    summary: '글루트 햄 디벨로퍼. 햄스트링·둔근·기립근 후면 사슬 전체, GHD 싯업.',
+    strengths: ['햄스트링(GHR)', '둔근·기립근', 'GHD 싯업'],
+    groups: [MuscleGroup.legs, MuscleGroup.back, MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.multiStation,
+    summary: '랫풀·로우·체스트프레스·레그익스텐션이 하나에 붙은 홈짐.',
+    strengths: ['한 대로 전신', '홈트', '케이블 운동 대부분'],
+    groups: [MuscleGroup.chest, MuscleGroup.back, MuscleGroup.legs, MuscleGroup.arms],
+  ),
+
+  // ───── 가슴 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.inclineChestPress,
+    summary: '윗가슴 각도로 고정된 프레스 머신. 안전하게 윗가슴 고중량.',
+    strengths: ['윗가슴(쇄골부)', '안정적 고중량'],
+    groups: [MuscleGroup.chest],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.declineChestPress,
+    summary: '아랫가슴 각도 프레스 머신.',
+    strengths: ['아랫가슴', '가슴 하부 라인'],
+    groups: [MuscleGroup.chest],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.chestPressPlateLoaded,
+    summary: '원판을 끼우는 해머스트렝스식 프레스. 좌우 독립(아이소 래터럴)으로 프리웨이트 느낌.',
+    strengths: ['좌우 독립 프레스', '가슴 중앙·윗가슴(기울기에 따라)', '고중량'],
+    groups: [MuscleGroup.chest],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.functionalTrainer,
+    summary: '양쪽 도르래 높이를 자유롭게 바꾸는 듀얼 케이블. 케이블 운동 전부 가능.',
+    strengths: ['전 부위 케이블 운동', '회전·기능성 동작', '피크 수축'],
+    groups: [MuscleGroup.chest, MuscleGroup.back, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs],
+  ),
+
+  // ───── 등 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.chestSupportedRow,
+    summary: '가슴을 패드에 대고 당기는 로우 머신. 허리 개입 없이 등만 고립.',
+    strengths: ['등 두께(능형근·중부 승모)', '허리 부담 0', '리어 델트'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.highRow,
+    summary: '위에서 아래·뒤로 당기는 플레이트 로디드 머신. 랫풀다운과 로우의 중간.',
+    strengths: ['광배 상부·넓이', '대원근', '좌우 독립'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.lowRow,
+    summary: '아래에서 몸쪽으로 당기는 플레이트 로디드 로우(해머 로우).',
+    strengths: ['광배 하부·등 하부', '등 두께', '좌우 독립'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.tBarRow,
+    summary: '가슴 패드가 있는 티바 로우 머신.',
+    strengths: ['등 중앙 두께', '승모 중·하부'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.pulloverMachine,
+    summary: '팔을 편 채 머리 위에서 내리는 머신. 광배 고립의 끝판왕.',
+    strengths: ['광배 고립(팔 개입 ↓)', '가슴 확장'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.shrugMachine,
+    summary: '승모 상부 전용 머신.',
+    strengths: ['승모 상부', '악력 부담 ↓'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.backExtensionMachine,
+    summary: '앉아서 등을 뒤로 펴는 머신. 척추기립근을 중량으로.',
+    strengths: ['등 하부(기립근) 중량 훈련', '허리 강화'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.reverseHyper,
+    summary: '다리를 뒤로 올리는 머신. 둔근·햄과 함께 허리 감압 효과.',
+    strengths: ['둔근·햄스트링', '등 하부 회복/감압'],
+    groups: [MuscleGroup.legs, MuscleGroup.back],
+  ),
+
+  // ───── 어깨 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.shoulderPressPlateLoaded,
+    summary: '플레이트 로디드 숄더 프레스. 좌우 독립, 궤도가 자연스럽다.',
+    strengths: ['전면·측면 어깨 고중량', '좌우 독립'],
+    groups: [MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.lateralRaiseMachine,
+    summary: '측면 삼각근 전용 머신. 반동 없이 측면만 고립.',
+    strengths: ['측면 어깨 고립(넓은 어깨)', '반동 차단', '드롭세트'],
+    groups: [MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.rearDeltMachine,
+    summary: '후면 삼각근 전용 머신.',
+    strengths: ['후면 어깨', '자세 교정(라운드 숄더)'],
+    groups: [MuscleGroup.shoulder, MuscleGroup.back],
+  ),
+
+  // ───── 팔 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.bicepCurlMachine,
+    summary: '팔꿈치를 패드에 고정하는 이두 머신.',
+    strengths: ['이두 고립', '피크 수축', '마무리 펌핑'],
+    groups: [MuscleGroup.arms],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.preacherCurlMachine,
+    summary: '프리처 각도의 이두 머신.',
+    strengths: ['이두 단두', '반동 차단'],
+    groups: [MuscleGroup.arms],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.tricepExtensionMachine,
+    summary: '앉아서 팔꿈치를 펴는 삼두 머신.',
+    strengths: ['삼두 고립', '팔꿈치 부담 ↓'],
+    groups: [MuscleGroup.arms],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.dipMachine,
+    summary: '앉아서 아래로 누르는 딥 머신. 삼두·아랫가슴.',
+    strengths: ['삼두 고중량', '아랫가슴', '딥스 대체'],
+    groups: [MuscleGroup.arms, MuscleGroup.chest],
+  ),
+
+  // ───── 하체 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.horizontalLegPress,
+    summary: '앉아서 수평으로 미는 레그 프레스. 가동범위 짧고 안전.',
+    strengths: ['대퇴사두', '입문자·재활', '허리 부담 ↓'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.pendulumSquat,
+    summary: '호를 그리며 내려가는 스쿼트 머신. 사두 자극이 매우 크다.',
+    strengths: ['대퇴사두 극대화', '깊은 가동범위', '허리 부담 ↓'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.vSquat,
+    summary: '어깨 패드를 지고 비스듬히 서서 하는 스쿼트 머신.',
+    strengths: ['대퇴사두·둔근', '안정적 고중량'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.beltSquat,
+    summary: '허리 벨트에 하중을 거는 스쿼트. 척추에 부하가 0.',
+    strengths: ['허리 부담 0 스쿼트', '대퇴사두·둔근', '고볼륨'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.lyingLegCurl,
+    summary: '엎드려서 하는 레그 컬. 햄스트링 수축이 강하다.',
+    strengths: ['햄스트링 피크 수축', '둔근 보조'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.hipAbductor,
+    summary: '다리를 바깥으로 벌리는 머신. 중둔근(엉덩이 옆).',
+    strengths: ['중둔근(힙 라인)', '무릎 안정'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.hipAdductor,
+    summary: '다리를 안으로 모으는 머신. 내전근(허벅지 안쪽).',
+    strengths: ['내전근', '스쿼트 안정성'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.gluteKickback,
+    summary: '한 다리씩 뒤로 차는 글루트 머신.',
+    strengths: ['대둔근 고립', '좌우 균형'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.seatedCalfRaise,
+    summary: '앉아서 하는 카프 레이즈. 가자미근(종아리 아래 넓은 근육).',
+    strengths: ['가자미근', '종아리 두께'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.sissySquat,
+    summary: '발목을 고정하고 뒤로 눕듯 내려가는 사두 고립 기구.',
+    strengths: ['대퇴사두(특히 대퇴직근)', '맨몸으로 고강도'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.nordicBench,
+    summary: '발목을 걸고 상체를 앞으로 내리는 노르딕 컬 벤치.',
+    strengths: ['햄스트링 신장성 수축', '부상 예방'],
+    groups: [MuscleGroup.legs],
+  ),
+
+  // ───── 복근·코어 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.torsoRotation,
+    summary: '앉아서 몸통을 회전하는 머신. 복사근.',
+    strengths: ['복사근', '회전 코어'],
+    groups: [MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.captainsChair,
+    summary: '팔꿈치를 걸고 다리를 올리는 스테이션. 하복부.',
+    strengths: ['하복부', '고관절 굴곡근'],
+    groups: [MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.declineAbBench,
+    summary: '발을 걸고 하는 싯업 벤치. 각도로 강도 조절.',
+    strengths: ['상복부', '강도 조절 쉬움'],
+    groups: [MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.abWheel,
+    summary: '굴리는 복근 롤러. 코어 전체에 가장 강한 맨몸 운동 중 하나.',
+    strengths: ['복직근·복횡근', '코어 안정', '광배 보조'],
+    groups: [MuscleGroup.abs],
+  ),
+
+  // ───── 유산소 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.curvedTreadmill,
+    summary: '무동력 곡선 트레드밀. 스프린트·인터벌에 최적.',
+    strengths: ['스프린트 인터벌', '칼로리 소모 ↑', '햄스트링·둔근'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.spinBike,
+    summary: '무거운 플라이휠 자전거. 고강도 유산소.',
+    strengths: ['고강도 인터벌', '하체 지구력'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.recumbentBike,
+    summary: '등받이 있는 좌식 자전거. 허리·무릎 부담 최소.',
+    strengths: ['저충격', '재활·회복', '긴 시간 유산소'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.assaultBike,
+    summary: '팔다리를 같이 쓰는 에어 바이크. 가장 힘든 컨디셔닝 기구.',
+    strengths: ['전신 HIIT', '최대 칼로리', '타바타'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.skiErg,
+    summary: '스키 폴 동작의 상체 유산소.',
+    strengths: ['상체 유산소', '광배·삼두·코어', '하체 쉬는 날 유산소'],
+    groups: [MuscleGroup.cardio, MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.jacobsLadder,
+    summary: '기울어진 사다리를 오르는 기구. 전신 유산소.',
+    strengths: ['전신', '관절 부담 ↓', '코어'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.versaClimber,
+    summary: '수직으로 기어오르는 기구.',
+    strengths: ['전신 고강도', '짧은 시간 최대 효과'],
+    groups: [MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.jumpRope,
+    summary: '줄넘기. 워밍업과 인터벌.',
+    strengths: ['워밍업', '종아리·협응', '어디서나'],
+    groups: [MuscleGroup.cardio],
+  ),
+
+  // ───── 기능성·기타 추가 ─────
+  EquipmentInfo(
+    type: EquipmentType.landmine,
+    summary: '바벨 한쪽을 바닥에 고정하는 기구. 프레스·로우·로테이션.',
+    strengths: ['랜드마인 프레스(어깨 안전)', '티바 로우', '코어 회전'],
+    groups: [MuscleGroup.shoulder, MuscleGroup.back, MuscleGroup.abs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.sled,
+    summary: '밀고 끄는 썰매. 하체 컨디셔닝, 근육 손상 없이 고강도.',
+    strengths: ['하체 컨디셔닝', '근육통 없는 고강도', '마무리'],
+    groups: [MuscleGroup.cardio, MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.battleRope,
+    summary: '굵은 로프를 흔드는 컨디셔닝.',
+    strengths: ['상체 HIIT', '어깨·코어 지구력'],
+    groups: [MuscleGroup.cardio, MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.plyoBox,
+    summary: '점프 박스. 폭발력과 스텝업.',
+    strengths: ['박스 점프(폭발력)', '스텝업(둔근)', '불가리안 받침'],
+    groups: [MuscleGroup.legs, MuscleGroup.cardio],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.trx,
+    summary: '천장에 매단 스트랩. 체중으로 로우·푸시업·코어.',
+    strengths: ['TRX 로우(등)', '코어', '어디서나 맨몸 강도 조절'],
+    groups: [MuscleGroup.back, MuscleGroup.abs, MuscleGroup.chest],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.resistanceBand,
+    summary: '고무 밴드. 워밍업, 보조, 후면 어깨.',
+    strengths: ['풀어파트(후면 어깨·회전근개)', '워밍업', '풀업 보조'],
+    groups: [MuscleGroup.shoulder, MuscleGroup.back],
+  ),
 ];
 
 EquipmentInfo equipmentInfo(EquipmentType t) =>
@@ -779,6 +1147,424 @@ const List<Exercise> exerciseCatalog = [
   Exercise(
     id: 'burpee', name: '버피', group: MuscleGroup.cardio,
     emphasis: ['전신', '고강도 인터벌'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 12], priority: 1,
+  ),
+
+  // ═════════ 확장 기구용 운동 ═════════
+  // ── 가슴 ──
+  Exercise(
+    id: 'decline_bb', name: '디클라인 바벨프레스', group: MuscleGroup.chest,
+    emphasis: ['아랫가슴'], equipment: [EquipmentType.declineBench],
+    loadType: LoadType.barbell, refLift: RefLift.bench, ratio: 1.05,
+    compound: true, repRange: [6, 10], priority: 2,
+  ),
+  Exercise(
+    id: 'incline_press_m', name: '인클라인 체스트프레스 머신', group: MuscleGroup.chest,
+    emphasis: ['윗가슴', '안전한 고중량'], equipment: [EquipmentType.inclineChestPress],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.75,
+    compound: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'decline_press_m', name: '디클라인 체스트프레스 머신', group: MuscleGroup.chest,
+    emphasis: ['아랫가슴'], equipment: [EquipmentType.declineChestPress],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.95,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'hammer_chest', name: '플레이트 로디드 체스트프레스', group: MuscleGroup.chest,
+    emphasis: ['가슴 중앙부', '좌우 독립'], equipment: [EquipmentType.chestPressPlateLoaded],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.8,
+    compound: true, repRange: [8, 12], priority: 3,
+    description: '한쪽씩 밀어도 되고, 양쪽을 함께 밀어도 된다. 원판 무게 기준.',
+  ),
+  Exercise(
+    id: 'assisted_dip', name: '어시스트 딥스', group: MuscleGroup.chest,
+    emphasis: ['아랫가슴', '삼두', '딥스 입문'], equipment: [EquipmentType.assistedPullUp],
+    loadType: LoadType.machine, refLift: RefLift.bodyweight, ratio: 0.4,
+    compound: true, repRange: [8, 12], priority: 2,
+    description: '머신 무게 = 덜어주는 무게. 숫자가 작아질수록 강해진 것.',
+  ),
+  Exercise(
+    id: 'trx_pushup', name: 'TRX 푸시업', group: MuscleGroup.chest,
+    emphasis: ['가슴 중앙부', '코어 안정'], equipment: [EquipmentType.trx],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [10, 15], priority: 1,
+  ),
+
+  // ── 등 ──
+  Exercise(
+    id: 'trap_deadlift', name: '트랩바 데드리프트', group: MuscleGroup.back,
+    emphasis: ['등 하부', '대퇴사두', '후면 사슬'], equipment: [EquipmentType.trapBar],
+    loadType: LoadType.barbell, refLift: RefLift.deadlift, ratio: 1.05,
+    compound: true, repRange: [5, 8], priority: 3,
+    description: '허리가 더 세워져 컨벤셔널보다 안전. 데드리프트 입문에 최적.',
+  ),
+  Exercise(
+    id: 'assisted_pullup', name: '어시스트 풀업', group: MuscleGroup.back,
+    emphasis: ['광배(넓이)', '풀업 입문'], equipment: [EquipmentType.assistedPullUp],
+    loadType: LoadType.machine, refLift: RefLift.bodyweight, ratio: 0.45,
+    compound: true, repRange: [8, 12], priority: 3,
+    description: '머신 무게 = 덜어주는 무게. 체중의 절반에서 시작해 점점 줄인다.',
+  ),
+  Exercise(
+    id: 'cs_row_m', name: '체스트 서포티드 로우 머신', group: MuscleGroup.back,
+    emphasis: ['등 두께(능형근)', '허리 부담 0'], equipment: [EquipmentType.chestSupportedRow],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'high_row', name: '하이 로우(플레이트 로디드)', group: MuscleGroup.back,
+    emphasis: ['광배(넓이)', '대원근', '좌우 독립'], equipment: [EquipmentType.highRow],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.8,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'low_row', name: '로우 로우(플레이트 로디드)', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '등 하부', '좌우 독립'], equipment: [EquipmentType.lowRow],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.85,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'tbar_row_m', name: '티바 로우 머신', group: MuscleGroup.back,
+    emphasis: ['등 상부(두께)', '승모 중부'], equipment: [EquipmentType.tBarRow],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'pullover_m', name: '풀오버 머신', group: MuscleGroup.back,
+    emphasis: ['광배 고립', '가슴 확장'], equipment: [EquipmentType.pulloverMachine],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.6,
+    repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'shrug', name: '슈러그', group: MuscleGroup.back,
+    emphasis: ['승모 상부'], equipment: [EquipmentType.shrugMachine, EquipmentType.dumbbell, EquipmentType.barbell, EquipmentType.trapBar, EquipmentType.smithMachine],
+    loadType: LoadType.machine, refLift: RefLift.deadlift, ratio: 0.7,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'back_ext_m', name: '백 익스텐션 머신', group: MuscleGroup.back,
+    emphasis: ['등 하부(척추기립근)'], equipment: [EquipmentType.backExtensionMachine],
+    loadType: LoadType.machine, refLift: RefLift.deadlift, ratio: 0.4,
+    repRange: [12, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'reverse_hyper', name: '리버스 하이퍼', group: MuscleGroup.back,
+    emphasis: ['둔근', '등 하부 회복'], equipment: [EquipmentType.reverseHyper],
+    loadType: LoadType.machine, refLift: RefLift.deadlift, ratio: 0.3,
+    repRange: [12, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'landmine_row', name: '랜드마인 로우', group: MuscleGroup.back,
+    emphasis: ['등 상부(두께)', '광배 하부'], equipment: [EquipmentType.landmine],
+    loadType: LoadType.barbell, refLift: RefLift.row, ratio: 0.8,
+    compound: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'trx_row', name: 'TRX 로우', group: MuscleGroup.back,
+    emphasis: ['등 상부(두께)', '맨몸'], equipment: [EquipmentType.trx],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [10, 15], priority: 2,
+    description: '몸을 눕힐수록 어렵다.',
+  ),
+  Exercise(
+    id: 'band_pull_apart', name: '밴드 풀어파트', group: MuscleGroup.back,
+    emphasis: ['후면 어깨', '회전근개', '자세 교정'], equipment: [EquipmentType.resistanceBand],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [15, 25], priority: 1,
+  ),
+
+  // ── 하체 ──
+  Exercise(
+    id: 'ssb_squat', name: '세이프티바 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '상부 등', '상체 직립'], equipment: [EquipmentType.safetySquatBar],
+    loadType: LoadType.barbell, refLift: RefLift.squat, ratio: 0.9,
+    compound: true, repRange: [5, 8], priority: 2,
+  ),
+  Exercise(
+    id: 'h_leg_press', name: '수평 레그 프레스', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '입문·재활'], equipment: [EquipmentType.horizontalLegPress],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 1.3,
+    compound: true, repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'pendulum_squat', name: '펜듈럼 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두 극대화', '깊은 가동범위'], equipment: [EquipmentType.pendulumSquat],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'v_squat', name: 'V 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '둔근'], equipment: [EquipmentType.vSquat],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 1.0,
+    compound: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'belt_squat', name: '벨트 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '둔근', '허리 부담 0'], equipment: [EquipmentType.beltSquat],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.9,
+    compound: true, repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'lying_leg_curl', name: '라잉 레그 컬', group: MuscleGroup.legs,
+    emphasis: ['햄스트링 피크 수축'], equipment: [EquipmentType.lyingLegCurl],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.4,
+    repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'hip_abduction', name: '힙 어브덕션', group: MuscleGroup.legs,
+    emphasis: ['중둔근(힙 라인)'], equipment: [EquipmentType.hipAbductor],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.5,
+    repRange: [15, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'hip_adduction', name: '힙 어덕션', group: MuscleGroup.legs,
+    emphasis: ['내전근'], equipment: [EquipmentType.hipAdductor],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.5,
+    repRange: [15, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'glute_kickback_m', name: '글루트 킥백 머신', group: MuscleGroup.legs,
+    emphasis: ['대둔근 고립', '좌우 균형'], equipment: [EquipmentType.gluteKickback],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.35,
+    unilateral: true, repRange: [12, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'seated_calf', name: '시티드 카프 레이즈', group: MuscleGroup.legs,
+    emphasis: ['가자미근', '종아리 두께'], equipment: [EquipmentType.seatedCalfRaise],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.5,
+    repRange: [12, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'sissy_squat', name: '시시 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴직근(사두 중앙)'], equipment: [EquipmentType.sissySquat],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'nordic_curl', name: '노르딕 컬', group: MuscleGroup.legs,
+    emphasis: ['햄스트링 신장성', '부상 예방'], equipment: [EquipmentType.nordicBench, EquipmentType.ghd],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [5, 8], priority: 1,
+    description: '천천히 내려가는 데 집중. 올라올 땐 손으로 밀어도 된다.',
+  ),
+  Exercise(
+    id: 'ghr', name: '글루트 햄 레이즈(GHD)', group: MuscleGroup.legs,
+    emphasis: ['햄스트링', '둔근', '등 하부'], equipment: [EquipmentType.ghd],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'step_up', name: '박스 스텝업', group: MuscleGroup.legs,
+    emphasis: ['둔근', '대퇴사두', '좌우 균형'], equipment: [EquipmentType.plyoBox],
+    loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.15,
+    compound: true, unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'sled_push', name: '슬레드 푸시', group: MuscleGroup.legs,
+    emphasis: ['하체 컨디셔닝', '근육통 없는 고강도'], equipment: [EquipmentType.sled],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.8,
+    compound: true, repRange: [20, 30], priority: 1,
+    description: '횟수 = 미터(m). 20~30m 왕복.',
+  ),
+
+  // ── 어깨 ──
+  Exercise(
+    id: 'shoulder_press_pl', name: '플레이트 로디드 숄더프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '측면 어깨', '좌우 독립'], equipment: [EquipmentType.shoulderPressPlateLoaded],
+    loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.8,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'lateral_raise_m', name: '레터럴 레이즈 머신', group: MuscleGroup.shoulder,
+    emphasis: ['측면 어깨 고립', '반동 차단'], equipment: [EquipmentType.lateralRaiseMachine],
+    loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.5,
+    repRange: [12, 20], priority: 3,
+  ),
+  Exercise(
+    id: 'rear_delt_m', name: '리어 델트 머신', group: MuscleGroup.shoulder,
+    emphasis: ['후면 어깨'], equipment: [EquipmentType.rearDeltMachine],
+    loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.45,
+    repRange: [12, 20], priority: 2,
+  ),
+  Exercise(
+    id: 'landmine_press', name: '랜드마인 프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '윗가슴', '어깨 안전'], equipment: [EquipmentType.landmine],
+    loadType: LoadType.barbell, refLift: RefLift.ohp, ratio: 0.6,
+    compound: true, unilateral: true, repRange: [8, 12], priority: 2,
+    description: '어깨가 불편한 사람의 오버헤드 대체. 바 무게 포함.',
+  ),
+  Exercise(
+    id: 'fixed_bb_press', name: '고정바벨 숄더프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '빠른 무게 교체'], equipment: [EquipmentType.fixedBarbell],
+    loadType: LoadType.barbell, refLift: RefLift.ohp, ratio: 0.85,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+
+  // ── 팔 ──
+  Exercise(
+    id: 'ez_curl', name: 'EZ바 컬', group: MuscleGroup.arms,
+    emphasis: ['이두 전체', '손목 편함'], equipment: [EquipmentType.ezBar, EquipmentType.fixedBarbell],
+    loadType: LoadType.barbell, refLift: RefLift.row, ratio: 0.38,
+    repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'ez_skull', name: 'EZ바 스컬 크러셔', group: MuscleGroup.arms,
+    emphasis: ['삼두 장두'], equipment: [EquipmentType.ezBar],
+    loadType: LoadType.barbell, refLift: RefLift.bench, ratio: 0.33,
+    repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'bicep_curl_m', name: '바이셉 컬 머신', group: MuscleGroup.arms,
+    emphasis: ['이두 고립', '피크 수축'], equipment: [EquipmentType.bicepCurlMachine],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.4,
+    repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'preacher_curl_m', name: '프리처 컬 머신', group: MuscleGroup.arms,
+    emphasis: ['이두 단두(안쪽)', '반동 차단'], equipment: [EquipmentType.preacherCurlMachine],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.38,
+    repRange: [10, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'tri_ext_m', name: '트라이셉 익스텐션 머신', group: MuscleGroup.arms,
+    emphasis: ['삼두 고립'], equipment: [EquipmentType.tricepExtensionMachine],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.4,
+    repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'dip_m', name: '시티드 딥 머신', group: MuscleGroup.arms,
+    emphasis: ['삼두 고중량', '아랫가슴'], equipment: [EquipmentType.dipMachine],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'band_curl', name: '밴드 컬', group: MuscleGroup.arms,
+    emphasis: ['이두', '피크 수축'], equipment: [EquipmentType.resistanceBand],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [15, 20], priority: 1,
+  ),
+
+  // ── 복근 ──
+  Exercise(
+    id: 'torso_rotation', name: '토르소 로테이션', group: MuscleGroup.abs,
+    emphasis: ['복사근'], equipment: [EquipmentType.torsoRotation],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.5,
+    unilateral: true, repRange: [12, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'captains_chair', name: '캡틴스 체어 레그레이즈', group: MuscleGroup.abs,
+    emphasis: ['하복부'], equipment: [EquipmentType.captainsChair],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 3,
+  ),
+  Exercise(
+    id: 'decline_situp', name: '디클라인 싯업', group: MuscleGroup.abs,
+    emphasis: ['상복부'], equipment: [EquipmentType.declineAbBench, EquipmentType.declineBench],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [12, 20], priority: 2,
+  ),
+  Exercise(
+    id: 'ab_wheel', name: 'AB 휠 롤아웃', group: MuscleGroup.abs,
+    emphasis: ['복직근·복횡근', '코어 안정'], equipment: [EquipmentType.abWheel],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 12], priority: 3,
+    description: '무릎 대고 시작. 허리가 꺾이지 않는 범위까지만.',
+  ),
+  Exercise(
+    id: 'ghd_situp', name: 'GHD 싯업', group: MuscleGroup.abs,
+    emphasis: ['복직근 전체', '고관절 굴곡근'], equipment: [EquipmentType.ghd],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'med_ball_slam', name: '메디신볼 슬램', group: MuscleGroup.abs,
+    emphasis: ['코어 파워', '전신'], equipment: [EquipmentType.medicineBall],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'landmine_rotation', name: '랜드마인 로테이션', group: MuscleGroup.abs,
+    emphasis: ['복사근', '회전 코어'], equipment: [EquipmentType.landmine],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'trx_pike', name: 'TRX 파이크/니턱', group: MuscleGroup.abs,
+    emphasis: ['하복부', '코어 안정'], equipment: [EquipmentType.trx],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1,
+  ),
+
+  // ── 유산소 (분) ──
+  Exercise(
+    id: 'curved_sprint', name: '커브드 트레드밀 인터벌', group: MuscleGroup.cardio,
+    emphasis: ['스프린트 인터벌', '칼로리 ↑'], equipment: [EquipmentType.curvedTreadmill],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 2,
+    description: '20초 전력 / 40초 걷기 반복.',
+  ),
+  Exercise(
+    id: 'spin', name: '스핀 바이크', group: MuscleGroup.cardio,
+    emphasis: ['고강도 인터벌', '하체 지구력'], equipment: [EquipmentType.spinBike],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [15, 25], priority: 2,
+  ),
+  Exercise(
+    id: 'recumbent', name: '리컴번트 바이크', group: MuscleGroup.cardio,
+    emphasis: ['저충격', '회복'], equipment: [EquipmentType.recumbentBike],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [20, 30], priority: 1,
+  ),
+  Exercise(
+    id: 'assault', name: '에어 바이크 인터벌', group: MuscleGroup.cardio,
+    emphasis: ['전신 HIIT', '최대 칼로리'], equipment: [EquipmentType.assaultBike],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 15], priority: 2,
+    description: '30초 전력 / 60초 천천히. 짧아도 충분하다.',
+  ),
+  Exercise(
+    id: 'ski_erg', name: '스키 에르그', group: MuscleGroup.cardio,
+    emphasis: ['상체 유산소', '하체 쉬는 날'], equipment: [EquipmentType.skiErg],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 20], priority: 2,
+  ),
+  Exercise(
+    id: 'jacobs', name: '제이콥스 래더', group: MuscleGroup.cardio,
+    emphasis: ['전신', '관절 부담 ↓'], equipment: [EquipmentType.jacobsLadder],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'versa', name: '버사클라이머', group: MuscleGroup.cardio,
+    emphasis: ['전신 고강도'], equipment: [EquipmentType.versaClimber],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'jump_rope', name: '줄넘기', group: MuscleGroup.cardio,
+    emphasis: ['워밍업', '종아리·협응'], equipment: [EquipmentType.jumpRope],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'battle_rope', name: '배틀 로프', group: MuscleGroup.cardio,
+    emphasis: ['상체 HIIT', '어깨·코어 지구력'], equipment: [EquipmentType.battleRope],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 12], priority: 1,
+    description: '30초 흔들기 / 30초 휴식.',
+  ),
+  Exercise(
+    id: 'box_jump', name: '박스 점프', group: MuscleGroup.cardio,
+    emphasis: ['폭발력', '하체'], equipment: [EquipmentType.plyoBox],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 12], priority: 1,
+    description: '숫자는 분. 5회씩 여러 세트로 나눠서.',
+  ),
+  Exercise(
+    id: 'sled_drag', name: '슬레드 드래그(끌기)', group: MuscleGroup.cardio,
+    emphasis: ['하체 컨디셔닝', '햄스트링·둔근'], equipment: [EquipmentType.sled],
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [8, 12], priority: 1,
   ),

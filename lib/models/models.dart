@@ -20,41 +20,148 @@ enum MuscleGroup {
       MuscleGroup.values.firstWhere((e) => e.name == v);
 }
 
-/// 운동기구 종류(카탈로그 수준). 헬스장은 이 종류들 중 보유한 것을 체크한다.
-enum EquipmentType {
-  barbell('바벨/플레이트'),
-  dumbbell('덤벨'),
-  flatBench('플랫 벤치'),
-  inclineBench('인클라인 벤치'),
-  squatRack('스쿼트 랙/파워랙'),
-  smithMachine('스미스 머신'),
-  cableMachine('케이블 머신'),
-  latPulldown('랫풀다운'),
-  seatedRow('시티드 로우 머신'),
-  chestPress('체스트 프레스 머신'),
-  pecDeck('펙덱 플라이'),
-  shoulderPress('숄더 프레스 머신'),
-  legPress('레그 프레스'),
-  legExtension('레그 익스텐션'),
-  legCurl('레그 컬'),
-  hipThrust('힙 쓰러스트/글루트 머신'),
-  calfRaise('카프 레이즈 머신'),
-  hackSquat('핵 스쿼트'),
-  pullUpBar('풀업 바'),
-  dipStation('딥스 스테이션'),
-  preacherBench('프리처 컬 벤치'),
-  abCrunchMachine('복근 머신'),
-  romanChair('로만 체어/백 익스텐션'),
-  kettlebell('케틀벨'),
-  treadmill('트레드밀'),
-  bike('사이클'),
-  rower('로잉 머신'),
-  stairClimber('스텝밀'),
-  elliptical('일립티컬'),
-  bodyweight('맨몸(기구 불필요)');
+/// 기구 분류. 기구 선택 화면의 탭/필터로 쓴다.
+enum EquipmentCategory {
+  freeWeight('프리웨이트'),
+  bench('벤치·랙'),
+  chest('가슴'),
+  back('등'),
+  shoulder('어깨'),
+  arms('팔'),
+  legs('하체'),
+  core('복근·코어'),
+  cardio('유산소'),
+  functional('기능성·기타');
 
-  const EquipmentType(this.label);
+  const EquipmentCategory(this.label);
   final String label;
+}
+
+/// 운동기구 종류(카탈로그 수준). 헬스장은 이 종류들 중 보유한 것을 체크한다.
+///
+/// 기존 항목의 name은 저장 데이터 호환을 위해 바꾸지 않는다. 새 기구는 뒤에 추가.
+/// [aliases]는 검색용 영문/별칭.
+enum EquipmentType {
+  // ── 프리웨이트 ──
+  barbell('바벨/플레이트', EquipmentCategory.freeWeight, ['barbell', 'olympic bar', '올림픽 바', '원판']),
+  dumbbell('덤벨', EquipmentCategory.freeWeight, ['dumbbell', 'db']),
+  kettlebell('케틀벨', EquipmentCategory.freeWeight, ['kettlebell', 'kb']),
+  ezBar('EZ 바(컬 바)', EquipmentCategory.freeWeight, ['ez bar', 'curl bar', '이지바']),
+  trapBar('트랩 바(헥스 바)', EquipmentCategory.freeWeight, ['trap bar', 'hex bar', '헥스바']),
+  safetySquatBar('세이프티 스쿼트 바', EquipmentCategory.freeWeight, ['ssb', 'safety squat bar']),
+  fixedBarbell('고정 바벨', EquipmentCategory.freeWeight, ['fixed barbell', '고정바']),
+  medicineBall('메디신볼/슬램볼', EquipmentCategory.freeWeight, ['medicine ball', 'slam ball', '월볼']),
+
+  // ── 벤치·랙 ──
+  flatBench('플랫 벤치', EquipmentCategory.bench, ['flat bench']),
+  inclineBench('인클라인(각도조절) 벤치', EquipmentCategory.bench, ['incline bench', 'adjustable bench', '조절 벤치']),
+  declineBench('디클라인 벤치', EquipmentCategory.bench, ['decline bench']),
+  squatRack('스쿼트 랙/파워랙', EquipmentCategory.bench, ['power rack', 'squat rack', '파워 케이지']),
+  halfRack('하프 랙', EquipmentCategory.bench, ['half rack']),
+  smithMachine('스미스 머신', EquipmentCategory.bench, ['smith machine']),
+  preacherBench('프리처 컬 벤치', EquipmentCategory.bench, ['preacher bench', '프리쳐']),
+  pullUpBar('풀업 바(철봉)', EquipmentCategory.bench, ['pull up bar', 'chin up', '친업']),
+  dipStation('딥스 스테이션', EquipmentCategory.bench, ['dip station', '패러렐 바']),
+  assistedPullUp('어시스트 풀업/딥 머신', EquipmentCategory.bench, ['assisted pull up', 'assisted dip', '어시스티드']),
+  ghd('GHD(글루트 햄 디벨로퍼)', EquipmentCategory.bench, ['ghd', 'glute ham developer']),
+  multiStation('멀티 스테이션(홈짐)', EquipmentCategory.bench, ['multi station', 'home gym', '멀티짐']),
+
+  // ── 가슴 ──
+  chestPress('체스트 프레스 머신', EquipmentCategory.chest, ['chest press', '체스트프레스']),
+  inclineChestPress('인클라인 체스트 프레스 머신', EquipmentCategory.chest, ['incline chest press', '인클라인 프레스']),
+  declineChestPress('디클라인 체스트 프레스 머신', EquipmentCategory.chest, ['decline chest press']),
+  chestPressPlateLoaded('플레이트 로디드 체스트 프레스(해머)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소']),
+  pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
+  cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신']),
+  functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
+
+  // ── 등 ──
+  latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀']),
+  seatedRow('시티드 로우(케이블)', EquipmentCategory.back, ['seated row', 'cable row', '로우']),
+  chestSupportedRow('체스트 서포티드 로우 머신', EquipmentCategory.back, ['chest supported row', 'seated row machine']),
+  highRow('하이 로우(플레이트 로디드)', EquipmentCategory.back, ['high row', 'hammer high row', '해머 하이로우']),
+  lowRow('로우 로우(플레이트 로디드)', EquipmentCategory.back, ['low row', 'hammer row', '해머 로우', 'iso row']),
+  tBarRow('티바 로우 머신', EquipmentCategory.back, ['t bar row', '티바']),
+  pulloverMachine('풀오버 머신', EquipmentCategory.back, ['pullover machine']),
+  shrugMachine('슈러그 머신', EquipmentCategory.back, ['shrug machine', '승모']),
+  backExtensionMachine('백 익스텐션 머신', EquipmentCategory.back, ['back extension machine', 'lower back']),
+  romanChair('로만 체어/45° 백 익스텐션', EquipmentCategory.back, ['roman chair', 'hyperextension', '하이퍼익스텐션']),
+  reverseHyper('리버스 하이퍼', EquipmentCategory.back, ['reverse hyper']),
+
+  // ── 어깨 ──
+  shoulderPress('숄더 프레스 머신', EquipmentCategory.shoulder, ['shoulder press', '숄더프레스']),
+  shoulderPressPlateLoaded('플레이트 로디드 숄더 프레스', EquipmentCategory.shoulder, ['hammer shoulder press', 'iso shoulder']),
+  lateralRaiseMachine('레터럴 레이즈 머신', EquipmentCategory.shoulder, ['lateral raise machine', '사레레 머신']),
+  rearDeltMachine('리어 델트 머신', EquipmentCategory.shoulder, ['rear delt machine', 'reverse fly']),
+
+  // ── 팔 ──
+  bicepCurlMachine('바이셉 컬 머신', EquipmentCategory.arms, ['bicep curl machine', 'arm curl', '이두 머신']),
+  preacherCurlMachine('프리처 컬 머신', EquipmentCategory.arms, ['preacher curl machine']),
+  tricepExtensionMachine('트라이셉 익스텐션 머신', EquipmentCategory.arms, ['tricep extension machine', '삼두 머신']),
+  dipMachine('시티드 딥 머신', EquipmentCategory.arms, ['dip machine', 'seated dip']),
+
+  // ── 하체 ──
+  legPress('레그 프레스(45°)', EquipmentCategory.legs, ['leg press', '레그프레스']),
+  horizontalLegPress('수평 레그 프레스', EquipmentCategory.legs, ['horizontal leg press', 'seated leg press']),
+  hackSquat('핵 스쿼트', EquipmentCategory.legs, ['hack squat', '핵스쿼트']),
+  pendulumSquat('펜듈럼 스쿼트', EquipmentCategory.legs, ['pendulum squat']),
+  vSquat('V 스쿼트', EquipmentCategory.legs, ['v squat', 'v-squat']),
+  beltSquat('벨트 스쿼트', EquipmentCategory.legs, ['belt squat']),
+  legExtension('레그 익스텐션', EquipmentCategory.legs, ['leg extension', '레그익스텐션']),
+  legCurl('시티드 레그 컬', EquipmentCategory.legs, ['seated leg curl', 'leg curl', '레그컬']),
+  lyingLegCurl('라잉 레그 컬', EquipmentCategory.legs, ['lying leg curl', 'prone leg curl']),
+  hipAbductor('힙 어브덕터(바깥)', EquipmentCategory.legs, ['hip abductor', 'abduction', '어브덕션']),
+  hipAdductor('힙 어덕터(안쪽)', EquipmentCategory.legs, ['hip adductor', 'adduction', '어덕션', '이너타이']),
+  hipThrust('힙 쓰러스트 머신', EquipmentCategory.legs, ['hip thrust', '글루트 드라이브']),
+  gluteKickback('글루트 킥백 머신', EquipmentCategory.legs, ['glute kickback', 'glute machine']),
+  calfRaise('스탠딩 카프 레이즈', EquipmentCategory.legs, ['standing calf', 'calf raise', '종아리']),
+  seatedCalfRaise('시티드 카프 레이즈', EquipmentCategory.legs, ['seated calf']),
+  sissySquat('시시 스쿼트 머신', EquipmentCategory.legs, ['sissy squat']),
+  nordicBench('노르딕 컬 벤치', EquipmentCategory.legs, ['nordic curl', 'nordic hamstring']),
+
+  // ── 복근·코어 ──
+  abCrunchMachine('복근 크런치 머신', EquipmentCategory.core, ['ab crunch machine', 'ab machine']),
+  torsoRotation('토르소 로테이션', EquipmentCategory.core, ['torso rotation', 'rotary torso', '복사근']),
+  captainsChair('캡틴스 체어(레그레이즈 스테이션)', EquipmentCategory.core, ['captains chair', 'leg raise station', 'vkr']),
+  declineAbBench('디클라인 싯업 벤치', EquipmentCategory.core, ['sit up bench', 'ab bench', '싯업']),
+  abWheel('AB 휠(복근 롤러)', EquipmentCategory.core, ['ab wheel', 'ab roller']),
+
+  // ── 유산소 ──
+  treadmill('트레드밀(러닝머신)', EquipmentCategory.cardio, ['treadmill', '러닝머신']),
+  curvedTreadmill('커브드 트레드밀', EquipmentCategory.cardio, ['curved treadmill', '무동력 러닝머신']),
+  bike('실내 자전거(업라이트)', EquipmentCategory.cardio, ['bike', 'upright bike', '사이클']),
+  spinBike('스핀 바이크', EquipmentCategory.cardio, ['spin bike', 'spinning', '스피닝']),
+  recumbentBike('리컴번트 바이크', EquipmentCategory.cardio, ['recumbent bike', '좌식 자전거']),
+  assaultBike('에어 바이크(어썰트)', EquipmentCategory.cardio, ['assault bike', 'air bike', 'echo bike']),
+  rower('로잉 머신', EquipmentCategory.cardio, ['rower', 'rowing', 'concept2', '로잉']),
+  skiErg('스키 에르그', EquipmentCategory.cardio, ['ski erg', 'skierg']),
+  stairClimber('스텝밀(천국의 계단)', EquipmentCategory.cardio, ['stairmaster', 'stepmill', 'stair climber', '천국의 계단']),
+  elliptical('일립티컬', EquipmentCategory.cardio, ['elliptical', 'cross trainer']),
+  jacobsLadder('제이콥스 래더', EquipmentCategory.cardio, ['jacobs ladder']),
+  versaClimber('버사클라이머', EquipmentCategory.cardio, ['versaclimber', '버사 클라이머']),
+  jumpRope('줄넘기', EquipmentCategory.cardio, ['jump rope', 'skipping']),
+
+  // ── 기능성·기타 ──
+  landmine('랜드마인', EquipmentCategory.functional, ['landmine', '랜드마인']),
+  sled('슬레드(썰매)', EquipmentCategory.functional, ['sled', 'prowler', '프라울러']),
+  battleRope('배틀 로프', EquipmentCategory.functional, ['battle rope', '배틀로프']),
+  plyoBox('플라이오 박스', EquipmentCategory.functional, ['plyo box', 'jump box', '점프 박스']),
+  trx('TRX(서스펜션)', EquipmentCategory.functional, ['trx', 'suspension trainer', '서스펜션']),
+  resistanceBand('저항 밴드', EquipmentCategory.functional, ['resistance band', 'band', '밴드', '루프밴드']),
+  bodyweight('맨몸(기구 불필요)', EquipmentCategory.functional, ['bodyweight', '맨몸', '매트']);
+
+  const EquipmentType(this.label, this.category, [this.aliases = const []]);
+  final String label;
+  final EquipmentCategory category;
+  final List<String> aliases;
+
+  bool matches(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return label.toLowerCase().contains(q) ||
+        name.toLowerCase().contains(q) ||
+        aliases.any((a) => a.toLowerCase().contains(q));
+  }
 
   static EquipmentType parse(String v) =>
       EquipmentType.values.firstWhere((e) => e.name == v);
@@ -224,9 +331,6 @@ class Gym {
   String name;
   final List<GymEquipment> equipment;
 
-  Set<EquipmentType> get availableTypes =>
-      {EquipmentType.bodyweight, ...equipment.map((e) => e.type)};
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -240,7 +344,39 @@ class Gym {
             .map((e) => GymEquipment.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  /// 보유 기구 + 그 기구가 대신할 수 있는 기구(하프랙→스쿼트랙, 펑셔널 트레이너→케이블 등).
+  Set<EquipmentType> get availableTypes {
+    final s = {EquipmentType.bodyweight, ...equipment.map((e) => e.type)};
+    for (final t in s.toList()) {
+      s.addAll(impliedEquipment[t] ?? const []);
+    }
+    return s;
+  }
 }
+
+/// 어떤 기구를 가지고 있으면 자동으로 "할 수 있는 것"으로 치는 기구들.
+const Map<EquipmentType, List<EquipmentType>> impliedEquipment = {
+  EquipmentType.halfRack: [EquipmentType.squatRack],
+  EquipmentType.inclineBench: [EquipmentType.flatBench],
+  EquipmentType.declineBench: [EquipmentType.flatBench],
+  EquipmentType.functionalTrainer: [EquipmentType.cableMachine],
+  EquipmentType.multiStation: [
+    EquipmentType.cableMachine,
+    EquipmentType.latPulldown,
+    EquipmentType.seatedRow,
+    EquipmentType.chestPress,
+    EquipmentType.pecDeck,
+    EquipmentType.legExtension,
+    EquipmentType.legCurl,
+  ],
+  EquipmentType.fixedBarbell: [EquipmentType.ezBar],
+  EquipmentType.lyingLegCurl: [EquipmentType.legCurl],
+  EquipmentType.curvedTreadmill: [EquipmentType.treadmill],
+  EquipmentType.spinBike: [EquipmentType.bike],
+  EquipmentType.recumbentBike: [EquipmentType.bike],
+};
+
 
 /// 한 세트의 처방과 실제 수행 결과.
 class SetEntry {

@@ -120,39 +120,145 @@ class GymScreen extends StatelessWidget {
   }
 
   Future<void> _addEquipment(BuildContext context, AppState state, Gym gym) async {
-    final have = gym.availableTypes;
-    final chosen = await showModalBottomSheet<EquipmentType>(
+    final chosen = await showModalBottomSheet<List<EquipmentType>>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (c) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.8,
-        builder: (c, ctrl) => ListView(
-          controller: ctrl,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text('기구 종류 선택', style: Theme.of(c).textTheme.titleMedium),
+      useSafeArea: true,
+      builder: (c) => _EquipmentPicker(have: gym.equipment.map((e) => e.type).toSet()),
+    );
+    if (chosen == null || chosen.isEmpty || !context.mounted) return;
+    if (chosen.length == 1) {
+      final detail = await _EquipmentEditor.show(context, chosen.first);
+      if (detail == null) return;
+      await state.addEquipment(gym.id, chosen.first,
+          name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note);
+      return;
+    }
+    for (final t in chosen) {
+      await state.addEquipment(gym.id, t);
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${chosen.length}개 기구를 추가했어요. 길게 눌러 별칭/최대중량을 넣을 수 있어요.')));
+    }
+  }
+}
+
+/// 카탈로그 전체(80여 종)에서 검색·분류로 골라 여러 개를 한 번에 추가하는 선택기.
+class _EquipmentPicker extends StatefulWidget {
+  const _EquipmentPicker({required this.have});
+  final Set<EquipmentType> have;
+
+  @override
+  State<_EquipmentPicker> createState() => _EquipmentPickerState();
+}
+
+class _EquipmentPickerState extends State<_EquipmentPicker> {
+  String _query = '';
+  EquipmentCategory? _category;
+  final _selected = <EquipmentType>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final items = equipmentCatalog
+        .where((i) => i.type != EquipmentType.bodyweight)
+        .where((i) => _category == null || i.type.category == _category)
+        .where((i) => i.type.matches(_query) || i.strengths.any((s) => s.toLowerCase().contains(_query.toLowerCase())))
+        .toList();
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.92,
+      maxChildSize: 0.95,
+      builder: (c, ctrl) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(
+              children: [
+                Expanded(child: Text('기구 선택', style: text.titleMedium)),
+                Text('${equipmentCatalog.length - 1}종 · 이미 ${widget.have.length}개 보유',
+                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              ],
             ),
-            for (final info in equipmentCatalog)
-              if (info.type != EquipmentType.bodyweight)
-                ListTile(
-                  leading: Icon(have.contains(info.type) ? Icons.check_circle : Icons.add_circle_outline,
-                      color: have.contains(info.type) ? Theme.of(c).colorScheme.primary : null),
-                  title: Text(info.type.label),
-                  subtitle: Text(info.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  onTap: () => Navigator.pop(c, info.type),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: '검색: 해머, 레그프레스, cable, 둔근 …',
+                prefixIcon: const Icon(Icons.search),
+                isDense: true,
+                suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _query = '')),
+              ),
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(label: const Text('전체'), selected: _category == null, onSelected: (_) => setState(() => _category = null)),
                 ),
-          ],
-        ),
+                for (final cat in EquipmentCategory.values)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(cat.label),
+                      selected: _category == cat,
+                      onSelected: (_) => setState(() => _category = _category == cat ? null : cat),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: ctrl,
+              itemCount: items.length,
+              itemBuilder: (c, i) {
+                final info = items[i];
+                final has = widget.have.contains(info.type);
+                final sel = _selected.contains(info.type);
+                return CheckboxListTile(
+                  value: sel,
+                  onChanged: has ? null : (_) => setState(() => sel ? _selected.remove(info.type) : _selected.add(info.type)),
+                  secondary: has ? Icon(Icons.check_circle, color: cs.primary) : null,
+                  title: Text(info.type.label),
+                  subtitle: Text(
+                    has ? '이미 보유' : info.strengths.take(3).join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  dense: true,
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                Text(_selected.isEmpty ? '체크해서 여러 개 한 번에 추가' : '${_selected.length}개 선택',
+                    style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                const Spacer(),
+                FilledButton.icon(
+                  onPressed: _selected.isEmpty ? null : () => Navigator.pop(context, _selected.toList()),
+                  icon: const Icon(Icons.add),
+                  label: const Text('추가'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
-    if (chosen == null || !context.mounted) return;
-    final detail = await _EquipmentEditor.show(context, chosen);
-    if (detail == null) return;
-    await state.addEquipment(gym.id, chosen,
-        name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note);
   }
 }
 
