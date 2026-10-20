@@ -13,7 +13,6 @@ import '../engine/session_generator.dart';
 import '../models/models.dart';
 import '../engine/load_estimator.dart';
 import '../services/cloud_sync.dart';
-import '../services/inbody_scanner.dart';
 import '../services/routine_share.dart';
 
 String newId() {
@@ -307,11 +306,6 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> setApiKey(String key) async {
-    _data.apiKey = key.trim();
-    await _save();
-  }
-
   // ───────── 헬스장 / 기구 ─────────
 
   Future<Gym> addGym(String name) async {
@@ -579,26 +573,82 @@ class AppState extends ChangeNotifier {
         orElse: () => gen.generate().first);
   }
 
+  /// 오늘 컨디션 적용: 같은 부위 구성으로 무게 배율·시간 예산만 바꿔 다시 뽑는다.
+  /// [condition] 1~10, [loadFactor] 0.5~1.1, [minutes] 오늘 운동 시간.
+  Future<DayPlan?> applyCondition(
+    DateTime date, {
+    required int condition,
+    required double loadFactor,
+    required int minutes,
+  }) async {
+    final u = currentUser;
+    if (u == null) return null;
+    var existing = planOn(date);
+    if (existing == null || existing.isRest) {
+      existing = await regenerateDay(date);
+      if (existing == null) return null;
+    }
+    if (existing.isFinished) return existing;
+    final exercises = SessionGenerator(SessionRequest(
+      groups: existing.focus,
+      available: availableEquipment,
+      progress: progress,
+      profile: u,
+      minutesBudget: minutes,
+      intensityFactor: existing.intensityFactor,
+      loadFactor: loadFactor,
+      now: dateOnly(date),
+      equipmentMax: equipmentMax,
+      seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
+    )).generate();
+    final plan = DayPlan(
+      id: existing.id,
+      userId: u.id,
+      date: existing.date,
+      kind: DayKind.workout,
+      focus: existing.focus,
+      exercises: exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
+      intensityFactor: existing.intensityFactor,
+      loadFactor: loadFactor,
+      condition: condition,
+      title: existing.title,
+    );
+    _data.plans.remove(existing);
+    _data.plans.add(plan);
+    await _save();
+    return plan;
+  }
+
   /// 세션 완료 → 진행 상태 갱신. 운동별 한 줄 메시지를 돌려준다.
-  Future<List<String>> finishDay(DayPlan plan) async {
+  /// [rpe] 운동 후 체감 강도 1~10.
+  Future<List<String>> finishDay(DayPlan plan, {int? rpe}) async {
     final msgs = <String>[];
     final now = DateTime.now();
+    plan.rpe = rpe;
     for (final pe in plan.exercises) {
       if (!pe.anyCompleted) continue;
       final ex = exerciseById(pe.exerciseId);
       if (ex == null) continue;
+      // 처음 하는 운동의 기준 무게. 컨디션으로 낮춘 날이면 배율을 되돌려 평소 무게로 잡는다.
+      final baseline = plan.loadFactor > 0 && plan.loadFactor != 1.0
+          ? LoadEstimator.roundTo(pe.sets.first.targetWeight / plan.loadFactor, ex.loadType.increment)
+          : pe.sets.first.targetWeight;
+      final baseReps = plan.loadFactor < 0.85 && ex.loadType != LoadType.cardio && ex.loadType != LoadType.bodyweight
+          ? pe.sets.first.targetReps - 2
+          : pe.sets.first.targetReps;
       final cur = progress.putIfAbsent(
         pe.exerciseId,
         () => ExerciseProgress(
           exerciseId: pe.exerciseId,
-          workingWeight: pe.sets.first.targetWeight,
-          targetReps: pe.sets.first.targetReps,
+          workingWeight: baseline,
+          targetReps: baseReps,
         ),
       );
-      if (cur.workingWeight == 0 && pe.sets.first.targetWeight > 0) {
-        cur.workingWeight = pe.sets.first.targetWeight;
+      if (cur.workingWeight == 0 && baseline > 0) {
+        cur.workingWeight = baseline;
       }
-      final r = Progression.apply(pe, cur, now);
+      final r = Progression.apply(pe, cur, now, loadFactor: plan.loadFactor, rpe: rpe);
       msgs.add('${ex.name}: ${r.message}');
     }
     plan.finishedAt = now;
@@ -669,12 +719,6 @@ class AppState extends ChangeNotifier {
   }
 
   // ───────── 인바디 ─────────
-
-  Future<InBodyResult> scanInBody(Uint8List bytes) async {
-    final result = await InBodyScanner(apiKey: _data.apiKey).scan(bytes);
-    await updateProfile(result.applyTo);
-    return result;
-  }
 
   /// 신체 스펙 변경 후 아직 하지 않은 미래 계획의 무게를 다시 추정.
   Future<void> recalibrateFuture() async {

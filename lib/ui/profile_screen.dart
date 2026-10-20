@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
-import '../services/inbody_scanner.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/version_section.dart';
@@ -44,55 +42,6 @@ class ProfileScreen extends StatelessWidget {
             _Stat(label: '숙련도', value: u.level.label),
           ]),
           const SizedBox(height: 16),
-
-          // 인바디
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Icon(Icons.document_scanner_outlined, color: cs.primary),
-                    const SizedBox(width: 8),
-                    Text('인바디 결과지 스캔', style: text.titleMedium),
-                  ]),
-                  const SizedBox(height: 6),
-                  Text(
-                    u.inbodyScannedAt == null
-                        ? '결과지 사진을 찍으면 체중·골격근량·체지방률을 읽어 무게/세트/횟수를 자동 설정합니다.'
-                        : '마지막 스캔: ${u.inbodyScannedAt!.month}/${u.inbodyScannedAt!.day} · 골격근 ${u.skeletalMuscleKg?.toStringAsFixed(1) ?? '-'}kg · 체지방 ${u.bodyFatPct?.toStringAsFixed(1) ?? '-'}%',
-                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => _scan(context, state, ImageSource.camera),
-                        icon: const Icon(Icons.photo_camera),
-                        label: const Text('카메라'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton.tonalIcon(
-                        onPressed: () => _scan(context, state, ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('앨범'),
-                      ),
-                    ),
-                  ]),
-                  if (state.data.apiKey.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('※ 아래 "Claude API 키"를 먼저 입력해야 사진 분석이 됩니다. 키가 없어도 수치를 직접 입력하면 동일하게 자동 설정됩니다.',
-                          style: text.bodySmall?.copyWith(color: cs.error)),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
 
           // 신체 스펙
           _Section(title: '신체 스펙', children: [
@@ -194,16 +143,6 @@ class ProfileScreen extends StatelessWidget {
           _Section(title: '보안 · 연동', children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.key),
-              title: const Text('Claude API 키'),
-              subtitle: Text(state.data.apiKey.isEmpty ? '미설정 (인바디 사진 분석에 필요)' : '설정됨 ···${state.data.apiKey.characters.takeLast(4)}'),
-              onTap: () async {
-                final v = await _promptText(context, 'Claude API 키', 'sk-ant-...', obscure: true);
-                if (v != null) await state.setApiKey(v);
-              },
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.lock),
               title: const Text('접근 코드 변경'),
               subtitle: const Text('로그인 시 입력하는 숫자 코드'),
@@ -238,78 +177,6 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _edit(AppState state, void Function(UserProfile) f) => state.updateProfile(f);
-
-  Future<void> _scan(BuildContext context, AppState state, ImageSource source) async {
-    final picker = ImagePicker();
-    final XFile? file;
-    try {
-      file = await picker.pickImage(source: source, maxWidth: 1600, imageQuality: 85);
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('사진을 불러오지 못했어요: $e')));
-      }
-      return;
-    }
-    if (file == null || !context.mounted) return;
-    final bytes = await file.readAsBytes();
-    if (!context.mounted) return;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(children: [
-          CircularProgressIndicator(),
-          SizedBox(width: 16),
-          Expanded(child: Text('결과지를 분석하고 있어요…')),
-        ]),
-      ),
-    );
-    InBodyResult? result;
-    String? error;
-    try {
-      result = await state.scanInBody(bytes);
-    } on InBodyScanException catch (e) {
-      error = e.message;
-    } catch (e) {
-      error = '알 수 없는 오류: $e';
-    }
-    if (!context.mounted) return;
-    Navigator.pop(context);
-
-    if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
-      return;
-    }
-    final r = result!;
-    final apply = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('인바디 결과 반영됨'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (r.weightKg != null) Text('체중 ${r.weightKg!.toStringAsFixed(1)}kg'),
-            if (r.skeletalMuscleKg != null) Text('골격근량 ${r.skeletalMuscleKg!.toStringAsFixed(1)}kg'),
-            if (r.bodyFatPct != null) Text('체지방률 ${r.bodyFatPct!.toStringAsFixed(1)}%'),
-            if (r.heightCm != null) Text('신장 ${r.heightCm!.toStringAsFixed(1)}cm'),
-            if (r.notes.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(r.notes, style: Theme.of(c).textTheme.bodySmall),
-            ],
-            const SizedBox(height: 12),
-            const Text('아직 하지 않은 미래 루틴의 무게를 새 스펙으로 다시 추정할까요?'),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('나중에')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('다시 추정')),
-        ],
-      ),
-    );
-    if (apply == true) await state.recalibrateFuture();
-  }
 }
 
 Future<String?> _promptText(BuildContext context, String title, String hint, {bool obscure = false}) {

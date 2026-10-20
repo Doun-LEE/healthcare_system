@@ -27,6 +27,7 @@ class SessionRequest {
     required this.profile,
     required this.minutesBudget,
     this.intensityFactor = 1.0,
+    this.loadFactor = 1.0,
     this.now,
     this.equipmentMax = const {},
     this.seed,
@@ -40,8 +41,11 @@ class SessionRequest {
   final UserProfile profile;
   final int minutesBudget;
 
-  /// 연속 운동일 피로 등으로 볼륨을 줄일 때 <1.0.
+  /// 연속 운동일 피로 등으로 볼륨(세트 수)을 줄일 때 <1.0.
   final double intensityFactor;
+
+  /// 오늘 컨디션에 따른 무게 배율(0.5~1.1). 1.0이면 평소 작업 중량.
+  final double loadFactor;
   final DateTime? now;
 
   /// 기구 종류별 최대 중량(사용자가 입력한 경우).
@@ -273,6 +277,13 @@ class SessionGenerator {
     }
     if (req.intensityFactor < 0.95 && weight > 0) {
       weight = LoadEstimator.roundTo(weight * 0.95, ex.loadType.increment);
+    }
+    if (req.loadFactor != 1.0 && weight > 0) {
+      weight = max(ex.loadType.increment, LoadEstimator.roundTo(weight * req.loadFactor, ex.loadType.increment));
+    }
+    // 컨디션이 안 좋은 날(무게 ↓)은 횟수를 2회 늘려 볼륨을 일부 보전하고, 좋은 날은 그대로.
+    if (req.loadFactor < 0.85 && ex.loadType != LoadType.cardio && ex.loadType != LoadType.bodyweight) {
+      reps = min(ex.repRange[1] + 2, reps + 2);
     }
 
     final rest = ex.compound ? rule.compoundRestSec : rule.isolationRestSec;

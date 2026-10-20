@@ -12,7 +12,6 @@ import '../models/models.dart';
 class AppData {
   AppData({
     this.accessCode = '23007344',
-    this.apiKey = '',
     this.currentUserId,
     List<UserProfile>? profiles,
     List<Gym>? gyms,
@@ -33,8 +32,6 @@ class AppData {
   /// 로그인 코드 (요구사항 4). 기본 23007344, 설정에서 변경 가능.
   String accessCode;
 
-  /// 인바디 사진 분석용 Claude API 키. 비어 있으면 수동 입력만 가능.
-  String apiKey;
   String? currentUserId;
   final List<UserProfile> profiles;
   final List<Gym> gyms;
@@ -47,7 +44,6 @@ class AppData {
         'version': 1,
         'updatedAt': updatedAt.toIso8601String(),
         'accessCode': accessCode,
-        'apiKey': apiKey,
         'currentUserId': currentUserId,
         'profiles': profiles.map((p) => p.toJson()).toList(),
         'gyms': gyms.map((g) => g.toJson()).toList(),
@@ -61,7 +57,6 @@ class AppData {
   factory AppData.fromJson(Map<String, dynamic> j) => AppData(
         updatedAt: j['updatedAt'] == null ? null : DateTime.tryParse(j['updatedAt'] as String),
         accessCode: j['accessCode'] as String? ?? '23007344',
-        apiKey: j['apiKey'] as String? ?? '',
         currentUserId: j['currentUserId'] as String?,
         profiles: ((j['profiles'] as List?) ?? [])
             .map((p) => UserProfile.fromJson(p as Map<String, dynamic>))

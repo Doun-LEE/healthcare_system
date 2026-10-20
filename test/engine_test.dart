@@ -116,6 +116,31 @@ void main() {
       expect(prog.workingWeight, 55); // 60×0.9=54 → 2.5 단위 반올림 55
     });
 
+    test('light day (load factor < 1) keeps the working weight even on success', () {
+      final p = planned('bb_bench', 42.5, 10, 3);
+      for (final s in p.sets) {
+        s.completed = true;
+      }
+      final prog = ExerciseProgress(exerciseId: 'bb_bench', workingWeight: 60, targetReps: 10);
+      final r = Progression.apply(p, prog, DateTime(2026, 10, 20), loadFactor: 0.7);
+      expect(r.progress.workingWeight, 60);
+      expect(r.message, contains('유지'));
+    });
+
+    test('RPE tunes the bump: easy → double, max effort → hold', () {
+      ExerciseProgress run(int rpe) {
+        final p = planned('bb_bench', 60, 10, 3);
+        for (final s in p.sets) {
+          s.completed = true;
+        }
+        final prog = ExerciseProgress(exerciseId: 'bb_bench', workingWeight: 60, targetReps: 10);
+        return Progression.apply(p, prog, DateTime(2026, 10, 20), rpe: rpe).progress;
+      }
+      expect(run(2).workingWeight, 65);
+      expect(run(6).workingWeight, 62.5);
+      expect(run(10).workingWeight, 60);
+    });
+
     test('bodyweight exercise adjusts reps instead of weight', () {
       final p = PlannedExercise(
         exerciseId: 'pullup',
@@ -210,6 +235,27 @@ void main() {
       )).generate();
       expect(plan, isNotEmpty);
       expect(SessionGenerator.estimateMinutes(plan), lessThanOrEqualTo(45));
+    });
+
+    test('load factor scales prescribed weights and adds reps on light days', () {
+      final prog = {
+        'bb_squat': ExerciseProgress(exerciseId: 'bb_squat', workingWeight: 100, targetReps: 6, lastPerformed: DateTime(2026, 10, 1)),
+        for (final e in exercisesOf(MuscleGroup.legs))
+          if (e.id != 'bb_squat') e.id: ExerciseProgress(exerciseId: e.id, workingWeight: 20, lastPerformed: DateTime(2026, 10, 19)),
+      };
+      final plan = SessionGenerator(SessionRequest(
+        groups: [MuscleGroup.legs],
+        available: _fullGym,
+        progress: prog,
+        profile: _user(),
+        minutesBudget: 120,
+        loadFactor: 0.7,
+        now: DateTime(2026, 10, 20),
+        seed: 6,
+      )).generate();
+      final squat = plan.firstWhere((p) => p.exerciseId == 'bb_squat');
+      expect(squat.sets.first.targetWeight, 70);
+      expect(squat.sets.first.targetReps, 8); // 6 + 2
     });
 
     test('uses working weight from progress when available', () {
@@ -345,7 +391,7 @@ void main() {
     test('round-trips all data through JSON', () async {
       final dir = await Directory.systemTemp.createTemp('fitroutine_test');
       final store = LocalStore(File('${dir.path}/data.json'));
-      final data = AppData(apiKey: 'k');
+      final data = AppData();
       final u = _user();
       data.profiles.add(u);
       data.currentUserId = u.id;
@@ -373,7 +419,6 @@ void main() {
       final loaded = await store.load();
 
       expect(loaded.accessCode, '23007344');
-      expect(loaded.apiKey, 'k');
       expect(loaded.profiles.single.name, '테스트');
       expect(loaded.gyms.single.equipment.single.maxWeightKg, 300);
       expect(loaded.plans.length, 3);

@@ -26,17 +26,23 @@ class ProgressionResult {
 }
 
 class Progression {
+  /// [loadFactor]: 그날 처방 무게 배율(컨디션). 1.0 미만이면 "가벼운 날"로 보고
+  /// 성공해도 작업 중량을 올리지 않는다(평소 무게를 든 게 아니므로).
+  /// [rpe]: 운동 후 체감 강도 1~10. 낮으면 더 과감히, 높으면 보수적으로 올린다.
   static ProgressionResult apply(
     PlannedExercise planned,
     ExerciseProgress current,
-    DateTime performedAt,
-  ) {
+    DateTime performedAt, {
+    double loadFactor = 1.0,
+    int? rpe,
+  }) {
     final ex = exerciseById(planned.exerciseId);
     if (ex == null) return ProgressionResult(current, '');
 
     final done = planned.sets.where((s) => s.completed).toList();
     current.lastPerformed = performedAt;
     current.timesPerformed += 1;
+    final lightDay = loadFactor < 0.95;
 
     if (done.isEmpty) {
       // 아무 세트도 안 했으면 무게 유지. 실패 카운트만 올린다.
@@ -71,8 +77,14 @@ class Progression {
 
     // ── 맨몸: 횟수 조정 ──
     if (ex.loadType == LoadType.bodyweight) {
-      if (overReps) {
+      if (lightDay && allHit) {
+        current.consecutiveFail = 0;
+        return ProgressionResult(current, '가벼운 날 완수 → 목표 ${current.targetReps}회 유지');
+      }
+      if (overReps || (allHit && rpe != null && rpe <= 3)) {
         current.targetReps += 3;
+      } else if (allHit && rpe != null && rpe >= 9) {
+        // 유지
       } else if (allHit) {
         current.targetReps += 2;
       } else if (failedHalf) {
@@ -97,14 +109,22 @@ class Progression {
       newWeight = maxDoneWeight;
     }
 
-    if (allHit) {
-      final bump = overReps ? step * 2 : step;
+    if (lightDay && allHit && maxDoneWeight < current.workingWeight) {
+      // 컨디션 조절로 가볍게 한 날: 성공해도 기준 무게는 유지.
+      current.consecutiveFail = 0;
+      msg = '가벼운 날(${(loadFactor * 100).round()}%) 완수 → 기준 ${_fmt(newWeight)}kg 유지';
+    } else if (allHit) {
+      var bump = overReps ? step * 2 : step;
+      if (rpe != null && rpe <= 3) bump = step * 2; // 너무 쉬웠으면 과감히
+      if (rpe != null && rpe >= 9) bump = 0; // 전력투구였으면 같은 무게로 한 번 더
       newWeight += bump;
       current.consecutiveSuccess += 1;
       current.consecutiveFail = 0;
-      msg = overReps
-          ? '여유 있게 성공 → 다음 +${_fmt(bump)}kg (${_fmt(newWeight)}kg)'
-          : '모든 세트 성공 → 다음 +${_fmt(bump)}kg (${_fmt(newWeight)}kg)';
+      msg = bump == 0
+          ? '성공했지만 강도 $rpe/10 → 같은 무게로 한 번 더 (${_fmt(newWeight)}kg)'
+          : overReps || (rpe != null && rpe <= 3)
+              ? '여유 있게 성공 → 다음 +${_fmt(bump)}kg (${_fmt(newWeight)}kg)'
+              : '모든 세트 성공 → 다음 +${_fmt(bump)}kg (${_fmt(newWeight)}kg)';
     } else if (failedHalf) {
       current.consecutiveFail += 1;
       current.consecutiveSuccess = 0;

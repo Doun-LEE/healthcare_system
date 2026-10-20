@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'widgets/condition_card.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
@@ -95,6 +96,8 @@ class DayPlanView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
         _Header(plan: plan),
+        if (editable && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
+          ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
         const SizedBox(height: 8),
         for (final pe in plan.exercises)
           _ExerciseCard(plan: plan, pe: pe, editable: editable && !plan.isFinished),
@@ -122,6 +125,9 @@ class DayPlanView extends StatelessWidget {
               const SizedBox(width: 8),
               Text('완료됨 · ${(plan.completionRatio * 100).round()}% 수행', style: text.titleMedium),
             ]),
+            if (plan.rpe != null)
+              Text('체감 강도 ${plan.rpe}/10 · ${rpeLabel(plan.rpe!)}',
+                  style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
             if (editable)
               TextButton(
                 onPressed: () => state.reopenDay(plan),
@@ -148,7 +154,10 @@ class DayPlanView extends StatelessWidget {
       );
       if (ok != true) return;
     }
-    final msgs = await state.finishDay(plan);
+    if (!context.mounted) return;
+    final rpe = await showRpePicker(context);
+    if (!context.mounted) return;
+    final msgs = await state.finishDay(plan, rpe: rpe);
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
@@ -225,6 +234,16 @@ class _Header extends StatelessWidget {
                     style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
               ],
             ]),
+            if (plan.condition != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(children: [
+                  Icon(Icons.monitor_heart_outlined, size: 16, color: cs.onPrimaryContainer),
+                  const SizedBox(width: 4),
+                  Text('컨디션 ${plan.condition}/10 · 무게 ${(plan.loadFactor * 100).round()}%',
+                      style: text.bodyMedium?.copyWith(color: cs.onPrimaryContainer)),
+                ]),
+              ),
           ],
         ),
       ),

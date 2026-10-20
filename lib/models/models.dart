@@ -469,6 +469,9 @@ class DayPlan {
     List<PlannedExercise>? exercises,
     this.estimatedMinutes = 0,
     this.intensityFactor = 1.0,
+    this.loadFactor = 1.0,
+    this.condition,
+    this.rpe,
     this.title,
     this.finishedAt,
   }) : exercises = exercises ?? [];
@@ -483,8 +486,17 @@ class DayPlan {
   final List<PlannedExercise> exercises;
   final int estimatedMinutes;
 
-  /// 1.0 기본. 연속 운동일이 길면 0.85 등으로 볼륨을 낮춘다.
+  /// 1.0 기본. 연속 운동일이 길면 0.85 등으로 볼륨(세트 수)을 낮춘다.
   final double intensityFactor;
+
+  /// 오늘 컨디션에 따른 무게 배율. 0.7이면 평소 무게의 70%로 처방.
+  final double loadFactor;
+
+  /// 운동 전 컨디션 1~10 (사용자 입력). null이면 미설정.
+  int? condition;
+
+  /// 운동 후 체감 강도 1~10 (애플워치식: 1~3 쉬움, 4~6 보통, 7~9 어려움, 10 전력투구).
+  int? rpe;
   final String? title;
   DateTime? finishedAt;
 
@@ -508,6 +520,9 @@ class DayPlan {
         'exercises': exercises.map((e) => e.toJson()).toList(),
         'estimatedMinutes': estimatedMinutes,
         'intensityFactor': intensityFactor,
+        'loadFactor': loadFactor,
+        'condition': condition,
+        'rpe': rpe,
         'title': title,
         'finishedAt': finishedAt?.toIso8601String(),
       };
@@ -525,6 +540,9 @@ class DayPlan {
             .toList(),
         estimatedMinutes: j['estimatedMinutes'] as int,
         intensityFactor: (j['intensityFactor'] as num).toDouble(),
+        loadFactor: (j['loadFactor'] as num?)?.toDouble() ?? 1.0,
+        condition: j['condition'] as int?,
+        rpe: j['rpe'] as int?,
         title: j['title'] as String?,
         finishedAt: j['finishedAt'] == null
             ? null

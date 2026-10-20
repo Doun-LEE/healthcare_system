@@ -153,12 +153,27 @@ class _LocalOnlyFormState extends State<_LocalOnlyForm> {
     }
     if (_creating || state.profiles.isEmpty) {
       final p = await state.createProfile(_name.text, _code.text);
-      if (p == null) setState(() => _error = '이름을 입력하세요.');
+      if (p == null) {
+        setState(() => _error = '이름을 입력하세요.');
+        return;
+      }
+      _closeSheet();
       return;
     }
     final id = _selectedId ?? state.profiles.first.id;
     final ok = await state.login(id, _code.text);
-    if (!ok) setState(() => _error = '로그인 실패');
+    if (!ok) {
+      setState(() => _error = '로그인 실패');
+      return;
+    }
+    _closeSheet();
+  }
+
+  /// 바텀시트 안에서 열렸으면 로그인 뒤 시트를 닫는다.
+  void _closeSheet() {
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    if (nav.canPop()) nav.pop();
   }
 
   @override
