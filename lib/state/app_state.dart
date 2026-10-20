@@ -692,21 +692,88 @@ class AppState extends ChangeNotifier {
   Future<void> refreshInbox() async {
     if (!cloudSignedIn) return;
     try {
-      inbox = await CloudSync.instance.readInbox();
-      notifyListeners();
+      final items = await CloudSync.instance.readInbox();
+      // 수락/거절 답장은 자동 처리하고 지운다. 요청·루틴은 화면에 남겨 사용자가 결정.
+      final keep = <InboxItem>[];
+      var changed = false;
+      for (final it in items) {
+        if (it.type == InboxType.partnerAccept) {
+          final i = _data.partners.indexWhere((p) => p.uid == it.fromUid);
+          if (i >= 0) {
+            _data.partners[i].pending = false;
+            _data.partners[i].name = it.fromName;
+          } else {
+            _data.partners.add(PartnerLink(uid: it.fromUid, name: it.fromName, email: it.fromEmail));
+          }
+          changed = true;
+          lastPartnerNotice = '${it.fromName} 님이 파트너 요청을 수락했어요.';
+          try {
+            await CloudSync.instance.deleteInbox(it.id);
+          } catch (_) {}
+        } else if (it.type == InboxType.partnerDecline) {
+          _data.partners.removeWhere((p) => p.uid == it.fromUid);
+          changed = true;
+          lastPartnerNotice = '${it.fromName} 님이 파트너 요청을 거절했어요.';
+          try {
+            await CloudSync.instance.deleteInbox(it.id);
+          } catch (_) {}
+        } else {
+          keep.add(it);
+        }
+      }
+      inbox = keep;
+      if (changed) {
+        await _save();
+      } else {
+        notifyListeners();
+      }
     } catch (_) {}
   }
 
-  /// 이메일로 파트너 추가. 결과 메시지를 돌려준다.
+  /// 마지막 파트너 관련 알림(수락/거절). 화면에서 한 번 보여주고 지운다.
+  String? lastPartnerNotice;
+
+  /// 이메일로 파트너 요청. 상대가 수락해야 양쪽에 등록된다. 결과 메시지를 돌려준다.
   Future<String> addPartner(String email) async {
     if (!cloudSignedIn) return '계정에 로그인해야 파트너를 추가할 수 있어요.';
     if (email.trim().toLowerCase() == (cloudEmail ?? '').toLowerCase()) return '본인 이메일이에요.';
     final link = await CloudSync.instance.lookupByEmail(email);
     if (link == null) return '그 이메일로 가입한 계정을 찾지 못했어요. 상대가 앱에 로그인한 적이 있어야 합니다.';
-    if (_data.partners.any((p) => p.uid == link.uid)) return '이미 등록된 파트너예요.';
-    _data.partners.add(link);
+    final existing = _data.partners.where((p) => p.uid == link.uid).firstOrNull;
+    if (existing != null && !existing.pending) return '이미 등록된 파트너예요.';
+    try {
+      await CloudSync.instance.sendPartnerRequest(link.uid, currentUser?.name ?? '');
+    } catch (e) {
+      return '요청을 보내지 못했어요: $e';
+    }
+    if (existing == null) _data.partners.add(link..pending = true);
     await _save();
-    return '${link.name.isEmpty ? link.email : link.name} 님을 파트너로 추가했어요.';
+    return '${link.name.isEmpty ? link.email : link.name} 님에게 파트너 요청을 보냈어요. 상대가 수락하면 등록됩니다.';
+  }
+
+  /// 받은 파트너 요청에 답한다.
+  Future<String> answerPartnerRequest(InboxItem item, {required bool accept}) async {
+    if (!cloudSignedIn) return '로그인이 필요해요.';
+    try {
+      await CloudSync.instance.sendPartnerAnswer(item.fromUid, currentUser?.name ?? '', accept: accept);
+      await CloudSync.instance.deleteInbox(item.id);
+    } catch (e) {
+      return '답장을 보내지 못했어요: $e';
+    }
+    inbox = inbox.where((i) => i.id != item.id).toList();
+    if (accept) {
+      final i = _data.partners.indexWhere((p) => p.uid == item.fromUid);
+      if (i >= 0) {
+        _data.partners[i].pending = false;
+        _data.partners[i].name = item.fromName;
+      } else {
+        _data.partners.add(PartnerLink(uid: item.fromUid, name: item.fromName, email: item.fromEmail));
+      }
+      await _save();
+      return '${item.fromName} 님과 파트너가 됐어요.';
+    }
+    notifyListeners();
+    return '${item.fromName} 님의 요청을 거절했어요.';
   }
 
   Future<void> removePartner(String uid) async {
@@ -729,8 +796,9 @@ class AppState extends ChangeNotifier {
 
     final d = dateOnly(date);
     final key = dateKey(d);
+    if (partner.pending) return '${partner.name.isEmpty ? partner.email : partner.name} 님이 아직 요청을 수락하지 않았어요.';
     final mine = planOn(d);
-    if (mine != null && mine.isFinished) return '오늘 운동은 이미 완료했어요.';
+    if (mine != null && mine.isFinished) return '그날 운동은 이미 완료했어요.';
     final myFocus = (mine != null && !mine.isRest) ? mine.focus : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
     final theirs = pp.planFocus[key] ?? const <MuscleGroup>[];
     var groups = myFocus.where(theirs.contains).toList();
@@ -800,7 +868,8 @@ class AppState extends ChangeNotifier {
 
   /// 받은편지함의 루틴을 내 계획으로 적용(무게는 내 기준).
   Future<String> applyInbox(InboxItem item) async {
-    final plan = await importRoutine(item.code, item.date);
+    if (item.code == null || item.date == null) return '루틴 정보가 없어요.';
+    final plan = await importRoutine(item.code!, item.date!);
     if (plan != null) {
       plan.partnerName = item.fromName;
       await _save();
@@ -810,7 +879,15 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
     inbox = inbox.where((i) => i.id != item.id).toList();
     notifyListeners();
-    return plan == null ? '루틴을 읽지 못했어요.' : '${item.date.month}/${item.date.day} ${item.fromName} 님과의 루틴을 넣었어요.';
+    return plan == null ? '루틴을 읽지 못했어요.' : '${item.date!.month}/${item.date!.day} ${item.fromName} 님과의 루틴을 넣었어요.';
+  }
+
+  /// 파트너 운동일 해제: 그날을 혼자 하는 루틴으로 되돌린다.
+  Future<void> clearPartnerDay(DateTime date) async {
+    final p = planOn(date);
+    if (p == null || p.isFinished) return;
+    _data.plans.remove(p);
+    await regenerateDay(date);
   }
 
   Future<void> dismissInbox(InboxItem item) async {

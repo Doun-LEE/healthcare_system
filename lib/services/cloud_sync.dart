@@ -184,25 +184,32 @@ class CloudSync {
     return PartnerProfile.fromJson(d);
   }
 
+  Future<void> _sendInbox(String toUid, Map<String, dynamic> data, String fromName) async {
+    final u = user;
+    if (u == null) return;
+    await _db.collection('users/$toUid/inbox').add({
+      ...data,
+      'fromUid': u.uid,
+      'fromName': fromName,
+      'fromEmail': u.email ?? '',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> sendJointRoutine({
     required String toUid,
     required DateTime date,
     required String code,
     required String title,
     required String fromName,
-  }) async {
-    final u = user;
-    if (u == null) return;
-    await _db.collection('users/$toUid/inbox').add({
-      'type': 'joint',
-      'fromUid': u.uid,
-      'fromName': fromName,
-      'date': dateKey(date),
-      'code': code,
-      'title': title,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
+  }) =>
+      _sendInbox(toUid, {'type': 'joint', 'date': dateKey(date), 'code': code, 'title': title}, fromName);
+
+  Future<void> sendPartnerRequest(String toUid, String fromName) =>
+      _sendInbox(toUid, {'type': 'partnerRequest'}, fromName);
+
+  Future<void> sendPartnerAnswer(String toUid, String fromName, {required bool accept}) =>
+      _sendInbox(toUid, {'type': accept ? 'partnerAccept' : 'partnerDecline'}, fromName);
 
   Future<List<InboxItem>> readInbox() async {
     final u = user;
@@ -212,17 +219,20 @@ class CloudSync {
     for (final doc in snap.docs) {
       final d = doc.data();
       try {
+        final type = InboxType.values.firstWhere((t) => t.name == d['type'], orElse: () => InboxType.joint);
         out.add(InboxItem(
           id: doc.id,
+          type: type,
           fromUid: d['fromUid'] as String,
           fromName: (d['fromName'] as String?) ?? '파트너',
-          date: parseDateKey(d['date'] as String),
-          code: d['code'] as String,
+          fromEmail: (d['fromEmail'] as String?) ?? '',
+          date: d['date'] == null ? null : parseDateKey(d['date'] as String),
+          code: d['code'] as String?,
           title: (d['title'] as String?) ?? '',
         ));
       } catch (_) {}
     }
-    out.sort((a, b) => a.date.compareTo(b.date));
+    out.sort((a, b) => (a.date ?? DateTime(2000)).compareTo(b.date ?? DateTime(2000)));
     return out;
   }
 

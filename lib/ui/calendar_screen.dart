@@ -5,6 +5,7 @@ import '../engine/planner.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
+import 'widgets/partner_widgets.dart';
 
 /// 월간 달력. 탭=상세, 길게 누르기=휴식 토글, 상단 버튼으로 주/월 생성.
 class CalendarScreen extends StatefulWidget {
@@ -115,11 +116,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 icon: const Icon(Icons.download_outlined),
                                 label: const Text('친구 루틴 불러오기'),
                               ),
+                              PartnerDayButton(date: _selected!),
                             ],
                           ],
                         ),
                       )
-                    : DayPlanView(plan: selectedPlan, editable: !selectedPlan.date.isAfter(today)),
+                    : Column(
+                        children: [
+                          if (!_selected!.isBefore(today) && !selectedPlan.isFinished && !selectedPlan.isRest)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: PartnerDayButton(date: _selected!, plan: selectedPlan),
+                              ),
+                            ),
+                          Expanded(child: DayPlanView(plan: selectedPlan, editable: !selectedPlan.date.isAfter(today))),
+                        ],
+                      ),
           ),
         ],
       ),
@@ -291,8 +305,10 @@ class _MonthGrid extends StatelessWidget {
               ),
             if (plan != null && plan.isRest)
               Text('휴식', style: TextStyle(fontSize: 10, color: fg)),
-            if (plan != null && plan.isFinished)
-              Icon(Icons.check, size: 12, color: cs.primary),
+            Row(children: [
+              if (plan != null && plan.isFinished) Icon(Icons.check, size: 12, color: cs.primary),
+              if (plan != null && plan.partnerName != null) Icon(Icons.group, size: 12, color: cs.secondary),
+            ]),
           ],
         ),
       ),

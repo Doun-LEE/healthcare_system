@@ -8,16 +8,20 @@ library;
 import '../models/models.dart';
 
 class PartnerLink {
-  PartnerLink({required this.uid, required this.name, required this.email});
+  PartnerLink({required this.uid, required this.name, required this.email, this.pending = false});
   final String uid;
   String name;
   final String email;
 
-  Map<String, dynamic> toJson() => {'uid': uid, 'name': name, 'email': email};
+  /// 내가 요청을 보냈지만 상대가 아직 수락하지 않음.
+  bool pending;
+
+  Map<String, dynamic> toJson() => {'uid': uid, 'name': name, 'email': email, 'pending': pending};
   factory PartnerLink.fromJson(Map<String, dynamic> j) => PartnerLink(
         uid: j['uid'] as String,
         name: (j['name'] as String?) ?? '',
         email: (j['email'] as String?) ?? '',
+        pending: (j['pending'] as bool?) ?? false,
       );
 }
 
@@ -148,20 +152,26 @@ class PartnerProfile {
   }
 }
 
-/// 파트너가 보낸 "같이 할 루틴".
+enum InboxType { joint, partnerRequest, partnerAccept, partnerDecline }
+
+/// 받은편지함 항목: 파트너 요청/수락/거절, 또는 "같이 할 루틴".
 class InboxItem {
   InboxItem({
     required this.id,
+    required this.type,
     required this.fromUid,
     required this.fromName,
-    required this.date,
-    required this.code,
-    required this.title,
+    required this.fromEmail,
+    this.date,
+    this.code,
+    this.title = '',
   });
   final String id;
+  final InboxType type;
   final String fromUid;
   final String fromName;
-  final DateTime date;
-  final String code;
+  final String fromEmail;
+  final DateTime? date;
+  final String? code;
   final String title;
 }
