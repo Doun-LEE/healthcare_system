@@ -31,7 +31,18 @@ class SessionRequest {
     this.now,
     this.equipmentMax = const {},
     this.seed,
+    this.extraInjuries = const {},
+    this.cardioOverride,
   });
+
+  /// 파트너 운동 시 파트너의 부상 부위(양쪽 모두 제외).
+  final Set<InjuryArea> extraInjuries;
+
+  /// 유산소 포함 여부를 프로필 대신 강제할 때(파트너 운동: 둘 다 원할 때만).
+  final bool? cardioOverride;
+
+  bool get includeCardio => cardioOverride ?? profile.includeCardio;
+  Set<InjuryArea> get injuries => {...profile.injuries, ...extraInjuries};
 
   final List<MuscleGroup> groups;
   final Set<EquipmentType> available;
@@ -77,14 +88,14 @@ class SessionGenerator {
 
   List<PlannedExercise> generate() {
     final groups = req.groups
-        .where((g) => g != MuscleGroup.cardio || req.profile.includeCardio)
+        .where((g) => g != MuscleGroup.cardio || req.includeCardio)
         .toList();
     if (groups.isEmpty) return [];
 
     final budgetSec = max(20, req.minutesBudget - _overheadMin) * 60;
     final fatLoss = req.profile.goal == TrainingGoal.fatLoss;
     final cardioSec = (groups.contains(MuscleGroup.cardio) ||
-            req.profile.includeCardio && (fatLoss || _shouldAppendCardio(groups)))
+            req.includeCardio && (fatLoss || _shouldAppendCardio(groups)))
         ? (fatLoss ? min(30 * 60, budgetSec ~/ 4) : min(20 * 60, budgetSec ~/ 6))
         : 0;
     final strengthBudget = budgetSec - cardioSec;
@@ -206,7 +217,7 @@ class SessionGenerator {
     for (final ex in exercisesOf(g)) {
       if (pickedIds.contains(ex.id)) continue;
       if (!ex.canDoWith(req.available)) continue;
-      if (excludedByInjury(ex, req.profile.injuries)) continue;
+      if (excludedByInjury(ex, req.injuries)) continue;
 
       var score = ex.priority * 2.0;
       // 부위마다 첫 운동은 복합운동, 이후엔 고립을 섞는다. 같은 부위 복합운동은 최대 2개.

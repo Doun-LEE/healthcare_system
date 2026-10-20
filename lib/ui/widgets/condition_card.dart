@@ -151,6 +151,12 @@ class _ConditionCardState extends State<ConditionCard> {
                 label: '$_percent%',
                 onChanged: (v) => setState(() => _percent = (v / 5).round() * 5),
               ),
+              if (p.partnerName != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('${p.partnerName}와 파트너 운동: 운동 구성은 그대로 두고 내 무게만 조정합니다.',
+                      style: text.bodySmall?.copyWith(color: cs.secondary)),
+                ),
               Row(children: [
                 Text('오늘 운동 시간', style: text.labelLarge),
                 const Spacer(),

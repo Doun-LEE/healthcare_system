@@ -599,18 +599,48 @@ class AppState extends ChangeNotifier {
       if (existing == null) return null;
     }
     if (existing.isFinished) return existing;
-    final exercises = SessionGenerator(SessionRequest(
-      groups: existing.focus,
-      available: availableEquipment,
-      progress: progress,
-      profile: u,
-      minutesBudget: minutes,
-      intensityFactor: existing.intensityFactor,
-      loadFactor: loadFactor,
-      now: dateOnly(date),
-      equipmentMax: equipmentMax,
-      seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
-    )).generate();
+
+    List<PlannedExercise> exercises;
+    if (existing.partnerName != null) {
+      // 파트너 운동일: 운동 구성은 그대로 두고(파트너와 같은 운동), 내 무게만 배율 적용.
+      exercises = [
+        for (final pe in existing.exercises)
+          PlannedExercise(
+            exerciseId: pe.exerciseId,
+            equipmentType: pe.equipmentType,
+            restSeconds: pe.restSeconds,
+            note: pe.note,
+            sets: [
+              for (final s in pe.sets)
+                SetEntry(
+                  targetReps: s.targetReps,
+                  targetWeight: s.targetWeight > 0
+                      ? max(
+                          exerciseById(pe.exerciseId)!.loadType.increment,
+                          LoadEstimator.roundTo(
+                            s.targetWeight / existing.loadFactor * loadFactor,
+                            exerciseById(pe.exerciseId)!.loadType.increment,
+                          ),
+                        )
+                      : 0,
+                ),
+            ],
+          ),
+      ];
+    } else {
+      exercises = SessionGenerator(SessionRequest(
+        groups: existing.focus,
+        available: availableEquipment,
+        progress: progress,
+        profile: u,
+        minutesBudget: minutes,
+        intensityFactor: existing.intensityFactor,
+        loadFactor: loadFactor,
+        now: dateOnly(date),
+        equipmentMax: equipmentMax,
+        seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
+      )).generate();
+    }
     final plan = DayPlan(
       id: existing.id,
       userId: u.id,
@@ -623,6 +653,8 @@ class AppState extends ChangeNotifier {
       loadFactor: loadFactor,
       condition: condition,
       title: existing.title,
+      partnerName: existing.partnerName,
+      partnerWeights: existing.partnerWeights,
     );
     _data.plans.remove(existing);
     _data.plans.add(plan);
@@ -823,6 +855,8 @@ class AppState extends ChangeNotifier {
       now: d,
       equipmentMax: equipmentMax,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
+      extraInjuries: pp.profile.injuries, // 상대 부상 부위도 제외
+      cardioOverride: u.includeCardio && pp.profile.includeCardio, // 둘 다 원할 때만 유산소
     )).generate();
     if (exercises.isEmpty) return '두 헬스장에 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
 
