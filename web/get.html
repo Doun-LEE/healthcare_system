@@ -105,10 +105,19 @@
   try {
     var holder = document.createElement('div');
     new QRCode(holder, { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
-    var img = holder.querySelector('img') || holder.querySelector('canvas');
+    // 캔버스는 즉시 그려지고, 이미지는 나중에 채워지므로 캔버스를 우선 사용한다.
+    var cv = holder.querySelector('canvas');
     var c = document.getElementById('qrc');
-    if (img && img.tagName === 'CANVAS') { c.replaceWith(img); }
-    else if (img) { var im = new Image(); im.width = 180; im.height = 180; im.src = img.src; c.replaceWith(im); }
+    if (cv) { cv.style.display = 'block'; c.replaceWith(cv); }
+    else {
+      var img = holder.querySelector('img');
+      var im = new Image(); im.width = 180; im.height = 180; im.alt = 'QR';
+      var tries = 0;
+      (function wait() {
+        if (img && img.src && img.src.indexOf('data:') === 0) { im.src = img.src; c.replaceWith(im); }
+        else if (tries++ < 20) setTimeout(wait, 100);
+      })();
+    }
   } catch (e) {}
   document.getElementById('copy').addEventListener('click', function () {
     navigator.clipboard.writeText(url).then(function () { this.textContent = '복사됨!'; }.bind(this)).catch(function () { prompt('링크', url); });
