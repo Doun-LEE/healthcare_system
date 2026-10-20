@@ -205,6 +205,10 @@ class SessionGenerator {
       var score = ex.priority * 2.0;
       // 부위마다 첫 운동은 복합운동, 이후엔 고립을 섞는다. 같은 부위 복합운동은 최대 2개.
       if (ex.compound && compoundCount >= 2) continue;
+      // 두 번째 복합운동은 첫 번째와 주 타깃이 달라야 한다(덤벨 벤치 + 바벨 벤치 같은 중복 방지).
+      if (ex.compound && hasPrimaryCompound && ex.emphasis.isNotEmpty && usedEmphasis.contains(ex.emphasis.first)) {
+        continue;
+      }
       score += ex.compound ? (hasPrimaryCompound ? -1.0 : 3.0) : (hasPrimaryCompound ? 1.0 : -1.0);
 
       // 요구사항 8: 오래 안 한 운동 우선.

@@ -11,7 +11,9 @@ import '../engine/planner.dart';
 import '../engine/progression.dart';
 import '../engine/session_generator.dart';
 import '../models/models.dart';
+import '../engine/load_estimator.dart';
 import '../services/inbody_scanner.dart';
+import '../services/routine_share.dart';
 
 String newId() {
   final r = Random();
@@ -428,6 +430,63 @@ class AppState extends ChangeNotifier {
   Future<void> reopenDay(DayPlan plan) async {
     plan.finishedAt = null;
     await _save();
+  }
+
+  // ───────── 루틴 공유 / 파트너 ─────────
+
+  String shareCode(DayPlan plan) => encodeRoutine(plan, from: currentUser?.name);
+
+  /// 공유 코드를 특정 날짜의 계획으로 가져온다. 운동·세트·횟수는 그대로,
+  /// 무게는 내 이력/신체 스펙으로 다시 계산하고, 기구는 내 헬스장에 맞춘다.
+  /// 코드가 잘못됐거나 그날이 이미 완료됐으면 null.
+  Future<DayPlan?> importRoutine(String code, DateTime date) async {
+    final u = currentUser;
+    if (u == null) return null;
+    final shared = decodeRoutine(code);
+    if (shared == null) return null;
+    final d = dateOnly(date);
+    final existing = planOn(d);
+    if (existing != null && existing.isFinished) return null;
+
+    final est = LoadEstimator(u);
+    final available = availableEquipment;
+    final exercises = <PlannedExercise>[];
+    for (final item in shared.items) {
+      final ex = exerciseById(item.exerciseId)!;
+      final canDo = ex.canDoWith(available);
+      final eq = canDo
+          ? ex.pickEquipment(available)
+          : (item.equipment ?? ex.equipment.first);
+      final prog = progress[ex.id];
+      final weight = (prog != null && prog.workingWeight > 0)
+          ? prog.workingWeight
+          : est.initialWeight(ex, item.reps, maxWeightKg: equipmentMax[eq]);
+      final rule = restRules[ex.group]!;
+      exercises.add(PlannedExercise(
+        exerciseId: ex.id,
+        equipmentType: eq,
+        restSeconds: ex.compound ? rule.compoundRestSec : rule.isolationRestSec,
+        sets: List.generate(item.sets, (_) => SetEntry(targetReps: item.reps, targetWeight: weight)),
+        note: canDo ? '공유 루틴 · 무게는 내 기준' : '⚠ 우리 헬스장에 없는 기구 (${eq.label})',
+      ));
+    }
+    final focus = shared.focus.isNotEmpty
+        ? shared.focus
+        : exercises.map((p) => exerciseById(p.exerciseId)!.group).toSet().toList();
+    final plan = DayPlan(
+      id: newId(),
+      userId: u.id,
+      date: d,
+      kind: DayKind.workout,
+      focus: focus,
+      exercises: exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
+      title: '${shared.title.isEmpty ? '공유 루틴' : shared.title}${shared.from == null ? '' : ' (${shared.from} 공유)'}',
+    );
+    if (existing != null) _data.plans.remove(existing);
+    _data.plans.add(plan);
+    await _save();
+    return plan;
   }
 
   // ───────── 인바디 ─────────

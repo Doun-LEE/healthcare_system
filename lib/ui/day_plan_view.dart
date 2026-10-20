@@ -4,8 +4,62 @@ import 'package:provider/provider.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
+import 'widgets/set_editor.dart';
+
+/// 공유 코드 붙여넣기 → 해당 날짜로 가져오기. 오늘/달력 화면에서 공용.
+Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
+  final state = context.read<AppState>();
+  final c = TextEditingController();
+  final clip = await Clipboard.getData('text/plain');
+  if (clip?.text != null && clip!.text!.contains('FR1:')) c.text = clip.text!;
+  if (!context.mounted) return;
+  final code = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('루틴 불러오기'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('친구가 보낸 공유 코드(FR1:…)를 붙여넣으세요. 운동·세트·횟수는 그대로, 무게는 내 기준으로 바뀝니다.'),
+          const SizedBox(height: 10),
+          TextField(controller: c, maxLines: 4, autofocus: true, decoration: const InputDecoration(hintText: 'FR1:…')),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('가져오기')),
+      ],
+    ),
+  );
+  if (code == null || code.trim().isEmpty || !context.mounted) return;
+  final plan = await state.importRoutine(code, date);
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(plan == null
+        ? '코드를 읽지 못했어요. 전체를 그대로 붙여넣었는지 확인하세요.'
+        : '${date.month}/${date.day}에 "${plan.title}" ${plan.exercises.length}개 운동을 넣었어요.'),
+  ));
+}
+
+Future<void> shareRoutine(BuildContext context, DayPlan plan) async {
+  final state = context.read<AppState>();
+  final code = state.shareCode(plan);
+  final text = '[FitRoutine] ${plan.title ?? '루틴'} · ${plan.exercises.length}개 운동\n'
+      '앱에서 "루틴 불러오기"에 아래 코드를 붙여넣으세요.\n$code';
+  await Clipboard.setData(ClipboardData(text: text));
+  try {
+    await SharePlus.instance.share(ShareParams(text: text, subject: 'FitRoutine 루틴 공유'));
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('공유 코드를 클립보드에 복사했어요.')));
+    }
+  }
+}
 
 /// 하루 계획 상세. 오늘 화면과 달력 상세에서 공용으로 쓴다.
 /// 세트 체크, 횟수/무게 수정, 세트 추가, 운동 교체/삭제, 완료 처리.
@@ -135,7 +189,20 @@ class _Header extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(plan.title ?? '운동', style: text.titleLarge?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(plan.title ?? '운동',
+                      style: text.titleLarge?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                ),
+                if (plan.exercises.isNotEmpty)
+                  IconButton(
+                    tooltip: '루틴 공유 (파트너와 같은 운동)',
+                    icon: Icon(Icons.share, color: cs.onPrimaryContainer),
+                    onPressed: () => shareRoutine(context, plan),
+                  ),
+              ],
+            ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -254,44 +321,21 @@ class _ExerciseCard extends StatelessWidget {
 
   Future<void> _editSet(BuildContext context, AppState state, int i, String unit, bool showWeight) async {
     final s = pe.sets[i];
-    final reps = TextEditingController(text: s.effectiveReps.toString());
-    final weight = TextEditingController(text: _fmt(s.effectiveWeight));
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text('${i + 1}세트 실제 수행'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('처방: ${showWeight ? '${_fmt(s.targetWeight)}kg × ' : ''}${s.targetReps}$unit',
-                style: TextStyle(color: Theme.of(c).colorScheme.onSurfaceVariant)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reps,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: '실제 $unit'),
-            ),
-            if (showWeight) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: weight,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: '실제 무게 (kg)'),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('저장 + 완료')),
-        ],
-      ),
+    final ex = exerciseById(pe.exerciseId);
+    final result = await SetEditorSheet.show(
+      context,
+      title: '${ex?.name ?? ''} ${i + 1}세트 실제 수행',
+      targetReps: s.targetReps,
+      targetWeight: s.targetWeight,
+      initialReps: s.effectiveReps,
+      initialWeight: s.effectiveWeight,
+      weightStep: ex?.loadType.increment ?? 2.5,
+      unit: unit,
+      showWeight: showWeight,
     );
-    if (ok == true) {
+    if (result != null) {
       await state.updateSet(plan, pe, i,
-          reps: int.tryParse(reps.text),
-          weight: showWeight ? double.tryParse(weight.text) : null,
-          completed: true);
+          reps: result.$1, weight: showWeight ? result.$2 : null, completed: true);
     }
   }
 
@@ -392,3 +436,33 @@ class _SetRow extends StatelessWidget {
 
 String _fmt(double w) =>
     w == w.roundToDouble() ? w.toInt().toString() : w.toStringAsFixed(1);
+
+/// 오늘의 명언 배너.
+class QuoteBanner extends StatelessWidget {
+  const QuoteBanner({super.key, required this.quote});
+  final String quote;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.format_quote, size: 18, color: cs.onTertiaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(quote,
+                style: text.bodyMedium?.copyWith(color: cs.onTertiaryContainer, fontStyle: FontStyle.italic)),
+          ),
+        ],
+      ),
+    );
+  }
+}

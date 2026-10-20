@@ -104,12 +104,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           children: [
                             Text('${_selected!.month}월 ${_selected!.day}일 계획 없음', style: text.titleMedium),
                             const SizedBox(height: 8),
-                            if (!_selected!.isBefore(today))
+                            if (!_selected!.isBefore(today)) ...[
                               OutlinedButton.icon(
                                 onPressed: () => state.regenerateDay(_selected!),
                                 icon: const Icon(Icons.add),
                                 label: const Text('이 날만 루틴 만들기'),
                               ),
+                              TextButton.icon(
+                                onPressed: () => importRoutineDialog(context, _selected!),
+                                icon: const Icon(Icons.download_outlined),
+                                label: const Text('친구 루틴 불러오기'),
+                              ),
+                            ],
                           ],
                         ),
                       )

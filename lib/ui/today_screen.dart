@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/quotes.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
@@ -20,6 +21,11 @@ class TodayScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})'),
         actions: [
+          IconButton(
+            tooltip: '루틴 불러오기 (공유 코드)',
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () => importRoutineDialog(context, now),
+          ),
           if (plan != null && !plan.isFinished)
             IconButton(
               tooltip: '오늘 루틴 다시 생성',
@@ -41,7 +47,12 @@ class TodayScreen extends StatelessWidget {
             ),
         ],
       ),
-      body: plan == null ? _Empty(user: user) : DayPlanView(plan: plan),
+      body: Column(
+        children: [
+          QuoteBanner(quote: quoteFor(now)),
+          Expanded(child: plan == null ? _Empty(user: user) : DayPlanView(plan: plan)),
+        ],
+      ),
     );
   }
 }
@@ -85,6 +96,12 @@ class _Empty extends StatelessWidget {
               },
               icon: const Icon(Icons.auto_awesome),
               label: const Text('오늘부터 1주일 루틴 생성'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => importRoutineDialog(context, DateTime.now()),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('친구 루틴 불러오기'),
             ),
             const SizedBox(height: 8),
             Text('휴식일을 먼저 정하고 싶다면 달력 탭에서 날짜를 길게 눌러 휴식으로 표시하세요.',
