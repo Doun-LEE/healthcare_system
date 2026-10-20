@@ -1,11 +1,11 @@
 {
-    "name": "fit_routine",
-    "short_name": "fit_routine",
+    "name": "FitRoutine",
+    "short_name": "FitRoutine",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F7F9F1",
+    "theme_color": "#7CB342",
+    "description": "내 헬스장 기구로 자동 생성되는 운동 루틴",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

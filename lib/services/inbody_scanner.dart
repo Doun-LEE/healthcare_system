@@ -160,6 +160,8 @@ class InBodyScanner {
               'content-type': 'application/json',
               'x-api-key': apiKey.trim(),
               'anthropic-version': '2023-06-01',
+              // 웹(PWA)에서 브라우저가 직접 호출할 수 있게 허용. 개인용 앱이라 키는 사용자 기기에만 있다.
+              'anthropic-dangerous-direct-browser-access': 'true',
             },
             body: jsonEncode(body),
           )
