@@ -3,7 +3,7 @@
     "short_name": "FitRoutine",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#F7F9F1",
+    "background_color": "#7CB342",
     "theme_color": "#7CB342",
     "description": "내 헬스장 기구로 자동 생성되는 운동 루틴",
     "orientation": "portrait-primary",
