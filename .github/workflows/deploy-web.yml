@@ -19,6 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # APK 와 같은 버전 번호를 쓴다 (build.yml 과 같은 계산).
+      - name: Compute version
+        id: ver
+        shell: bash
+        run: |
+          last=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          last=${last:-v0.1.0}
+          IFS=. read -r major minor patch <<< "${last#v}"
+          msg="$(git log -1 --pretty=%B)"
+          if echo "$msg" | grep -q '#major'; then major=$((major+1)); minor=0; patch=0
+          elif echo "$msg" | grep -q '#minor'; then minor=$((minor+1)); patch=0
+          else patch=$((patch+1)); fi
+          # 이 커밋에 이미 태그가 붙어 있으면(릴리스가 먼저 끝난 경우) 그 태그를 쓴다.
+          here=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)
+          [ -n "$here" ] && major=$(echo "${here#v}" | cut -d. -f1) && minor=$(echo "${here#v}" | cut -d. -f2) && patch=$(echo "${here#v}" | cut -d. -f3)
+          echo "version=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -30,7 +49,12 @@ jobs:
 
       # 저장소 이름이 URL 경로가 된다: https://doun-lee.github.io/healthcare_system/
       - name: Build web
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/" --pwa-strategy offline-first
+        run: |
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
+            --pwa-strategy offline-first \
+            --build-name=${{ steps.ver.outputs.version }} \
+            --build-number=${{ github.run_number }}
 
       - uses: actions/configure-pages@v5
         with:

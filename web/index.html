@@ -41,6 +41,28 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    // 새 버전이 배포되면 서비스 워커가 교체되는데, 그 순간 페이지를 한 번 새로고침해
+    // 사용자가 앱을 껐다 켜지 않아도 바로 최신 버전이 뜨게 한다.
+    if ('serviceWorker' in navigator) {
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
+      // 앱이 열려 있는 동안에도 주기적으로 새 버전이 있는지 확인한다 (10분마다).
+      navigator.serviceWorker.ready.then(function (reg) {
+        setInterval(function () { reg.update().catch(function () {}); }, 10 * 60 * 1000);
+      });
+      // 백그라운드에서 돌아올 때도 확인.
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) reg.update().catch(function () {}); });
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
