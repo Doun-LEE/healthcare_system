@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../models/models.dart';
+import '../services/partner.dart';
 
 class AppData {
   AppData({
@@ -18,11 +19,16 @@ class AppData {
     List<DayPlan>? plans,
     Map<String, Map<String, ExerciseProgress>>? progress,
     DateTime? updatedAt,
+    List<PartnerLink>? partners,
   })  : profiles = profiles ?? [],
         gyms = gyms ?? [],
         plans = plans ?? [],
         progress = progress ?? {},
+        partners = partners ?? [],
         updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 등록한 운동 파트너(계정).
+  final List<PartnerLink> partners;
 
   /// 마지막 변경 시각. 클라우드와 어느 쪽이 최신인지 비교할 때 쓴다.
   DateTime updatedAt;
@@ -48,6 +54,7 @@ class AppData {
         'profiles': profiles.map((p) => p.toJson()).toList(),
         'gyms': gyms.map((g) => g.toJson()).toList(),
         'plans': plans.map((p) => p.toJson()).toList(),
+        'partners': partners.map((p) => p.toJson()).toList(),
         'progress': {
           for (final e in progress.entries)
             e.key: {for (final p in e.value.entries) p.key: p.value.toJson()},
@@ -66,6 +73,9 @@ class AppData {
             .toList(),
         plans: ((j['plans'] as List?) ?? [])
             .map((p) => DayPlan.fromJson(p as Map<String, dynamic>))
+            .toList(),
+        partners: ((j['partners'] as List?) ?? [])
+            .map((p) => PartnerLink.fromJson(p as Map<String, dynamic>))
             .toList(),
         progress: {
           for (final e in ((j['progress'] as Map?) ?? {}).entries)

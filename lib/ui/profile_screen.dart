@@ -7,6 +7,7 @@ import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
+import 'widgets/partner_widgets.dart';
 import 'widgets/version_section.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
@@ -63,6 +64,49 @@ class ProfileScreen extends StatelessWidget {
               selected: {u.level},
               onSelectionChanged: (s) => _edit(state, (p) => p.level = s.first),
             ),
+            const SizedBox(height: 14),
+            Text('3대 기록 (kg, 1RM 또는 최고 중량 · 선택)', style: text.labelLarge),
+            Text('입력하면 추정 대신 이 값으로 무게를 계산합니다. 비우면 신체 스펙으로 추정.',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Expanded(child: _NumField(label: '스쿼트', value: u.squat1rm, onChanged: (v) => _edit(state, (p) => p.squat1rm = v > 0 ? v : null))),
+              const SizedBox(width: 8),
+              Expanded(child: _NumField(label: '벤치', value: u.bench1rm, onChanged: (v) => _edit(state, (p) => p.bench1rm = v > 0 ? v : null))),
+            ]),
+            Row(children: [
+              Expanded(child: _NumField(label: '데드리프트', value: u.deadlift1rm, onChanged: (v) => _edit(state, (p) => p.deadlift1rm = v > 0 ? v : null))),
+              const SizedBox(width: 8),
+              Expanded(child: _NumField(label: 'OHP', value: u.ohp1rm, onChanged: (v) => _edit(state, (p) => p.ohp1rm = v > 0 ? v : null))),
+            ]),
+            if (u.squat1rm != null || u.bench1rm != null || u.deadlift1rm != null)
+              Text('3대 합계: ${((u.squat1rm ?? 0) + (u.bench1rm ?? 0) + (u.deadlift1rm ?? 0)).round()}kg',
+                  style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+            Text('운동 목표', style: text.labelLarge),
+            SegmentedButton<TrainingGoal>(
+              segments: TrainingGoal.values.map((g) => ButtonSegment(value: g, label: Text(g.label))).toList(),
+              selected: {u.goal},
+              onSelectionChanged: (s) => _edit(state, (p) => p.goal = s.first),
+            ),
+            Text(u.goal.description, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 14),
+            Text('부상 · 주의 부위', style: text.labelLarge),
+            Text('체크한 부위에 부담 가는 운동은 루틴에서 자동으로 뺍니다.',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final a in InjuryArea.values)
+                  FilterChip(
+                    label: Text(a.label),
+                    selected: u.injuries.contains(a),
+                    onSelected: (on) => _edit(state, (p) => on ? p.injuries.add(a) : p.injuries.remove(a)),
+                  ),
+              ],
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -70,10 +114,10 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('추정 1RM (출발점)', style: text.labelLarge),
+                  Text('무게 계산 기준 1RM', style: text.labelLarge),
                   const SizedBox(height: 4),
                   Text(
-                    '스쿼트 ${est.oneRepMax(RefLift.squat).round()}kg · 벤치 ${est.oneRepMax(RefLift.bench).round()}kg · 데드 ${est.oneRepMax(RefLift.deadlift).round()}kg · OHP ${est.oneRepMax(RefLift.ohp).round()}kg',
+                    '스쿼트 ${est.oneRepMax(RefLift.squat).round()}kg${u.squat1rm != null ? '(실제)' : ''} · 벤치 ${est.oneRepMax(RefLift.bench).round()}kg${u.bench1rm != null ? '(실제)' : ''} · 데드 ${est.oneRepMax(RefLift.deadlift).round()}kg${u.deadlift1rm != null ? '(실제)' : ''} · OHP ${est.oneRepMax(RefLift.ohp).round()}kg${u.ohp1rm != null ? '(실제)' : ''}',
                     style: text.bodyMedium,
                   ),
                   Text('근육 보정 ×${est.muscleFactor.toStringAsFixed(2)} · 체지방 보정 ×${est.fatFactor.toStringAsFixed(2)}. 실제 수행 결과로 매 세션 자동 보정됩니다.',
@@ -135,6 +179,9 @@ class ProfileScreen extends StatelessWidget {
 
           // 계정
           const _Section(title: '계정 · 동기화', children: [AccountSection()]),
+
+          // 파트너
+          const _Section(title: '운동 파트너', children: [PartnerSection()]),
 
           // 앱 정보 / 업데이트
           const _Section(title: '앱 정보', children: [VersionSection()]),

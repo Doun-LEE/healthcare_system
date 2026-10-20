@@ -208,6 +208,37 @@ enum Sex {
   static Sex parse(String v) => Sex.values.firstWhere((e) => e.name == v);
 }
 
+/// 운동 목표. 횟수 범위·휴식·유산소 비중을 바꾼다.
+enum TrainingGoal {
+  hypertrophy('근비대', '8~12회, 보통 휴식'),
+  strength('근력', '낮은 횟수·고중량, 긴 휴식'),
+  fatLoss('다이어트', '높은 횟수, 짧은 휴식, 유산소 ↑');
+
+  const TrainingGoal(this.label, this.description);
+  final String label;
+  final String description;
+  static TrainingGoal parse(String v) =>
+      TrainingGoal.values.firstWhere((e) => e.name == v, orElse: () => TrainingGoal.hypertrophy);
+}
+
+/// 부상·주의 부위. 체크하면 그 부위에 부담 가는 운동을 루틴에서 뺀다.
+enum InjuryArea {
+  lowerBack('허리'),
+  knee('무릎'),
+  shoulder('어깨'),
+  wrist('손목'),
+  elbow('팔꿈치');
+
+  const InjuryArea(this.label);
+  final String label;
+  static InjuryArea? tryParse(String v) {
+    for (final e in InjuryArea.values) {
+      if (e.name == v) return e;
+    }
+    return null;
+  }
+}
+
 /// 사용자 프로필. 로그인 시 선택되며 신체 스펙과 설정을 담는다.
 class UserProfile {
   UserProfile({
@@ -225,7 +256,13 @@ class UserProfile {
     this.includeCardio = true,
     this.activeGymId,
     this.inbodyScannedAt,
-  });
+    this.squat1rm,
+    this.bench1rm,
+    this.deadlift1rm,
+    this.ohp1rm,
+    this.goal = TrainingGoal.hypertrophy,
+    Set<InjuryArea>? injuries,
+  }) : injuries = injuries ?? {};
 
   final String id;
   String name;
@@ -246,6 +283,14 @@ class UserProfile {
   String? activeGymId;
   DateTime? inbodyScannedAt;
 
+  /// 실제 3대+OHP 기록(1RM 또는 최고 중량). 있으면 추정 대신 이 값을 쓴다.
+  double? squat1rm;
+  double? bench1rm;
+  double? deadlift1rm;
+  double? ohp1rm;
+  TrainingGoal goal;
+  final Set<InjuryArea> injuries;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -261,6 +306,12 @@ class UserProfile {
         'includeCardio': includeCardio,
         'activeGymId': activeGymId,
         'inbodyScannedAt': inbodyScannedAt?.toIso8601String(),
+        'squat1rm': squat1rm,
+        'bench1rm': bench1rm,
+        'deadlift1rm': deadlift1rm,
+        'ohp1rm': ohp1rm,
+        'goal': goal.name,
+        'injuries': injuries.map((i) => i.name).toList(),
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -280,6 +331,15 @@ class UserProfile {
         inbodyScannedAt: j['inbodyScannedAt'] == null
             ? null
             : DateTime.parse(j['inbodyScannedAt'] as String),
+        squat1rm: (j['squat1rm'] as num?)?.toDouble(),
+        bench1rm: (j['bench1rm'] as num?)?.toDouble(),
+        deadlift1rm: (j['deadlift1rm'] as num?)?.toDouble(),
+        ohp1rm: (j['ohp1rm'] as num?)?.toDouble(),
+        goal: TrainingGoal.parse((j['goal'] as String?) ?? 'hypertrophy'),
+        injuries: ((j['injuries'] as List?) ?? const [])
+            .map((v) => InjuryArea.tryParse(v as String))
+            .whereType<InjuryArea>()
+            .toSet(),
       );
 }
 
@@ -474,7 +534,14 @@ class DayPlan {
     this.rpe,
     this.title,
     this.finishedAt,
-  }) : exercises = exercises ?? [];
+    this.partnerName,
+    Map<String, double>? partnerWeights,
+  })  : exercises = exercises ?? [],
+        partnerWeights = partnerWeights ?? {};
+
+  /// 파트너 운동이면 파트너 이름과 운동별 파트너 무게(kg).
+  String? partnerName;
+  final Map<String, double> partnerWeights;
 
   final String id;
   final String userId;
@@ -525,6 +592,8 @@ class DayPlan {
         'rpe': rpe,
         'title': title,
         'finishedAt': finishedAt?.toIso8601String(),
+        'partnerName': partnerName,
+        'partnerWeights': partnerWeights,
       };
 
   factory DayPlan.fromJson(Map<String, dynamic> j) => DayPlan(
@@ -543,6 +612,10 @@ class DayPlan {
         loadFactor: (j['loadFactor'] as num?)?.toDouble() ?? 1.0,
         condition: j['condition'] as int?,
         rpe: j['rpe'] as int?,
+        partnerName: j['partnerName'] as String?,
+        partnerWeights: {
+          for (final e in ((j['partnerWeights'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble(),
+        },
         title: j['title'] as String?,
         finishedAt: j['finishedAt'] == null
             ? null

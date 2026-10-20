@@ -82,9 +82,10 @@ class SessionGenerator {
     if (groups.isEmpty) return [];
 
     final budgetSec = max(20, req.minutesBudget - _overheadMin) * 60;
+    final fatLoss = req.profile.goal == TrainingGoal.fatLoss;
     final cardioSec = (groups.contains(MuscleGroup.cardio) ||
-            req.profile.includeCardio && _shouldAppendCardio(groups))
-        ? min(20 * 60, budgetSec ~/ 6)
+            req.profile.includeCardio && (fatLoss || _shouldAppendCardio(groups)))
+        ? (fatLoss ? min(30 * 60, budgetSec ~/ 4) : min(20 * 60, budgetSec ~/ 6))
         : 0;
     final strengthBudget = budgetSec - cardioSec;
 
@@ -205,6 +206,7 @@ class SessionGenerator {
     for (final ex in exercisesOf(g)) {
       if (pickedIds.contains(ex.id)) continue;
       if (!ex.canDoWith(req.available)) continue;
+      if (excludedByInjury(ex, req.profile.injuries)) continue;
 
       var score = ex.priority * 2.0;
       // 부위마다 첫 운동은 복합운동, 이후엔 고립을 섞는다. 같은 부위 복합운동은 최대 2개.
@@ -262,7 +264,7 @@ class SessionGenerator {
     final equipment = ex.pickEquipment(req.available);
     final rule = restRules[ex.group]!;
 
-    var reps = prog?.targetReps ?? LoadEstimator.targetReps(ex, level);
+    var reps = prog?.targetReps ?? LoadEstimator.targetReps(ex, level, req.profile.goal);
     var sets = LoadEstimator.setsFor(ex, level);
     if (req.intensityFactor < 0.95) {
       sets = max(2, (sets * req.intensityFactor).round());
@@ -286,7 +288,9 @@ class SessionGenerator {
       reps = min(ex.repRange[1] + 2, reps + 2);
     }
 
-    final rest = ex.compound ? rule.compoundRestSec : rule.isolationRestSec;
+    final rest = ((ex.compound ? rule.compoundRestSec : rule.isolationRestSec) *
+            LoadEstimator.restFactor(req.profile.goal))
+        .round();
     final note = prog == null
         ? '처음 하는 운동 · ${ex.emphasis.join(', ')}'
         : prog.lastPerformed == null

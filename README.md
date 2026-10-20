@@ -18,6 +18,8 @@
 | 11 | 기구별 3D 모델 (외부 에셋 없이 Dart로 렌더링, 드래그 회전) | `lib/ui/widgets/equipment_3d.dart`, `lib/data/equipment_models.dart` |
 | 12 | 운동일에 세트×횟수×무게 제시, 세트 체크, 실제 수행(더 들었거나 더 당긴 것) 입력 → 다음 루틴 강도 자동 상향/디로드 | `lib/ui/day_plan_view.dart`, `lib/engine/progression.dart` |
 | 13 | 신체 스펙(체중·골격근량·체지방률·나이·성별·숙련도) → 1RM 추정 → 운동별 무게·세트·횟수 자동 설정. 이후 수행 결과로 자동 보정 | `lib/engine/load_estimator.dart` |
+| + | **신체 스펙 확장**: 3대+OHP 실제 기록(있으면 추정 대신 사용), 운동 목표(근비대/근력/다이어트 → 횟수·휴식·유산소), 부상 부위(허리/무릎/어깨/손목/팔꿈치 → 해당 운동 제외) | `lib/engine/load_estimator.dart`, `catalog.dart` `injuryExclusions` |
+| + | **파트너 운동**: 이메일로 파트너 등록 → 오늘 탭 👥 → 두 사람의 오늘 부위·보유 기구를 맞춘 공통 루틴, 운동마다 내 무게/파트너 무게 표시, 파트너 앱에 루틴 전송(받은편지함 → 적용) | `lib/services/partner.dart`, `lib/ui/widgets/partner_widgets.dart` |
 | + | **오늘 컨디션**(1~10) + 무게 % + 오늘 운동 시간 → 루틴 재조정. **운동 후 강도(RPE 1~10)** → 다음 무게 상향 폭 조절 | `lib/ui/widgets/condition_card.dart`, `lib/engine/progression.dart` |
 
 추가로: 무게/횟수 **스크롤 휠 입력**(기구 단위로 증감), **루틴 공유 코드**(카톡으로 보내면 상대는 '루틴 불러오기'로 같은 운동을 자기 무게로 수행 → 분할이 달라도 파트너 운동 가능), **오늘의 명언**, 세트 간 휴식 타이머, 운동 교체/제외/세트 추가, 하루 루틴 재생성, 완료율·연속 주 통계, 깨진 저장파일 복구.
@@ -62,7 +64,7 @@ run_web.bat
 로컬 저장이 항상 1차라 오프라인에서도 동작하고, 변경 1초 뒤 Firestore `users/{uid}/data/app`에 올라갑니다.
 다른 기기에서 더 최신이면 앱 시작/로그인 시 내려받습니다.
 
-Firebase 콘솔 설정: Authentication → 이메일/비밀번호 사용, Firestore 생성, 규칙은 `firestore.rules` 내용을 붙여넣기.
+Firebase 콘솔 설정: Authentication → 이메일/비밀번호·Google 사용, 승인된 도메인에 `doun-lee.github.io`, Firestore 생성, 규칙은 `firestore.rules` 내용을 붙여넣기(파트너 기능은 `public`/`inbox`/`emails` 규칙이 필요).
 
 ## 개발
 

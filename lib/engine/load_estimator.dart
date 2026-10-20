@@ -61,8 +61,25 @@ class LoadEstimator {
     return (1.0 - (profile.age - 40) * 0.007).clamp(0.7, 1.0);
   }
 
+  /// 사용자가 직접 입력한 실제 기록. 없으면 null.
+  double? actual1rm(RefLift lift) => switch (lift) {
+        RefLift.squat => profile.squat1rm,
+        RefLift.bench => profile.bench1rm,
+        RefLift.deadlift => profile.deadlift1rm,
+        RefLift.ohp => profile.ohp1rm,
+        _ => null,
+      };
+
   double oneRepMax(RefLift lift) {
     if (lift == RefLift.bodyweight) return profile.weightKg;
+    final actual = actual1rm(lift);
+    if (actual != null && actual > 0) return actual;
+    // 로우 기록은 따로 받지 않으므로 벤치·데드 실제 기록이 있으면 거기서 유도한다.
+    if (lift == RefLift.row) {
+      final b = profile.bench1rm, d = profile.deadlift1rm;
+      if (b != null && b > 0) return b * 0.9;
+      if (d != null && d > 0) return d * 0.55;
+    }
     final base = (profile.sex == Sex.male ? _maleBase : _femaleBase)[lift]!;
     return profile.weightKg *
         base *
@@ -104,16 +121,33 @@ class LoadEstimator {
         _ => 0,
       };
 
-  /// 횟수 범위 안에서 숙련도에 맞는 목표 횟수.
-  static int targetReps(Exercise ex, TrainingLevel level) {
+  /// 횟수 범위 안에서 숙련도·목표에 맞는 목표 횟수.
+  static int targetReps(Exercise ex, TrainingLevel level, [TrainingGoal goal = TrainingGoal.hypertrophy]) {
     final lo = ex.repRange[0];
     final hi = ex.repRange[1];
-    return switch (level) {
+    if (ex.group == MuscleGroup.cardio) {
+      return goal == TrainingGoal.fatLoss ? hi : ((lo + hi) / 2).round();
+    }
+    var reps = switch (level) {
       TrainingLevel.beginner => hi,
       TrainingLevel.intermediate => ((lo + hi) / 2).round(),
       TrainingLevel.advanced => lo,
     };
+    // 근력: 복합운동은 낮은 횟수로. 다이어트: 높은 횟수로.
+    if (goal == TrainingGoal.strength && ex.compound && ex.loadType != LoadType.bodyweight) {
+      reps = max(3, min(reps, lo));
+    } else if (goal == TrainingGoal.fatLoss) {
+      reps = max(reps, hi);
+    }
+    return reps;
   }
+
+  /// 목표에 따른 휴식 배율.
+  static double restFactor(TrainingGoal goal) => switch (goal) {
+        TrainingGoal.strength => 1.3,
+        TrainingGoal.fatLoss => 0.7,
+        _ => 1.0,
+      };
 
   /// 운동당 세트 수. 핵심 복합운동은 4, 보조 고립은 3. 유산소는 1.
   static int setsFor(Exercise ex, TrainingLevel level) {

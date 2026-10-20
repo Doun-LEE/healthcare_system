@@ -1,9 +1,24 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 각 계정은 자기 문서만 읽고 쓸 수 있다.
-    match /users/{uid}/{document=**} {
+    // 내 데이터(전체 앱 데이터)는 나만 읽고 쓴다.
+    match /users/{uid}/data/{doc} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // 공개 프로필(파트너 운동용 요약): 로그인한 누구나 읽고, 본인만 쓴다.
+    match /users/{uid}/public/{doc} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    // 받은편지함: 본인이 읽고 지우며, 로그인한 누구나 보낼 수 있다(파트너의 루틴 제안).
+    match /users/{uid}/inbox/{doc} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.resource.data.fromUid == request.auth.uid;
+    }
+    // 이메일 → uid 검색표: 로그인한 누구나 읽고, 자기 항목만 쓴다.
+    match /emails/{key} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.resource.data.uid == request.auth.uid;
     }
   }
 }

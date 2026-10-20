@@ -5,6 +5,7 @@ import '../data/quotes.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
+import 'widgets/partner_widgets.dart';
 
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key});
@@ -21,6 +22,12 @@ class TodayScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})'),
         actions: [
+          if (plan == null || !plan.isFinished)
+            IconButton(
+              tooltip: '파트너와 운동',
+              icon: Icon(plan?.partnerName != null ? Icons.group : Icons.group_outlined),
+              onPressed: () => showPartnerPicker(context, now),
+            ),
           IconButton(
             tooltip: '루틴 불러오기 (공유 코드)',
             icon: const Icon(Icons.download_outlined),
@@ -50,6 +57,7 @@ class TodayScreen extends StatelessWidget {
       body: Column(
         children: [
           QuoteBanner(quote: quoteFor(now)),
+          const InboxBanner(),
           Expanded(child: plan == null ? _Empty(user: user) : DayPlanView(plan: plan)),
         ],
       ),

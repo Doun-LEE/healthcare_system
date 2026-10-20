@@ -13,6 +13,7 @@ import '../engine/session_generator.dart';
 import '../models/models.dart';
 import '../engine/load_estimator.dart';
 import '../services/cloud_sync.dart';
+import '../services/partner.dart';
 import '../services/routine_share.dart';
 
 String newId() {
@@ -78,6 +79,10 @@ class AppState extends ChangeNotifier {
         _ensureProfileForAccount();
         _authed = currentUser != null;
       } catch (_) {}
+      await refreshInbox();
+      try {
+        await _publishPublic();
+      } catch (_) {}
     }
     notifyListeners();
   }
@@ -124,6 +129,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       await CloudSync.instance.push(_data);
+      await _publishPublic();
       lastSyncedAt = DateTime.now();
     } catch (e) {
       syncError = '업로드 실패: $e';
@@ -184,8 +190,12 @@ class AppState extends ChangeNotifier {
       _data.updatedAt = DateTime.now();
       await _store.save(_data);
       await CloudSync.instance.push(_data);
+      try {
+        await _publishPublic();
+      } catch (_) {}
       lastSyncedAt = DateTime.now();
       notifyListeners();
+      await refreshInbox();
       return msg;
     } finally {
       syncing = false;
@@ -661,7 +671,157 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
-  // ───────── 루틴 공유 / 파트너 ─────────
+  // ───────── 파트너 (계정 연동) ─────────
+
+  List<PartnerLink> get partners => _data.partners;
+  List<InboxItem> inbox = const [];
+
+  Future<void> _publishPublic() async {
+    final u = currentUser;
+    if (u == null || !cloudSignedIn) return;
+    await CloudSync.instance.publishPublic(PartnerProfile.build(
+      uid: CloudSync.instance.user!.uid,
+      me: u,
+      available: availableEquipment,
+      progress: progress,
+      plans: myPlans,
+      email: CloudSync.instance.email,
+    ));
+  }
+
+  Future<void> refreshInbox() async {
+    if (!cloudSignedIn) return;
+    try {
+      inbox = await CloudSync.instance.readInbox();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// 이메일로 파트너 추가. 결과 메시지를 돌려준다.
+  Future<String> addPartner(String email) async {
+    if (!cloudSignedIn) return '계정에 로그인해야 파트너를 추가할 수 있어요.';
+    if (email.trim().toLowerCase() == (cloudEmail ?? '').toLowerCase()) return '본인 이메일이에요.';
+    final link = await CloudSync.instance.lookupByEmail(email);
+    if (link == null) return '그 이메일로 가입한 계정을 찾지 못했어요. 상대가 앱에 로그인한 적이 있어야 합니다.';
+    if (_data.partners.any((p) => p.uid == link.uid)) return '이미 등록된 파트너예요.';
+    _data.partners.add(link);
+    await _save();
+    return '${link.name.isEmpty ? link.email : link.name} 님을 파트너로 추가했어요.';
+  }
+
+  Future<void> removePartner(String uid) async {
+    _data.partners.removeWhere((p) => p.uid == uid);
+    await _save();
+  }
+
+  /// 파트너와 같이 할 루틴 생성 (요구: 두 사람의 부위·기구를 맞추고 무게는 각자).
+  ///
+  /// - 부위: 그날 두 사람 계획의 교집합. 없으면 내 부위(파트너는 따라옴).
+  /// - 기구: 두 헬스장의 교집합(파트너 기구 정보가 있을 때).
+  /// - 무게: 내 것은 내 이력, 파트너 것은 파트너 작업 중량 또는 파트너 스펙으로 추정.
+  /// - 파트너 앱의 받은편지함에 같은 루틴을 보낸다(파트너는 자기 무게로 받음).
+  Future<String> generateJointSession(DateTime date, PartnerLink partner) async {
+    final u = currentUser;
+    if (u == null || !cloudSignedIn) return '계정 로그인이 필요해요.';
+    final pp = await CloudSync.instance.fetchPartner(partner.uid);
+    if (pp == null) return '${partner.name} 님의 정보를 아직 받을 수 없어요. 상대가 앱을 한 번 열면 됩니다.';
+    partner.name = pp.name;
+
+    final d = dateOnly(date);
+    final key = dateKey(d);
+    final mine = planOn(d);
+    if (mine != null && mine.isFinished) return '오늘 운동은 이미 완료했어요.';
+    final myFocus = (mine != null && !mine.isRest) ? mine.focus : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
+    final theirs = pp.planFocus[key] ?? const <MuscleGroup>[];
+    var groups = myFocus.where(theirs.contains).toList();
+    String note;
+    if (groups.isEmpty) {
+      groups = List.of(myFocus);
+      note = theirs.isEmpty ? '${pp.name} 님은 오늘 계획이 없어 내 부위로 맞췄어요.' : '겹치는 부위가 없어 내 부위(${myFocus.map((g) => g.label).join('·')})로 맞췄어요.';
+    } else {
+      note = '공통 부위 ${groups.map((g) => g.label).join('·')}로 맞췄어요.';
+    }
+    final available = pp.available.isEmpty
+        ? availableEquipment
+        : availableEquipment.where(pp.available.contains).toSet()..add(EquipmentType.bodyweight);
+
+    final minutes = min(u.sessionMinutes, pp.profile.sessionMinutes);
+    final exercises = SessionGenerator(SessionRequest(
+      groups: groups,
+      available: available,
+      progress: progress,
+      profile: u,
+      minutesBudget: minutes,
+      now: d,
+      equipmentMax: equipmentMax,
+      seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
+    )).generate();
+    if (exercises.isEmpty) return '두 헬스장에 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
+
+    // 파트너 무게
+    final est = LoadEstimator(pp.profile);
+    final pw = <String, double>{};
+    for (final pe in exercises) {
+      final ex = exerciseById(pe.exerciseId)!;
+      final w = pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
+      pw[ex.id] = w;
+    }
+    final title = '${mine?.title ?? groups.map((g) => g.label).join('·')} · ${pp.name}와 함께';
+    final plan = DayPlan(
+      id: mine?.id ?? newId(),
+      userId: u.id,
+      date: d,
+      kind: DayKind.workout,
+      focus: groups,
+      exercises: exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
+      intensityFactor: mine?.intensityFactor ?? 1.0,
+      title: title,
+      partnerName: pp.name,
+      partnerWeights: pw,
+    );
+    if (mine != null) _data.plans.remove(mine);
+    _data.plans.add(plan);
+    await _save();
+
+    try {
+      await CloudSync.instance.sendJointRoutine(
+        toUid: partner.uid,
+        date: d,
+        code: encodeRoutine(plan, from: u.name),
+        title: title,
+        fromName: u.name,
+      );
+    } catch (_) {
+      return '$note 파트너에게 보내기는 실패했어요(네트워크).';
+    }
+    return '$note ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
+  }
+
+  /// 받은편지함의 루틴을 내 계획으로 적용(무게는 내 기준).
+  Future<String> applyInbox(InboxItem item) async {
+    final plan = await importRoutine(item.code, item.date);
+    if (plan != null) {
+      plan.partnerName = item.fromName;
+      await _save();
+    }
+    try {
+      await CloudSync.instance.deleteInbox(item.id);
+    } catch (_) {}
+    inbox = inbox.where((i) => i.id != item.id).toList();
+    notifyListeners();
+    return plan == null ? '루틴을 읽지 못했어요.' : '${item.date.month}/${item.date.day} ${item.fromName} 님과의 루틴을 넣었어요.';
+  }
+
+  Future<void> dismissInbox(InboxItem item) async {
+    try {
+      await CloudSync.instance.deleteInbox(item.id);
+    } catch (_) {}
+    inbox = inbox.where((i) => i.id != item.id).toList();
+    notifyListeners();
+  }
+
+  // ───────── 루틴 공유 (코드) ─────────
 
   String shareCode(DayPlan plan) => encodeRoutine(plan, from: currentUser?.name);
 

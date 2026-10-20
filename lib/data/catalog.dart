@@ -1570,6 +1570,37 @@ const List<Exercise> exerciseCatalog = [
   ),
 ];
 
+/// 부상 부위별로 루틴에서 제외할 운동. 해당 부위에 큰 부하가 걸리는 것들.
+const Map<InjuryArea, Set<String>> injuryExclusions = {
+  InjuryArea.lowerBack: {
+    'deadlift', 'trap_deadlift', 'rack_pull', 'bb_row', 'tbar_row', 'landmine_row', 'rdl',
+    'bb_squat', 'front_squat', 'ssb_squat', 'back_ext', 'back_ext_m', 'ghr', 'reverse_hyper',
+    'kb_swing', 'sled_drag', 'decline_situp', 'ghd_situp', 'russian_twist',
+  },
+  InjuryArea.knee: {
+    'bb_squat', 'front_squat', 'ssb_squat', 'hack_squat', 'pendulum_squat', 'v_squat', 'belt_squat',
+    'lunge', 'bulgarian', 'step_up', 'sissy_squat', 'leg_ext', 'box_jump', 'burpee', 'jump_rope',
+    'stairs', 'curved_sprint', 'treadmill_run', 'sled_push',
+  },
+  InjuryArea.shoulder: {
+    'ohp', 'db_shoulder_press', 'shoulder_press_m', 'shoulder_press_pl', 'fixed_bb_press',
+    'upright_row', 'dips', 'tri_dips', 'assisted_dip', 'dip_m', 'bb_bench', 'decline_bb',
+    'behind_neck', 'pullup', 'lat_pulldown', 'overhead_tri', 'ski_erg', 'battle_rope', 'versa',
+  },
+  InjuryArea.wrist: {
+    'pushup', 'trx_pushup', 'front_squat', 'bb_curl', 'skull_crusher', 'ab_wheel', 'burpee',
+    'kickback', 'upright_row', 'cgbp',
+  },
+  InjuryArea.elbow: {
+    'skull_crusher', 'ez_skull', 'overhead_tri', 'tri_pushdown', 'tri_ext_m', 'kickback',
+    'dips', 'tri_dips', 'dip_m', 'cgbp', 'preacher_curl', 'preacher_curl_m', 'pullup',
+  },
+};
+
+/// 프로필의 부상 체크에 걸리는 운동인지.
+bool excludedByInjury(Exercise ex, Set<InjuryArea> injuries) =>
+    injuries.any((i) => injuryExclusions[i]?.contains(ex.id) ?? false);
+
 final Map<String, Exercise> _byId = {
   for (final e in exerciseCatalog) e.id: e,
 };

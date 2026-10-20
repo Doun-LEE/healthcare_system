@@ -292,6 +292,20 @@ class _ExerciseCard extends StatelessWidget {
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (pe.note != null && pe.note!.isNotEmpty)
                           Text(pe.note!, style: text.bodySmall?.copyWith(color: cs.tertiary)),
+                        if (plan.partnerName != null && plan.partnerWeights.containsKey(pe.exerciseId) && !isCardio)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Row(children: [
+                              Icon(Icons.group, size: 14, color: cs.secondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                isBw
+                                    ? '${plan.partnerName}: 같은 횟수'
+                                    : '${plan.partnerName}: ${_fmt(plan.partnerWeights[pe.exerciseId]!)}kg',
+                                style: text.bodySmall?.copyWith(color: cs.secondary, fontWeight: FontWeight.w600),
+                              ),
+                            ]),
+                          ),
                       ],
                     ),
                   ),

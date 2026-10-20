@@ -15,6 +15,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/store.dart';
+import '../models/models.dart';
+import 'partner.dart';
 
 class CloudException implements Exception {
   CloudException(this.message);
@@ -136,6 +138,90 @@ class CloudSync {
       'updatedAt': FieldValue.serverTimestamp(),
       'email': u.email,
     });
+  }
+
+  // ───────── 파트너 ─────────
+
+  static String emailKey(String email) =>
+      base64Url.encode(utf8.encode(email.trim().toLowerCase())).replaceAll('=', '');
+
+  /// 내 이메일을 검색 가능하게 등록하고 공개 프로필을 올린다.
+  Future<void> publishPublic(Map<String, dynamic> publicProfile) async {
+    final u = user;
+    if (u == null) return;
+    final batch = _db.batch();
+    batch.set(_db.doc('users/${u.uid}/public/profile'), {...publicProfile, 'updatedAt': FieldValue.serverTimestamp()});
+    if (u.email != null) {
+      batch.set(_db.doc('emails/${emailKey(u.email!)}'), {
+        'uid': u.uid,
+        'name': publicProfile['name'],
+        'email': u.email!.toLowerCase(),
+      });
+    }
+    await batch.commit();
+  }
+
+  /// 이메일로 파트너 찾기. 없으면 null.
+  Future<PartnerLink?> lookupByEmail(String email) async {
+    final snap = await _db.doc('emails/${emailKey(email)}').get();
+    final d = snap.data();
+    if (d == null) return null;
+    return PartnerLink(uid: d['uid'] as String, name: (d['name'] as String?) ?? '', email: (d['email'] as String?) ?? email);
+  }
+
+  Future<PartnerProfile?> fetchPartner(String uid) async {
+    final snap = await _db.doc('users/$uid/public/profile').get();
+    final d = snap.data();
+    if (d == null) return null;
+    return PartnerProfile.fromJson(d);
+  }
+
+  Future<void> sendJointRoutine({
+    required String toUid,
+    required DateTime date,
+    required String code,
+    required String title,
+    required String fromName,
+  }) async {
+    final u = user;
+    if (u == null) return;
+    await _db.collection('users/$toUid/inbox').add({
+      'type': 'joint',
+      'fromUid': u.uid,
+      'fromName': fromName,
+      'date': dateKey(date),
+      'code': code,
+      'title': title,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<List<InboxItem>> readInbox() async {
+    final u = user;
+    if (u == null) return const [];
+    final snap = await _db.collection('users/${u.uid}/inbox').get();
+    final out = <InboxItem>[];
+    for (final doc in snap.docs) {
+      final d = doc.data();
+      try {
+        out.add(InboxItem(
+          id: doc.id,
+          fromUid: d['fromUid'] as String,
+          fromName: (d['fromName'] as String?) ?? '파트너',
+          date: parseDateKey(d['date'] as String),
+          code: d['code'] as String,
+          title: (d['title'] as String?) ?? '',
+        ));
+      } catch (_) {}
+    }
+    out.sort((a, b) => a.date.compareTo(b.date));
+    return out;
+  }
+
+  Future<void> deleteInbox(String id) async {
+    final u = user;
+    if (u == null) return;
+    await _db.doc('users/${u.uid}/inbox/$id').delete();
   }
 
   static String _message(FirebaseAuthException e) => switch (e.code) {
