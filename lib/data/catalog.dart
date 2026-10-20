@@ -655,6 +655,18 @@ const List<EquipmentInfo> equipmentCatalog = [
     strengths: ['워밍업', '종아리·협응', '어디서나'],
     groups: [MuscleGroup.cardio],
   ),
+  EquipmentInfo(
+    type: EquipmentType.outdoor,
+    summary: '헬스장 밖에서 하는 유산소. 체크하면 러닝·산 뛰기·등산·자전거·계단이 루틴 유산소로 뽑힌다.',
+    strengths: ['산 뛰기(트레일)', '러닝·걷기', '등산', '야외 자전거', '계단 오르기'],
+    groups: [MuscleGroup.cardio, MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.pool,
+    summary: '수영. 관절 부담 없는 전신 유산소.',
+    strengths: ['전신 저충격', '회복', '어깨·등 지구력'],
+    groups: [MuscleGroup.cardio],
+  ),
 
   // ───── 기능성·기타 추가 ─────
   EquipmentInfo(
@@ -1561,6 +1573,64 @@ const List<Exercise> exerciseCatalog = [
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [8, 12], priority: 1,
     description: '숫자는 분. 5회씩 여러 세트로 나눠서.',
+  ),
+  // ── 야외 / 맨몸 유산소 (분) ──
+  Exercise(
+    id: 'outdoor_run', name: '야외 러닝', group: MuscleGroup.cardio,
+    emphasis: ['심폐 지구력', '야외'], equipment: [EquipmentType.outdoor],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [20, 40], priority: 3,
+    description: '대화 가능한 속도로. 숫자는 분.',
+  ),
+  Exercise(
+    id: 'trail_run', name: '산 뛰기 (트레일 러닝)', group: MuscleGroup.cardio,
+    emphasis: ['심폐 지구력', '둔근·종아리', '야외'], equipment: [EquipmentType.outdoor],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [20, 40], priority: 3,
+    description: '오르막은 걷고 평지·내리막은 뛰기. 하체 날 다음엔 피하기.',
+  ),
+  Exercise(
+    id: 'hiking', name: '등산', group: MuscleGroup.cardio,
+    emphasis: ['둔근·대퇴사두', '장시간 유산소', '야외'], equipment: [EquipmentType.outdoor],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [40, 90], priority: 2,
+  ),
+  Exercise(
+    id: 'outdoor_walk', name: '빠르게 걷기', group: MuscleGroup.cardio,
+    emphasis: ['지방 연소', '회복', '야외'], equipment: [EquipmentType.outdoor],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [20, 40], priority: 1,
+  ),
+  Exercise(
+    id: 'outdoor_bike', name: '야외 자전거', group: MuscleGroup.cardio,
+    emphasis: ['하체 지구력', '무릎 부담 ↓', '야외'], equipment: [EquipmentType.outdoor],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [30, 60], priority: 2,
+  ),
+  Exercise(
+    id: 'stair_run', name: '계단 오르기 (아파트·육교)', group: MuscleGroup.cardio,
+    emphasis: ['둔근·대퇴사두', '고강도'], equipment: [EquipmentType.outdoor, EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 20], priority: 2,
+  ),
+  Exercise(
+    id: 'swim', name: '수영', group: MuscleGroup.cardio,
+    emphasis: ['전신 저충격', '회복'], equipment: [EquipmentType.pool],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [20, 40], priority: 2,
+  ),
+  Exercise(
+    id: 'mountain_climber', name: '마운틴 클라이머', group: MuscleGroup.cardio,
+    emphasis: ['고강도 인터벌', '코어', '어디서나'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [6, 12], priority: 1,
+    description: '30초 전력 / 30초 휴식 반복. 숫자는 분.',
+  ),
+  Exercise(
+    id: 'jumping_jack', name: '점핑잭·하이니 인터벌', group: MuscleGroup.cardio,
+    emphasis: ['워밍업', '고강도 인터벌', '어디서나'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [6, 12], priority: 1,
   ),
   Exercise(
     id: 'sled_drag', name: '슬레드 드래그(끌기)', group: MuscleGroup.cardio,

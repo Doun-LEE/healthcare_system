@@ -140,6 +140,8 @@ enum EquipmentType {
   jacobsLadder('제이콥스 래더', EquipmentCategory.cardio, ['jacobs ladder']),
   versaClimber('버사클라이머', EquipmentCategory.cardio, ['versaclimber', '버사 클라이머']),
   jumpRope('줄넘기', EquipmentCategory.cardio, ['jump rope', 'skipping']),
+  outdoor('야외 활동 가능 (러닝·등산·자전거)', EquipmentCategory.cardio, ['outdoor', 'running', 'trail', 'hiking', '야외', '러닝', '등산', '산']),
+  pool('수영장', EquipmentCategory.cardio, ['pool', 'swim', '수영']),
 
   // ── 기능성·기타 ──
   landmine('랜드마인', EquipmentCategory.functional, ['landmine', '랜드마인']),

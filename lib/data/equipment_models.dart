@@ -106,6 +106,8 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.jacobsLadder => _stairs(),
       EquipmentType.versaClimber => _skiErg(),
       EquipmentType.jumpRope => _mat(),
+      EquipmentType.outdoor => _outdoor(),
+      EquipmentType.pool => _pool(),
       // 기능성·기타
       EquipmentType.landmine => _landmine(),
       EquipmentType.sled => _sled(),
@@ -572,6 +574,22 @@ List<Prim> _elliptical() => [
       ],
       Box(const V3(0, 0.8, -0.65), const V3(0.08, 1.6, 0.08), _steel),
       Box(const V3(0, 1.55, -0.6), const V3(0.35, 0.2, 0.03), _screen),
+    ];
+
+List<Prim> _outdoor() => [
+      // 산(삼각 근사)과 길
+      for (var i = 0; i < 6; i++)
+        Box(V3(-0.3, 0.1 + i * 0.2, 0), V3(1.4 - i * 0.22, 0.2, 1.0 - i * 0.15), const Color(0xFF4E7D3A)),
+      Box(const V3(0.9, 0.03, 0.2), const V3(0.8, 0.06, 0.5), const Color(0xFF8A7B6A)), // 흙길
+      Cyl(const V3(0.9, 0.35, -0.2), 0.03, 0.5, 'y', const Color(0xFF6B4F2A)), // 나무
+      Cyl(const V3(0.9, 0.7, -0.2), 0.22, 0.3, 'y', const Color(0xFF3F8F3A), segments: 10),
+    ];
+
+List<Prim> _pool() => [
+      Box(const V3(0, 0.15, 0), const V3(2.0, 0.3, 1.0), const Color(0xFFCFD6DD)), // 풀 테두리
+      Box(const V3(0, 0.28, 0), const V3(1.8, 0.06, 0.8), const Color(0xFF3FA7E0)), // 물
+      for (final z in [-0.2, 0.2]) Box(V3(0, 0.32, z), const V3(1.8, 0.02, 0.03), const Color(0xFFE53935)), // 레인
+      Box(const V3(1.05, 0.5, 0.3), const V3(0.1, 0.4, 0.1), const Color(0xFF9AA3AD)), // 사다리
     ];
 
 List<Prim> _mat() => [
