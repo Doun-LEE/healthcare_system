@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FitRoutine 설치</title>
+  <meta name="description" content="FitRoutine — 내 헬스장 기구로 자동 생성되는 운동 루틴. 안드로이드 APK 또는 웹앱으로 설치.">
+  <link rel="icon" href="icons/Icon-192.png">
+  <style>
+    :root { --bg:#f7f9f1; --card:#ffffff; --fg:#1d1f17; --muted:#5e6356; --accent:#55843a; --accent2:#7CB342; --line:#e2e6d8; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#141712; --card:#1e221b; --fg:#eef1e6; --muted:#a7ad9c; --line:#2d3229; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", Roboto, sans-serif; background:var(--bg); color:var(--fg); }
+    .wrap { max-width:480px; margin:0 auto; padding:32px 20px 48px; }
+    .logo { width:88px; height:88px; border-radius:22px; display:block; margin:0 auto 14px; }
+    h1 { text-align:center; margin:0; font-size:28px; }
+    .sub { text-align:center; color:var(--muted); margin:6px 0 26px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; }
+    .card h2 { margin:0 0 6px; font-size:17px; }
+    .card p { margin:0 0 12px; color:var(--muted); font-size:14px; line-height:1.5; }
+    .btn { display:block; width:100%; text-align:center; padding:14px; border-radius:12px; font-size:16px; font-weight:600; text-decoration:none; border:0; cursor:pointer; }
+    .primary { background:var(--accent); color:#fff; }
+    .secondary { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+    .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; background:var(--accent2); color:#fff; margin-left:6px; vertical-align:middle; }
+    ol { padding-left:20px; color:var(--muted); font-size:14px; line-height:1.7; margin:0; }
+    .hide { display:none; }
+    .qr { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .qr canvas, .qr img { background:#fff; padding:8px; border-radius:12px; }
+    .small { font-size:12px; color:var(--muted); text-align:center; margin-top:18px; }
+    code { background:var(--line); padding:1px 6px; border-radius:6px; font-size:13px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="icons/Icon-192.png" alt="">
+  <h1>FitRoutine</h1>
+  <p class="sub">내 헬스장 기구로 자동 생성되는 운동 루틴</p>
+
+  <!-- 안드로이드 -->
+  <div class="card" id="android">
+    <h2>안드로이드 앱 (APK) <span class="tag" id="ver">최신</span></h2>
+    <p>다운로드 후 파일을 열어 설치하세요. "출처를 알 수 없는 앱" 허용을 물어보면 허용. 이후 업데이트는 앱 안 <b>내 정보 → 앱 정보</b>에서 받습니다.</p>
+    <a class="btn primary" id="apk" href="https://github.com/Doun-LEE/healthcare_system/releases/latest">APK 다운로드</a>
+    <p id="notes" class="hide" style="margin-top:10px"></p>
+  </div>
+
+  <!-- 아이폰 -->
+  <div class="card" id="ios">
+    <h2>아이폰 · 아이패드</h2>
+    <p>앱스토어 없이 홈 화면에 앱으로 추가합니다.</p>
+    <ol>
+      <li><b>Safari</b>로 아래 "웹앱 열기"</li>
+      <li>하단 <b>공유(□↑)</b> 버튼</li>
+      <li><b>홈 화면에 추가</b> → 추가</li>
+    </ol>
+  </div>
+
+  <!-- 웹앱 -->
+  <div class="card">
+    <h2>웹앱 (설치 없이)</h2>
+    <p>브라우저에서 바로 실행. 로그인하면 폰·노트북 어디서든 같은 데이터. 안드로이드 Chrome은 ⋮ → "홈 화면에 추가"로 앱처럼 쓸 수 있어요.</p>
+    <a class="btn secondary" href="./">웹앱 열기</a>
+  </div>
+
+  <!-- QR -->
+  <div class="card qr">
+    <h2 style="align-self:flex-start">친구에게 보여주기</h2>
+    <canvas id="qrc" width="180" height="180"></canvas>
+    <p style="margin:0">이 페이지 QR — 카메라로 찍으면 바로 이 화면</p>
+    <button class="btn secondary" id="copy" style="width:auto;padding:10px 18px">링크 복사</button>
+  </div>
+
+  <p class="small">첫 실행: Google 계정으로 시작 → 헬스장 기구 등록 → 루틴 생성. 문제가 있으면 도운에게.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var isAndroid = /Android/i.test(ua);
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // 기기에 맞는 카드를 위로
+  var wrap = document.querySelector('.wrap');
+  var a = document.getElementById('android'), i = document.getElementById('ios');
+  if (isIOS) { wrap.insertBefore(i, a); }
+  else if (!isAndroid) { a.querySelector('p').textContent = '안드로이드 폰에서 이 페이지를 열면 바로 설치할 수 있어요. (지금 기기는 PC)'; }
+
+  // 최신 릴리스 APK 링크 (GitHub 공개 API)
+  fetch('https://api.github.com/repos/Doun-LEE/healthcare_system/releases/latest', { headers: { accept: 'application/vnd.github+json' } })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j) return;
+      var asset = (j.assets || []).filter(function (x) { return /\.apk$/i.test(x.name); })[0];
+      if (asset) {
+        document.getElementById('apk').href = asset.browser_download_url;
+        document.getElementById('apk').textContent = 'APK 다운로드 (' + j.tag_name + ', ' + Math.round(asset.size / 1048576) + 'MB)';
+      }
+      document.getElementById('ver').textContent = j.tag_name;
+      var n = document.getElementById('notes');
+      if (j.published_at) { n.textContent = '업데이트: ' + new Date(j.published_at).toLocaleDateString('ko-KR'); n.classList.remove('hide'); }
+    }).catch(function () {});
+
+  // QR
+  var url = location.href.split('#')[0];
+  try {
+    var holder = document.createElement('div');
+    new QRCode(holder, { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+    var img = holder.querySelector('img') || holder.querySelector('canvas');
+    var c = document.getElementById('qrc');
+    if (img && img.tagName === 'CANVAS') { c.replaceWith(img); }
+    else if (img) { var im = new Image(); im.width = 180; im.height = 180; im.src = img.src; c.replaceWith(im); }
+  } catch (e) {}
+  document.getElementById('copy').addEventListener('click', function () {
+    navigator.clipboard.writeText(url).then(function () { this.textContent = '복사됨!'; }.bind(this)).catch(function () { prompt('링크', url); });
+  });
+})();
+</script>
+</body>
+</html>
