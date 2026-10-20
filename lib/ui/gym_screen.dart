@@ -1,0 +1,396 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/catalog.dart';
+import '../models/models.dart';
+import '../state/app_state.dart';
+import 'widgets/equipment_3d.dart';
+
+/// 헬스장별 보유 기구 추가/수정/삭제 (요구사항 3) + 기구 3D/특징 보기.
+class GymScreen extends StatelessWidget {
+  const GymScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final gym = state.activeGym;
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: gym == null
+            ? const Text('헬스장')
+            : DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: gym.id,
+                  items: state.gyms
+                      .map((g) => DropdownMenuItem(value: g.id, child: Text(g.name, style: text.titleLarge)))
+                      .toList(),
+                  onChanged: (v) => v == null ? null : state.setActiveGym(v),
+                ),
+              ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (v) => _gymMenu(context, state, v),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'add', child: Text('헬스장 추가')),
+              if (gym != null) const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
+              if (gym != null) const PopupMenuItem(value: 'standard', child: Text('대중적인 기본 기구 일괄 추가')),
+              if (gym != null) const PopupMenuItem(value: 'delete', child: Text('이 헬스장 삭제')),
+            ],
+          ),
+        ],
+      ),
+      floatingActionButton: gym == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _addEquipment(context, state, gym),
+              icon: const Icon(Icons.add),
+              label: const Text('기구 추가'),
+            ),
+      body: gym == null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.store_mall_directory_outlined, size: 72, color: cs.primary),
+                  const SizedBox(height: 12),
+                  Text('등록된 헬스장이 없어요', style: text.titleLarge),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () => _gymMenu(context, state, 'add'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('헬스장 추가'),
+                  ),
+                ],
+              ),
+            )
+          : gym.equipment.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('보유 기구를 추가하세요', style: text.titleLarge),
+                        const SizedBox(height: 8),
+                        Text('기구를 등록하면 그 기구로 할 수 있는 운동만 루틴에 들어갑니다.',
+                            textAlign: TextAlign.center, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: () => state.addStandardEquipment(gym.id),
+                          child: const Text('대중적인 기본 기구 16종 일괄 추가'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : _EquipmentList(gym: gym),
+    );
+  }
+
+  Future<void> _gymMenu(BuildContext context, AppState state, String v) async {
+    final gym = state.activeGym;
+    switch (v) {
+      case 'add':
+        final name = await _prompt(context, '헬스장 이름', '예: 집 앞 피트니스');
+        if (name != null) await state.addGym(name);
+      case 'rename':
+        if (gym == null) return;
+        final name = await _prompt(context, '헬스장 이름', gym.name, initial: gym.name);
+        if (name != null && name.trim().isNotEmpty) await state.renameGym(gym.id, name.trim());
+      case 'standard':
+        if (gym != null) await state.addStandardEquipment(gym.id);
+      case 'delete':
+        if (gym == null) return;
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text('${gym.name} 삭제'),
+            content: const Text('기구 목록이 함께 삭제됩니다.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+              FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('삭제')),
+            ],
+          ),
+        );
+        if (ok == true) await state.deleteGym(gym.id);
+    }
+  }
+
+  Future<void> _addEquipment(BuildContext context, AppState state, Gym gym) async {
+    final have = gym.availableTypes;
+    final chosen = await showModalBottomSheet<EquipmentType>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (c) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.8,
+        builder: (c, ctrl) => ListView(
+          controller: ctrl,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('기구 종류 선택', style: Theme.of(c).textTheme.titleMedium),
+            ),
+            for (final info in equipmentCatalog)
+              if (info.type != EquipmentType.bodyweight)
+                ListTile(
+                  leading: Icon(have.contains(info.type) ? Icons.check_circle : Icons.add_circle_outline,
+                      color: have.contains(info.type) ? Theme.of(c).colorScheme.primary : null),
+                  title: Text(info.type.label),
+                  subtitle: Text(info.summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onTap: () => Navigator.pop(c, info.type),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !context.mounted) return;
+    final detail = await _EquipmentEditor.show(context, chosen);
+    if (detail == null) return;
+    await state.addEquipment(gym.id, chosen,
+        name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note);
+  }
+}
+
+Future<String?> _prompt(BuildContext context, String title, String hint, {String? initial}) {
+  final c = TextEditingController(text: initial);
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: TextField(controller: c, autofocus: true, decoration: InputDecoration(hintText: hint)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('확인')),
+      ],
+    ),
+  );
+}
+
+class _EquipmentList extends StatelessWidget {
+  const _EquipmentList({required this.gym});
+  final Gym gym;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+
+    // 부위별로 묶어서 보여준다.
+    final byGroup = <MuscleGroup, List<GymEquipment>>{};
+    for (final e in gym.equipment) {
+      final groups = equipmentInfo(e.type).groups;
+      final g = groups.isEmpty ? MuscleGroup.cardio : groups.first;
+      byGroup.putIfAbsent(g, () => []).add(e);
+    }
+    final order = [
+      MuscleGroup.chest, MuscleGroup.back, MuscleGroup.legs, MuscleGroup.shoulder,
+      MuscleGroup.arms, MuscleGroup.abs, MuscleGroup.cardio,
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 90),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D와 특징, 길게 누르면 수정',
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        ),
+        for (final g in order)
+          if (byGroup[g] != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(g.label, style: text.labelLarge?.copyWith(color: cs.primary)),
+            ),
+            for (final e in byGroup[g]!)
+              Dismissible(
+                key: ValueKey(e.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: cs.errorContainer,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: Icon(Icons.delete, color: cs.onErrorContainer),
+                ),
+                onDismissed: (_) => state.removeEquipment(gym.id, e.id),
+                child: ListTile(
+                  leading: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Equipment3DView(type: e.type, height: 56, autoRotate: false),
+                  ),
+                  title: Text(e.displayName),
+                  subtitle: Text(
+                    [
+                      if (e.customName != null && e.customName!.isNotEmpty) e.type.label,
+                      equipmentInfo(e.type).strengths.take(2).join(' · '),
+                      if (e.maxWeightKg != null) '최대 ${e.maxWeightKg!.toInt()}kg',
+                    ].join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => _EquipmentDetail.show(context, e),
+                  onLongPress: () async {
+                    final edited = await _EquipmentEditor.show(context, e.type, existing: e);
+                    if (edited != null) await state.updateEquipment(gym.id, edited);
+                  },
+                ),
+              ),
+          ],
+      ],
+    );
+  }
+}
+
+class _EquipmentDetail extends StatelessWidget {
+  const _EquipmentDetail({required this.eq});
+  final GymEquipment eq;
+
+  static Future<void> show(BuildContext context, GymEquipment eq) => showModalBottomSheet(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) => _EquipmentDetail(eq: eq),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final info = equipmentInfo(eq.type);
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final exercises = exerciseCatalog.where((x) => x.equipment.contains(eq.type)).toList();
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.8,
+      maxChildSize: 0.95,
+      builder: (c, ctrl) => ListView(
+        controller: ctrl,
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+        children: [
+          Text(eq.displayName, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          if (eq.displayName != eq.type.label)
+            Text(eq.type.label, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          Equipment3DView(type: eq.type, height: 240),
+          const SizedBox(height: 12),
+          Text(info.summary, style: text.bodyLarge),
+          const SizedBox(height: 8),
+          Text('이 기구가 잘 먹는 포인트', style: text.titleSmall),
+          ...info.strengths.map((s) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.bolt, color: cs.primary, size: 20),
+                title: Text(s),
+              )),
+          if (eq.note != null && eq.note!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('메모', style: text.titleSmall),
+            Text(eq.note!),
+          ],
+          const SizedBox(height: 12),
+          Text('이 기구로 하는 운동 ${exercises.length}개', style: text.titleSmall),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: exercises
+                .map((x) => Chip(label: Text(x.name), visualDensity: VisualDensity.compact))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EquipmentEditor extends StatefulWidget {
+  const _EquipmentEditor({required this.type, this.existing});
+  final EquipmentType type;
+  final GymEquipment? existing;
+
+  static Future<GymEquipment?> show(BuildContext context, EquipmentType type, {GymEquipment? existing}) =>
+      showDialog<GymEquipment>(
+        context: context,
+        builder: (_) => _EquipmentEditor(type: type, existing: existing),
+      );
+
+  @override
+  State<_EquipmentEditor> createState() => _EquipmentEditorState();
+}
+
+class _EquipmentEditorState extends State<_EquipmentEditor> {
+  late final TextEditingController _name;
+  late final TextEditingController _max;
+  late final TextEditingController _note;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.existing?.customName ?? '');
+    _max = TextEditingController(text: widget.existing?.maxWeightKg?.toInt().toString() ?? '');
+    _note = TextEditingController(text: widget.existing?.note ?? '');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _max.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMachine = ![
+      EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.flatBench, EquipmentType.inclineBench,
+      EquipmentType.pullUpBar, EquipmentType.dipStation, EquipmentType.romanChair, EquipmentType.kettlebell,
+      EquipmentType.treadmill, EquipmentType.bike, EquipmentType.rower, EquipmentType.stairClimber,
+      EquipmentType.elliptical, EquipmentType.bodyweight,
+    ].contains(widget.type);
+    return AlertDialog(
+      title: Text(widget.existing == null ? '${widget.type.label} 추가' : '${widget.type.label} 수정'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: '별칭 (선택)', hintText: '예: 해머 체스트프레스'),
+          ),
+          if (isMachine) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _max,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: '최대 중량 kg (선택)', hintText: '머신 스택 최대치'),
+            ),
+          ],
+          const SizedBox(height: 8),
+          TextField(
+            controller: _note,
+            decoration: const InputDecoration(labelText: '메모 (선택)', hintText: '예: 2층 창가, 시트 높이 4'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            GymEquipment(
+              id: widget.existing?.id ?? 'new',
+              type: widget.type,
+              customName: _name.text.trim().isEmpty ? null : _name.text.trim(),
+              maxWeightKg: double.tryParse(_max.text),
+              note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+            ),
+          ),
+          child: const Text('저장'),
+        ),
+      ],
+    );
+  }
+}
