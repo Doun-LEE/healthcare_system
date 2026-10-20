@@ -46,6 +46,7 @@ class CloudSync {
 
   User? get user => _auth.currentUser;
   String? get email => user?.email;
+  String? get displayName => user?.displayName;
   bool get signedIn => user != null;
   Stream<User?> get authChanges => _auth.authStateChanges();
 

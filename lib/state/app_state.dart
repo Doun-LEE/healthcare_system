@@ -68,12 +68,36 @@ class AppState extends ChangeNotifier {
   Future<void> load() async {
     _data = await _store.load();
     _loaded = true;
-    notifyListeners();
     if (cloudSignedIn) {
+      // 계정 세션이 살아 있으면 로그인 화면을 건너뛴다.
+      _ensureProfileForAccount();
+      _authed = currentUser != null;
+      notifyListeners();
       // 다른 기기에서 바꾼 내용이 있으면 내려받는다 (실패해도 로컬로 계속).
       try {
         await _pullIfNewer();
+        _ensureProfileForAccount();
+        _authed = currentUser != null;
       } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  /// 계정으로 들어왔는데 프로필이 없으면 계정 이름으로 하나 만든다.
+  void _ensureProfileForAccount() {
+    if (!cloudSignedIn) return;
+    if (_data.profiles.isEmpty) {
+      final name = CloudSync.instance.displayName?.trim();
+      final email = CloudSync.instance.email ?? '';
+      final p = UserProfile(
+        id: newId(),
+        name: (name == null || name.isEmpty) ? email.split('@').first : name,
+      );
+      if (_data.gyms.isNotEmpty) p.activeGymId = _data.gyms.first.id;
+      _data.profiles.add(p);
+      _data.currentUserId = p.id;
+    } else if (currentUser == null) {
+      _data.currentUserId = _data.profiles.first.id;
     }
   }
 
@@ -147,21 +171,23 @@ class AppState extends ChangeNotifier {
     try {
       await auth();
       final remote = await CloudSync.instance.pull();
+      String msg;
       if (remote != null && !remote.$1.isEmpty) {
         final local = _data;
         _data = remote.$1;
         _mergeFrom(local);
-        _data.updatedAt = DateTime.now();
-        await _store.save(_data);
-        await CloudSync.instance.push(_data);
-        lastSyncedAt = DateTime.now();
-        notifyListeners();
-        return '계정의 데이터를 불러왔어요. 이제 어느 기기에서든 같은 데이터를 봅니다.';
+        msg = '계정의 데이터를 불러왔어요. 이제 어느 기기에서든 같은 데이터를 봅니다.';
+      } else {
+        msg = _data.isEmpty ? '환영합니다! 헬스장 기구를 등록하고 루틴을 만들어 보세요.' : '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
       }
+      _ensureProfileForAccount();
+      _authed = true;
+      _data.updatedAt = DateTime.now();
+      await _store.save(_data);
       await CloudSync.instance.push(_data);
       lastSyncedAt = DateTime.now();
       notifyListeners();
-      return '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
+      return msg;
     } finally {
       syncing = false;
       notifyListeners();
@@ -197,6 +223,7 @@ class AppState extends ChangeNotifier {
     if (!cloudAvailable) return;
     _pushDebounce.cancel();
     await CloudSync.instance.signOut();
+    _authed = false; // 로그인 화면으로
     notifyListeners();
   }
 
@@ -246,7 +273,12 @@ class AppState extends ChangeNotifier {
     return p;
   }
 
-  void logout() {
+  /// 앱 로그아웃. 계정에 로그인돼 있으면 계정도 함께 로그아웃한다.
+  Future<void> logout() async {
+    if (cloudSignedIn) {
+      await cloudSignOut();
+      return;
+    }
     _authed = false;
     notifyListeners();
   }

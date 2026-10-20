@@ -45,6 +45,7 @@ class _AccountSheetState extends State<AccountSheet> {
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return;
     } on CloudException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
