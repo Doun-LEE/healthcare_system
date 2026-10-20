@@ -21,7 +21,13 @@
 
 추가로: 무게/횟수 **스크롤 휠 입력**(기구 단위로 증감), **루틴 공유 코드**(카톡으로 보내면 상대는 '루틴 불러오기'로 같은 운동을 자기 무게로 수행 → 분할이 달라도 파트너 운동 가능), **오늘의 명언**, 세트 간 휴식 타이머, 운동 교체/제외/세트 추가, 하루 루틴 재생성, 완료율·연속 주 통계, 깨진 저장파일 복구.
 
-## 설치 없이 쓰기 (추천) — 웹앱
+## APK 배포 (정식)
+
+`main`에 push될 때마다 GitHub Actions가 버전을 자동으로 올리고(패치 +1, 커밋 메시지에 `#minor`/`#major`로 조절) 릴리스 키로 서명한 `ldw_healthcare_system_vX.Y.Z.apk`를 **Releases**에 올립니다. 앱의 **내 정보 → 앱 정보**에서 현재 버전과 새 버전 알림/다운로드를 확인할 수 있습니다.
+
+필요한 GitHub Secrets (Settings → Secrets and variables → Actions): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. 키스토어는 저장소에 넣지 않습니다. 없으면 debug 서명 아티팩트만 만들고 릴리스는 생략합니다.
+
+## 웹앱 (개발 확인용)
 
 `main`에 push될 때마다 GitHub Pages로 배포됩니다: **https://doun-lee.github.io/healthcare_system/**
 

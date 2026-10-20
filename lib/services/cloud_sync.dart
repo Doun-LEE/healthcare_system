@@ -11,6 +11,8 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/store.dart';
 
@@ -66,6 +68,31 @@ class CloudSync {
     }
   }
 
+  /// 구글(Gmail) 계정으로 로그인.
+  /// - 웹: Firebase 팝업.
+  /// - 안드로이드: google_sign_in → Firebase 자격증명. Firebase 콘솔에 안드로이드 앱(패키지
+  ///   com.doun.fit_routine + 서명 SHA-1)이 등록되고 google-services.json 이 있어야 동작한다.
+  Future<void> signInWithGoogle() async {
+    try {
+      if (kIsWeb) {
+        final provider = GoogleAuthProvider()..addScope('email');
+        await _auth.signInWithPopup(provider);
+        return;
+      }
+      final gsi = GoogleSignIn.instance;
+      await gsi.initialize();
+      final account = await gsi.authenticate(scopeHint: const ['email']);
+      final idToken = account.authentication.idToken;
+      if (idToken == null) throw CloudException('구글 로그인 토큰을 받지 못했습니다.');
+      await _auth.signInWithCredential(GoogleAuthProvider.credential(idToken: idToken));
+    } on FirebaseAuthException catch (e) {
+      throw CloudException(_message(e));
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) throw CloudException('로그인을 취소했습니다.');
+      throw CloudException('구글 로그인 실패: ${e.description ?? e.code.name}');
+    }
+  }
+
   Future<void> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
@@ -74,7 +101,14 @@ class CloudSync {
     }
   }
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await _auth.signOut();
+    if (!kIsWeb) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    }
+  }
 
   /// 클라우드 데이터. 없으면 null.
   Future<(AppData, DateTime)?> pull() async {

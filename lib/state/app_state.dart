@@ -125,21 +125,27 @@ class AppState extends ChangeNotifier {
     return false;
   }
 
-  /// 로그인 또는 회원가입 뒤 호출. 반환값은 사용자에게 보여줄 결과 메시지.
+  /// 이메일/비밀번호 로그인 또는 가입.
+  Future<String> cloudSignIn(String email, String password, {bool create = false}) =>
+      _cloudAuth(() => create
+          ? CloudSync.instance.signUp(email, password)
+          : CloudSync.instance.signIn(email, password));
+
+  /// 구글(Gmail) 로그인.
+  Future<String> cloudSignInWithGoogle() =>
+      _cloudAuth(() => CloudSync.instance.signInWithGoogle());
+
+  /// 인증 뒤 데이터 합치기. 반환값은 사용자에게 보여줄 결과 메시지.
   ///
   /// - 클라우드에 데이터가 있으면 그걸 기준으로 하고, 이 기기에만 있던 것은 합친다.
   /// - 클라우드가 비어 있으면 지금 기기의 데이터를 올린다(첫 가입).
-  Future<String> cloudSignIn(String email, String password, {bool create = false}) async {
+  Future<String> _cloudAuth(Future<void> Function() auth) async {
     if (!cloudAvailable) throw CloudException('클라우드가 설정되지 않았습니다.');
     syncing = true;
     syncError = null;
     notifyListeners();
     try {
-      if (create) {
-        await CloudSync.instance.signUp(email, password);
-      } else {
-        await CloudSync.instance.signIn(email, password);
-      }
+      await auth();
       final remote = await CloudSync.instance.pull();
       if (remote != null && !remote.$1.isEmpty) {
         final local = _data;
@@ -155,7 +161,7 @@ class AppState extends ChangeNotifier {
       await CloudSync.instance.push(_data);
       lastSyncedAt = DateTime.now();
       notifyListeners();
-      return create ? '가입 완료. 이 기기의 데이터를 계정에 올렸어요.' : '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
+      return '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
     } finally {
       syncing = false;
       notifyListeners();

@@ -54,6 +54,26 @@ class _AccountSheetState extends State<AccountSheet> {
     }
   }
 
+  Future<void> _google() async {
+    final state = context.read<AppState>();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final msg = await state.cloudSignInWithGoogle();
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } on CloudException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = '구글 로그인 오류: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _reset() async {
     if (_email.text.trim().isEmpty) {
       setState(() => _error = '이메일을 먼저 입력하세요.');
@@ -82,6 +102,23 @@ class _AccountSheetState extends State<AccountSheet> {
           Text('계정에 로그인하면 폰·노트북 어디서 열어도 같은 데이터를 봅니다.',
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _google,
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+            icon: const Icon(Icons.g_mobiledata, size: 28),
+            label: const Text('Google(Gmail) 계정으로 계속'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text('또는 이메일로', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              ),
+              const Expanded(child: Divider()),
+            ]),
+          ),
           TextField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,
