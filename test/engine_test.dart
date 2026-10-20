@@ -103,6 +103,18 @@ void main() {
       expect(r.progress.workingWeight, 60); // 55 + 2×2.5
     });
 
+    test('manually lowering the weight makes it the new baseline (no bump)', () {
+      final p = planned('bb_bench', 60, 10, 3);
+      for (final s in p.sets) {
+        s.completed = true;
+        s.doneWeight = 50;
+      }
+      final prog = ExerciseProgress(exerciseId: 'bb_bench', workingWeight: 60, targetReps: 10);
+      final r = Progression.apply(p, prog, DateTime(2026, 10, 20));
+      expect(r.progress.workingWeight, 50);
+      expect(r.message, contains('낮춰'));
+    });
+
     test('two consecutive failures → 10% deload', () {
       final prog = ExerciseProgress(exerciseId: 'bb_bench', workingWeight: 60, targetReps: 10);
       for (var i = 0; i < 2; i++) {

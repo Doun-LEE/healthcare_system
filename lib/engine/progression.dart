@@ -108,8 +108,21 @@ class Progression {
     if (maxDoneWeight > newWeight && !failedHalf) {
       newWeight = maxDoneWeight;
     }
+    // 사용자가 처방보다 낮춰서 했으면(컨디션 조정이 아닌 수동), 낮춘 무게가 새 기준.
+    final plannedWeight = planned.sets.first.targetWeight;
+    final lowered = !lightDay && maxDoneWeight > 0 && maxDoneWeight < plannedWeight;
+    if (lowered) newWeight = maxDoneWeight;
 
-    if (lightDay && allHit && maxDoneWeight < current.workingWeight) {
+    if (lowered && allHit) {
+      current.consecutiveSuccess = 0;
+      current.consecutiveFail = 0;
+      if (overReps) {
+        newWeight += step;
+        msg = '무게를 낮춰 여유 있게 성공 → 기준 ${_fmt(newWeight)}kg';
+      } else {
+        msg = '무게를 낮춰 수행 → 기준을 ${_fmt(newWeight)}kg로 조정';
+      }
+    } else if (lightDay && allHit && maxDoneWeight < current.workingWeight) {
       // 컨디션 조절로 가볍게 한 날: 성공해도 기준 무게는 유지.
       current.consecutiveFail = 0;
       msg = '가벼운 날(${(loadFactor * 100).round()}%) 완수 → 기준 ${_fmt(newWeight)}kg 유지';
