@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'calendar_screen.dart';
 import 'gym_screen.dart';
 import 'profile_screen.dart';
+import 'stats_screen.dart';
 import 'today_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -20,6 +21,7 @@ class _HomeShellState extends State<HomeShell> {
     final pages = [
       const TodayScreen(),
       const CalendarScreen(),
+      const StatsScreen(),
       const GymScreen(),
       const ProfileScreen(),
     ];
@@ -31,6 +33,7 @@ class _HomeShellState extends State<HomeShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: '오늘'),
           NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: '달력'),
+          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: '기록'),
           NavigationDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center), label: '헬스장'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: '내 정보'),
         ],
