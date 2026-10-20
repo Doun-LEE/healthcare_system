@@ -92,8 +92,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => _LocalOnlySheet.show(context),
                       child: const Text('계정 없이 이 기기에서만 사용'),
                     ),
-                  ] else
+                  ] else ...[
                     const _LocalOnlyForm(),
+                    if (CloudSync.initError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: Text(
+                          '계정 기능을 켜지 못했습니다: ${CloudSync.initError}',
+                          textAlign: TextAlign.center,
+                          style: text.bodySmall?.copyWith(color: cs.error),
+                        ),
+                      ),
+                  ],
                 ],
               ),
             ),

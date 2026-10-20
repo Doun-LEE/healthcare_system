@@ -10,7 +10,11 @@ import 'ui/login_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await CloudSync.init(firebaseOptions);
+  try {
+    await CloudSync.init(firebaseOptions);
+  } catch (e) {
+    CloudSync.initError = e.toString();
+  }
   final state = AppState(await createStore());
   await state.load();
   runApp(FitRoutineApp(state: state));

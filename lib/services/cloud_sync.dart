@@ -32,14 +32,22 @@ class CloudSync {
   static bool get isConfigured => _instance != null;
   static CloudSync get instance => _instance!;
 
+  /// 초기화 실패 이유(화면에 표시해 원인 파악용). 성공이면 null.
+  static String? initError;
+
   /// [options]가 null이면 아무것도 하지 않는다(기기 전용 모드).
   static Future<void> init(FirebaseOptions? options) async {
-    if (options == null) return;
+    if (options == null) {
+      initError = '이 플랫폼용 Firebase 설정이 없습니다.';
+      return;
+    }
     try {
       await Firebase.initializeApp(options: options);
       _instance = CloudSync._();
-    } catch (_) {
+      initError = null;
+    } catch (e) {
       _instance = null;
+      initError = e.toString();
     }
   }
 
