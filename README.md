@@ -20,6 +20,7 @@
 | 13 | 신체 스펙(체중·골격근량·체지방률·나이·성별·숙련도) → 1RM 추정 → 운동별 무게·세트·횟수 자동 설정. 이후 수행 결과로 자동 보정 | `lib/engine/load_estimator.dart` |
 | + | **신체 스펙 확장**: 3대+OHP 실제 기록(있으면 추정 대신 사용), 운동 목표(근비대/근력/다이어트 → 횟수·휴식·유산소), 부상 부위(허리/무릎/어깨/손목/팔꿈치 → 해당 운동 제외) | `lib/engine/load_estimator.dart`, `catalog.dart` `injuryExclusions` |
 | + | **파트너 운동**: 이메일로 파트너 등록 → 오늘 탭 👥 → 두 사람의 오늘 부위·보유 기구를 맞춘 공통 루틴, 운동마다 내 무게/파트너 무게 표시, 파트너 앱에 루틴 전송(받은편지함 → 적용) | `lib/services/partner.dart`, `lib/ui/widgets/partner_widgets.dart` |
+| + | **AI 코치**(Firebase AI Logic · Gemini): 오늘 탭 ✨ → 스펙·3대·목표·부상·기구·오늘 부위·컨디션·최근 이력·4주 밸런스·파트너·자유 요청을 모두 보내 루틴 JSON을 받고, 앱이 검증(카탈로그 밖 운동·과한 무게·시간 초과 차단) → 미리보기 → 적용. 콘솔에서 AI Logic 활성화 필요 | `lib/services/ai_coach.dart`, `lib/ui/widgets/ai_coach_sheet.dart` |
 | + | **기록 탭**: 2/4/12주 부위별 완료 세트 밸런스(부족 부위 표시), 주간 세션 수, 주요 운동 무게 추이, 유산소 분 | `lib/engine/stats.dart`, `lib/ui/stats_screen.dart` |
 | + | **오늘 컨디션**(1~10) + 무게 % + 오늘 운동 시간 → 루틴 재조정. **운동 후 강도(RPE 1~10)** → 다음 무게 상향 폭 조절 | `lib/ui/widgets/condition_card.dart`, `lib/engine/progression.dart` |
 

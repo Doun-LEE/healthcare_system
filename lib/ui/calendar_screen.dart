@@ -5,6 +5,7 @@ import '../engine/planner.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
+import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
 
 /// 월간 달력. 탭=상세, 길게 누르기=휴식 토글, 상단 버튼으로 주/월 생성.
@@ -124,12 +125,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     : Column(
                         children: [
                           if (!_selected!.isBefore(today) && !selectedPlan.isFinished && !selectedPlan.isRest)
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: PartnerDayButton(date: _selected!, plan: selectedPlan),
-                              ),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Row(children: [
+                                PartnerDayButton(date: _selected!, plan: selectedPlan),
+                                TextButton.icon(
+                                  onPressed: () => showAiCoach(context, _selected!),
+                                  icon: const Icon(Icons.auto_awesome),
+                                  label: const Text('AI 코치'),
+                                ),
+                              ]),
                             ),
                           Expanded(
                             child: DayPlanView(

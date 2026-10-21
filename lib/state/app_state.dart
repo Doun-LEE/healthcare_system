@@ -12,6 +12,8 @@ import '../engine/progression.dart';
 import '../engine/session_generator.dart';
 import '../models/models.dart';
 import '../engine/load_estimator.dart';
+import '../engine/stats.dart';
+import '../services/ai_coach.dart';
 import '../services/cloud_sync.dart';
 import '../services/partner.dart';
 import '../services/routine_share.dart';
@@ -533,6 +535,77 @@ class AppState extends ChangeNotifier {
         );
       }
     }
+  }
+
+  // ───────── AI 코치 ─────────
+
+  /// AI에게 그날 루틴을 짜게 한다(미리보기용 — 적용은 [applyAiPlan]).
+  Future<AiPlan> aiPlanFor(DateTime date, {String? request}) async {
+    final u = currentUser;
+    if (u == null) throw AiCoachException('프로필이 없어요.');
+    final d = dateOnly(date);
+    final existing = planOn(d);
+    final focus = (existing != null && !existing.isRest && existing.focus.isNotEmpty)
+        ? existing.focus
+        : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
+    if (focus.isEmpty) throw AiCoachException('그날 부위를 정할 수 없어요. 먼저 루틴을 생성하세요.');
+    final recent = myPlans.where((p) => p.isFinished && !p.isRest && p.date.isBefore(d)).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    PartnerProfile? partner;
+    if (existing?.partnerName != null && cloudSignedIn) {
+      final link = _data.partners.where((p) => p.name == existing!.partnerName).firstOrNull;
+      if (link != null) {
+        try {
+          partner = await CloudSync.instance.fetchPartner(link.uid);
+        } catch (_) {}
+      }
+    }
+    final ctx = AiContext(
+      profile: u,
+      date: d,
+      focus: focus,
+      available: availableEquipment,
+      progress: progress,
+      recent: recent.take(8).toList(),
+      stats: Stats.summarize(myPlans, days: 28, now: d),
+      condition: existing?.condition,
+      loadFactor: existing?.loadFactor ?? 1.0,
+      minutes: existing != null && existing.estimatedMinutes > 0 ? null : null,
+      partner: partner,
+      request: request,
+    );
+    return AiCoach.generate(ctx);
+  }
+
+  Future<DayPlan?> applyAiPlan(DateTime date, AiPlan ai) async {
+    final u = currentUser;
+    if (u == null) return null;
+    final d = dateOnly(date);
+    final existing = planOn(d);
+    if (existing != null && existing.isFinished) return existing;
+    final plan = DayPlan(
+      id: existing?.id ?? newId(),
+      userId: u.id,
+      date: d,
+      kind: DayKind.workout,
+      focus: ai.focus,
+      exercises: ai.exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(ai.exercises),
+      intensityFactor: existing?.intensityFactor ?? 1.0,
+      loadFactor: existing?.loadFactor ?? 1.0,
+      condition: existing?.condition,
+      title: '${ai.title} ✨',
+      partnerName: existing?.partnerName,
+      partnerWeights: {
+        if (existing != null)
+          for (final e in existing.partnerWeights.entries)
+            if (ai.exercises.any((x) => x.exerciseId == e.key)) e.key: e.value,
+      },
+    );
+    if (existing != null) _data.plans.remove(existing);
+    _data.plans.add(plan);
+    await _save();
+    return plan;
   }
 
   /// 하루만 다시 생성(기구 변경 등 반영).

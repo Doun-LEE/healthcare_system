@@ -5,6 +5,7 @@ import '../data/quotes.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
+import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
 
 class TodayScreen extends StatelessWidget {
@@ -22,6 +23,12 @@ class TodayScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})'),
         actions: [
+          if (plan == null || !plan.isFinished)
+            IconButton(
+              tooltip: 'AI 코치로 루틴 짜기',
+              icon: const Icon(Icons.auto_awesome),
+              onPressed: () => showAiCoach(context, now),
+            ),
           if (plan == null || !plan.isFinished)
             IconButton(
               tooltip: '파트너와 운동',
