@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../data/body_model.dart';
 import '../../data/catalog.dart';
+import '../../data/how_to.dart';
 import '../../models/models.dart';
+import 'body_view.dart';
 import 'equipment_3d.dart';
 
 /// 운동 상세: 설명, 세부 타깃, 사용 기구의 3D 모델과 기구 특징.
@@ -23,6 +26,8 @@ class ExerciseSheet extends StatelessWidget {
     final info = equipmentInfo(equipment);
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
+    final muscles = musclesFor(exercise);
+    final steps = howToFor(exercise);
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.75,
@@ -52,6 +57,29 @@ class ExerciseSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Text(exercise.description, style: text.bodyLarge),
           ],
+          const SizedBox(height: 20),
+          Text('자극 부위', style: text.titleMedium),
+          const SizedBox(height: 8),
+          BodyMuscleView(map: muscles),
+          const SizedBox(height: 20),
+          Text('하는 방법', style: text.titleMedium),
+          const SizedBox(height: 6),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 11,
+                    backgroundColor: cs.primaryContainer,
+                    child: Text('${i + 1}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(steps[i], style: text.bodyMedium)),
+                ],
+              ),
+            ),
           const SizedBox(height: 20),
           Text('사용 기구 · ${equipment.label}', style: text.titleMedium),
           const SizedBox(height: 8),

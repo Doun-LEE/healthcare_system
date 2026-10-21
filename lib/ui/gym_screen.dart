@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../data/body_model.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'widgets/body_view.dart';
 import 'widgets/equipment_3d.dart';
+import 'widgets/exercise_sheet.dart';
 
 /// 헬스장별 보유 기구 추가/수정/삭제 (요구사항 3) + 기구 3D/특징 보기.
 class GymScreen extends StatelessWidget {
@@ -120,15 +123,29 @@ class GymScreen extends StatelessWidget {
   }
 
   Future<void> _addEquipment(BuildContext context, AppState state, Gym gym) async {
-    final chosen = await showModalBottomSheet<List<EquipmentType>>(
+    final result = await showModalBottomSheet<PickerResult>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (c) => _EquipmentPicker(have: gym.equipment.map((e) => e.type).toSet()),
     );
-    if (chosen == null || chosen.isEmpty || !context.mounted) return;
-    if (chosen.length == 1) {
+    if (result == null || !context.mounted) return;
+    // 보유 해제한 기구 삭제
+    for (final t in result.remove) {
+      for (final e in gym.equipment.where((e) => e.type == t).toList()) {
+        await state.removeEquipment(gym.id, e.id);
+      }
+    }
+    final chosen = result.add;
+    if (chosen.isEmpty) {
+      if (result.remove.isNotEmpty && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result.remove.length}개 기구를 보유 목록에서 뺐어요.')));
+      }
+      return;
+    }
+    if (chosen.length == 1 && result.remove.isEmpty) {
+      if (!context.mounted) return;
       final detail = await _EquipmentEditor.show(context, chosen.first);
       if (detail == null) return;
       await state.addEquipment(gym.id, chosen.first,
@@ -140,9 +157,17 @@ class GymScreen extends StatelessWidget {
       await state.addEquipment(gym.id, t);
     }
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${chosen.length}개 기구를 추가했어요. 길게 눌러 별칭/최대중량을 넣을 수 있어요.')));
+      final removed = result.remove.isEmpty ? '' : ', ${result.remove.length}개 제거';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${chosen.length}개 기구를 추가$removed했어요. 길게 눌러 별칭/최대중량을 넣을 수 있어요.')));
     }
   }
+}
+
+/// 기구 선택기 결과: 새로 추가할 기구와 보유 해제한 기구.
+class PickerResult {
+  const PickerResult({required this.add, required this.remove});
+  final List<EquipmentType> add;
+  final List<EquipmentType> remove;
 }
 
 /// 카탈로그 전체(80여 종)에서 검색·분류로 골라 여러 개를 한 번에 추가하는 선택기.
@@ -158,6 +183,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
   String _query = '';
   EquipmentCategory? _category;
   final _selected = <EquipmentType>{};
+  final _removed = <EquipmentType>{};
 
   @override
   Widget build(BuildContext context) {
@@ -226,14 +252,24 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               itemBuilder: (c, i) {
                 final info = items[i];
                 final has = widget.have.contains(info.type);
-                final sel = _selected.contains(info.type);
+                final rem = _removed.contains(info.type);
+                final sel = has ? !rem : _selected.contains(info.type);
                 return CheckboxListTile(
                   value: sel,
-                  onChanged: has ? null : (_) => setState(() => sel ? _selected.remove(info.type) : _selected.add(info.type)),
-                  secondary: has ? Icon(Icons.check_circle, color: cs.primary) : null,
-                  title: Text(info.type.label),
+                  onChanged: (_) => setState(() {
+                    if (has) {
+                      rem ? _removed.remove(info.type) : _removed.add(info.type);
+                    } else {
+                      sel ? _selected.remove(info.type) : _selected.add(info.type);
+                    }
+                  }),
+                  secondary: has
+                      ? Icon(rem ? Icons.remove_circle_outline : Icons.check_circle, color: rem ? cs.error : cs.primary)
+                      : null,
+                  title: Text(info.type.label,
+                      style: rem ? TextStyle(decoration: TextDecoration.lineThrough, color: cs.onSurfaceVariant) : null),
                   subtitle: Text(
-                    has ? '이미 보유' : info.strengths.take(3).join(' · '),
+                    has ? (rem ? '체크 해제됨 · 적용하면 보유 목록에서 빠져요' : '이미 보유 · 체크를 풀면 제거') : info.strengths.take(3).join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -246,13 +282,23 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
             child: Row(
               children: [
-                Text(_selected.isEmpty ? '체크해서 여러 개 한 번에 추가' : '${_selected.length}개 선택',
-                    style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    _selected.isEmpty && _removed.isEmpty
+                        ? '체크해서 추가 · 보유 기구는 체크를 풀어 제거'
+                        : [
+                            if (_selected.isNotEmpty) '${_selected.length}개 추가',
+                            if (_removed.isNotEmpty) '${_removed.length}개 제거',
+                          ].join(' · '),
+                    style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
                 FilledButton.icon(
-                  onPressed: _selected.isEmpty ? null : () => Navigator.pop(context, _selected.toList()),
-                  icon: const Icon(Icons.add),
-                  label: const Text('추가'),
+                  onPressed: _selected.isEmpty && _removed.isEmpty
+                      ? null
+                      : () => Navigator.pop(context, PickerResult(add: _selected.toList(), remove: _removed.toList())),
+                  icon: Icon(_selected.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
+                  label: Text(_selected.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
                 ),
               ],
             ),
@@ -401,12 +447,21 @@ class _EquipmentDetail extends StatelessWidget {
             Text(eq.note!),
           ],
           const SizedBox(height: 12),
-          Text('이 기구로 하는 운동 ${exercises.length}개', style: text.titleSmall),
+          Text('이 기구로 자극하는 부위', style: text.titleSmall),
+          const SizedBox(height: 8),
+          BodyMuscleView(map: musclesForEquipment(eq.type), height: 240),
+          const SizedBox(height: 16),
+          Text('이 기구로 하는 운동 ${exercises.length}개 · 눌러서 방법 보기', style: text.titleSmall),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: exercises
-                .map((x) => Chip(label: Text(x.name), visualDensity: VisualDensity.compact))
+                .map((x) => ActionChip(
+                      label: Text(x.name),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => ExerciseSheet.show(context, x, eq.type),
+                    ))
                 .toList(),
           ),
         ],

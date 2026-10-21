@@ -101,7 +101,7 @@ class Cyl implements Prim {
   }
 }
 
-class Equipment3DView extends StatefulWidget {
+class Equipment3DView extends StatelessWidget {
   const Equipment3DView({
     super.key,
     required this.type,
@@ -118,21 +118,50 @@ class Equipment3DView extends StatefulWidget {
       [for (final p in equipmentModel(t)) ...p.faces()];
 
   @override
-  State<Equipment3DView> createState() => _Equipment3DViewState();
+  Widget build(BuildContext context) => Scene3DView(
+        faces: buildFaces(type),
+        height: height,
+        autoRotate: autoRotate,
+      );
 }
 
-class _Equipment3DViewState extends State<Equipment3DView>
+/// 면 리스트를 받아 회전·투영해 그리는 범용 3D 뷰. 기구/인체 모델이 공유한다.
+class Scene3DView extends StatefulWidget {
+  const Scene3DView({
+    super.key,
+    required this.faces,
+    this.height = 220,
+    this.autoRotate = true,
+    this.initialYaw = -0.6,
+    this.initialPitch = 0.35,
+    this.hint = '드래그해서 회전',
+    this.overlay,
+  });
+
+  final List<Face> faces;
+  final double height;
+  final bool autoRotate;
+  final double initialYaw;
+  final double initialPitch;
+  final String hint;
+
+  /// 범례 등 장면 위에 얹을 위젯(왼쪽 아래).
+  final Widget? overlay;
+
+  @override
+  State<Scene3DView> createState() => _Scene3DViewState();
+}
+
+class _Scene3DViewState extends State<Scene3DView>
     with SingleTickerProviderStateMixin {
-  double _yaw = -0.6;
-  double _pitch = 0.35;
+  late double _yaw = widget.initialYaw;
+  late double _pitch = widget.initialPitch;
   late final AnimationController _ctrl;
   bool _dragging = false;
-  late List<Face> _faces;
 
   @override
   void initState() {
     super.initState();
-    _faces = Equipment3DView.buildFaces(widget.type);
     _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 12))
       ..addListener(() {
         if (!_dragging && widget.autoRotate) {
@@ -143,9 +172,9 @@ class _Equipment3DViewState extends State<Equipment3DView>
   }
 
   @override
-  void didUpdateWidget(covariant Equipment3DView old) {
+  void didUpdateWidget(covariant Scene3DView old) {
     super.didUpdateWidget(old);
-    if (old.type != widget.type) _faces = Equipment3DView.buildFaces(widget.type);
+    if (old.initialYaw != widget.initialYaw && !_dragging) _yaw = widget.initialYaw;
   }
 
   @override
@@ -179,14 +208,16 @@ class _Equipment3DViewState extends State<Equipment3DView>
           children: [
             Positioned.fill(
               child: CustomPaint(
-                painter: _ScenePainter(_faces, _yaw, _pitch, cs.outlineVariant),
+                painter: _ScenePainter(widget.faces, _yaw, _pitch, cs.outlineVariant),
               ),
             ),
+            if (widget.overlay != null)
+              Positioned(left: 10, bottom: 8, child: widget.overlay!),
             if (widget.height >= 120)
               Positioned(
                 right: 10,
                 bottom: 8,
-                child: Text('드래그해서 회전',
+                child: Text(widget.hint,
                     style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
               ),
           ],
