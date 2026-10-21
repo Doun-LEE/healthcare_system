@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_page.dart';
 import 'day_plan_view.dart';
+import 'widgets/partner_widgets.dart';
 
 /// 월간 달력. 탭=상세, 길게 누르기=휴식 토글, 상단 버튼으로 주/월 생성.
 class CalendarScreen extends StatefulWidget {
@@ -356,10 +357,11 @@ class _DaySummary extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton.tonalIcon(onPressed: onOpen, icon: const Icon(Icons.open_in_full, size: 16), label: const Text('자세히 · 수정')),
-                  ),
+                  Row(children: [
+                    if (!p.isFinished) Expanded(child: Align(alignment: Alignment.centerLeft, child: PartnerDayButton(date: date, plan: p))),
+                    if (p.isFinished) const Spacer(),
+                    FilledButton.tonalIcon(onPressed: onOpen, icon: const Icon(Icons.open_in_full, size: 16), label: const Text('자세히 · 수정')),
+                  ]),
                 ],
                 if (p != null && p.isRest)
                   Padding(
@@ -374,6 +376,7 @@ class _DaySummary extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 8),
                     child: Wrap(spacing: 8, children: [
                       OutlinedButton.icon(onPressed: onMake, icon: const Icon(Icons.add), label: const Text('이 날 루틴 만들기')),
+                      PartnerDayButton(date: date),
                       TextButton.icon(onPressed: onImport, icon: const Icon(Icons.download_outlined), label: const Text('친구 루틴 불러오기')),
                     ]),
                   ),
