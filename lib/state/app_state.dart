@@ -539,16 +539,20 @@ class AppState extends ChangeNotifier {
     await _save();
     await resyncPartnerDay(plan);
 
-    if (shiftFollowing) {
-      final future = myPlans.where((p) => p.date.isAfter(d) && !p.isFinished).toList();
-      if (future.isNotEmpty) {
-        await generatePlans(
-          from: d.add(const Duration(days: 1)),
-          to: future.last.date,
-          restDays: manualRestDays,
-        );
-      }
-    }
+    if (shiftFollowing) await rebalanceAfter(d);
+  }
+
+  /// [d] 이후의 미완료 날짜를 다시 짠다. 플래너가 [d]까지의 계획을 이력으로 보고
+  /// 분할 순서와 부위별 회복 시간을 이어가므로, 중간에 끼워 넣은 파트너 운동이나
+  /// 바뀐 부위 뒤에서도 같은 부위가 연달아 오거나 빠지는 일이 없다.
+  Future<void> rebalanceAfter(DateTime d) async {
+    final future = myPlans.where((p) => p.date.isAfter(d) && !p.isFinished).toList();
+    if (future.isEmpty) return;
+    await generatePlans(
+      from: d.add(const Duration(days: 1)),
+      to: future.last.date,
+      restDays: manualRestDays,
+    );
   }
 
   // ───────── AI 코치 ─────────
@@ -1055,9 +1059,11 @@ class AppState extends ChangeNotifier {
       partnerName: pp.name,
       partnerWeights: pw,
     );
+    final focusChanged = mine == null || !_sameGroups(mine.focus, groups);
     if (mine != null) _data.plans.remove(mine);
     _data.plans.add(plan);
     await _save();
+    if (focusChanged) await rebalanceAfter(d);
 
     try {
       await CloudSync.instance.sendJointRoutine(
@@ -1075,9 +1081,12 @@ class AppState extends ChangeNotifier {
 
   /// 루틴 가져오기 + 파트너 무게 붙이기 (알림·수락 전송 없음). 자동 동기화에 쓴다.
   Future<DayPlan?> _applyJointSilently(InboxItem item) async {
+    final before = planOn(dateOnly(item.date!));
+    final beforeFocus = before == null || before.isRest ? const <MuscleGroup>[] : before.focus;
     final plan = await importRoutine(item.code!, item.date!);
     if (plan == null) return null;
     plan.partnerName = item.fromName;
+    if (!_sameGroups(beforeFocus, plan.focus)) await rebalanceAfter(plan.date);
     try {
       final pp = await CloudSync.instance.fetchPartner(item.fromUid);
       if (pp != null) {
@@ -1112,6 +1121,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     return plan == null ? '루틴을 읽지 못했어요.' : '${item.date!.month}/${item.date!.day} ${item.fromName} 님과의 루틴을 넣었어요.';
   }
+
+  static bool _sameGroups(List<MuscleGroup> a, List<MuscleGroup> b) =>
+      a.length == b.length && a.toSet().containsAll(b);
 
   /// 파트너 운동일의 루틴이 바뀌면(운동 교체·부위 변경·AI 적용 등) 파트너에게 다시 보낸다.
   /// 상대 앱은 아직 시작 전이면 자동으로 같은 루틴으로 맞춘다.
