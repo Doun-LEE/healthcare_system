@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -23,7 +24,26 @@ class PartnerSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('요청을 보내면 상대가 수락해야 파트너가 됩니다. 상대도 이 앱에 로그인한 적이 있어야 찾을 수 있어요.',
+        if (state.myHandle != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              Icon(Icons.badge_outlined, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(child: Text('내 ID: ${state.myHandle}', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
+              IconButton(
+                tooltip: 'ID 복사',
+                icon: const Icon(Icons.copy, size: 18),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: state.myHandle!));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID를 복사했어요. 친구에게 보내세요.')));
+                },
+              ),
+            ]),
+          ),
+        Text('친구에게 내 ID를 알려주고, 친구 ID로 요청을 보내세요. 이메일은 서로 보이지 않습니다.',
             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         const SizedBox(height: 6),
         for (final r in requests) _RequestTile(item: r),
@@ -34,8 +54,8 @@ class PartnerSection extends StatelessWidget {
               backgroundColor: p.pending ? cs.surfaceContainerHighest : null,
               child: Text(p.name.isEmpty ? '?' : p.name.characters.first),
             ),
-            title: Text(p.name.isEmpty ? p.email : p.name),
-            subtitle: Text(p.pending ? '${p.email} · 수락 대기 중' : p.email,
+            title: Text(p.display),
+            subtitle: Text(p.pending ? '${p.handle} · 수락 대기 중' : p.handle,
                 style: TextStyle(color: p.pending ? cs.tertiary : null)),
             trailing: IconButton(
               icon: Icon(p.pending ? Icons.cancel_outlined : Icons.person_remove_outlined),
@@ -46,7 +66,7 @@ class PartnerSection extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () => _add(context, state),
           icon: const Icon(Icons.person_add_alt),
-          label: const Text('이메일로 파트너 요청'),
+          label: const Text('ID로 파트너 요청'),
         ),
       ],
     );
@@ -57,12 +77,11 @@ class PartnerSection extends StatelessWidget {
     final email = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('파트너 이메일'),
+        title: const Text('파트너 ID'),
         content: TextField(
           controller: c,
           autofocus: true,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(hintText: 'friend@gmail.com'),
+          decoration: const InputDecoration(hintText: '예: 용현#4821 (또는 이메일)'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
@@ -97,7 +116,7 @@ class _RequestTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('${item.fromName} 님의 파트너 요청', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onPrimaryContainer)),
-                Text(item.fromEmail, style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                Text(item.fromHandle, style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
               ],
             ),
           ),
@@ -232,8 +251,8 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
         for (final p in ready)
           ListTile(
             leading: CircleAvatar(child: Text(p.name.isEmpty ? '?' : p.name.characters.first)),
-            title: Text(p.name.isEmpty ? p.email : p.name),
-            subtitle: Text(p.email),
+            title: Text(p.display),
+            subtitle: Text(p.handle),
             onTap: () => Navigator.pop(c, p),
           ),
         if (existing != null && existing.partnerName != null)

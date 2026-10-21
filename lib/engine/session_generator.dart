@@ -30,6 +30,7 @@ class SessionRequest {
     this.loadFactor = 1.0,
     this.now,
     this.equipmentMax = const {},
+    this.equipmentStep = const {},
     this.seed,
     this.extraInjuries = const {},
     this.cardioOverride,
@@ -61,7 +62,17 @@ class SessionRequest {
 
   /// 기구 종류별 최대 중량(사용자가 입력한 경우).
   final Map<EquipmentType, double> equipmentMax;
+
+  /// 기구 종류별 무게 한 칸(kg). 핀 머신 5, 원판 2.5 등. 없으면 운동의 기본 단위.
+  final Map<EquipmentType, double> equipmentStep;
   final int? seed;
+
+  /// 이 운동/기구에 맞는 무게 단위.
+  double stepFor(Exercise ex, EquipmentType eq) {
+    final s = equipmentStep[eq];
+    if (s != null && s > 0) return s;
+    return ex.loadType.increment;
+  }
 }
 
 class SessionGenerator {
@@ -148,12 +159,14 @@ class SessionGenerator {
       final cardio = _best(MuscleGroup.cardio, picked, usedEmphasis, null, strengthGroups);
       if (cardio != null) {
         final minutes = (cardioSec / 60).round().clamp(10, 30);
+        final level = cardioLevelFor(cardio, req.profile, req.progress[cardio.id]);
+        final spec = cardioLevels[cardio.id];
         picked.add(PlannedExercise(
           exerciseId: cardio.id,
           equipmentType: cardio.pickEquipment(req.available),
           restSeconds: 0,
-          sets: [SetEntry(targetReps: minutes, targetWeight: 0)],
-          note: '마무리 유산소 $minutes분',
+          sets: [SetEntry(targetReps: minutes, targetWeight: 0, level: level)],
+          note: '마무리 유산소 $minutes분${level != null && spec != null ? ' · ${spec.format(level)}' : ''}',
         ));
       }
     }
@@ -281,6 +294,7 @@ class SessionGenerator {
       sets = max(2, (sets * req.intensityFactor).round());
     }
 
+    final step = req.stepFor(ex, equipment);
     double weight;
     if (prog != null && prog.workingWeight > 0) {
       weight = prog.workingWeight;
@@ -289,11 +303,13 @@ class SessionGenerator {
           maxWeightKg: req.equipmentMax[equipment]);
     }
     if (req.intensityFactor < 0.95 && weight > 0) {
-      weight = LoadEstimator.roundTo(weight * 0.95, ex.loadType.increment);
+      weight = LoadEstimator.roundTo(weight * 0.95, step);
     }
     if (req.loadFactor != 1.0 && weight > 0) {
-      weight = max(ex.loadType.increment, LoadEstimator.roundTo(weight * req.loadFactor, ex.loadType.increment));
+      weight = max(step, LoadEstimator.roundTo(weight * req.loadFactor, step));
     }
+    // 기구 단위(핀 5kg 등)에 맞춰 마지막으로 한 번 더 정렬.
+    if (weight > 0 && step > 0) weight = max(step, LoadEstimator.roundTo(weight, step));
     // 컨디션이 안 좋은 날(무게 ↓)은 횟수를 2회 늘려 볼륨을 일부 보전하고, 좋은 날은 그대로.
     if (req.loadFactor < 0.85 && ex.loadType != LoadType.cardio && ex.loadType != LoadType.bodyweight) {
       reps = min(ex.repRange[1] + 2, reps + 2);
@@ -316,6 +332,14 @@ class SessionGenerator {
           sets, (_) => SetEntry(targetReps: reps, targetWeight: weight)),
       note: note,
     );
+  }
+
+  /// 유산소 기구 강도: 진행 기록이 있으면 그 레벨, 없으면 숙련도·목표별 시작값.
+  static int? cardioLevelFor(Exercise ex, UserProfile p, ExerciseProgress? prog) {
+    final spec = cardioLevels[ex.id];
+    if (spec == null) return null;
+    final l = prog?.level ?? spec.startFor(p.level, p.goal);
+    return l.clamp(spec.min, spec.max);
   }
 
   /// 세션의 총 예상 시간(분).

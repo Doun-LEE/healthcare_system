@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../data/catalog.dart';
+
 /// 실제 수행 무게·횟수를 위아래로 돌려서 고르는 휠 입력.
 /// 무게는 기구 단위(바벨 2.5 / 덤벨 2 / 머신 5kg)로, 횟수는 1씩 움직인다.
 class SetEditorSheet extends StatefulWidget {
@@ -14,9 +16,13 @@ class SetEditorSheet extends StatefulWidget {
     required this.weightStep,
     required this.unit,
     required this.showWeight,
+    this.levelSpec,
+    this.initialLevel,
   });
 
   final String title;
+  final CardioLevelSpec? levelSpec;
+  final int? initialLevel;
   final int targetReps;
   final double targetWeight;
   final int initialReps;
@@ -25,8 +31,8 @@ class SetEditorSheet extends StatefulWidget {
   final String unit;
   final bool showWeight;
 
-  /// 저장하면 (reps, weight), 취소하면 null.
-  static Future<(int, double)?> show(
+  /// 저장하면 (reps, weight, level), 취소하면 null.
+  static Future<(int, double, int?)?> show(
     BuildContext context, {
     required String title,
     required int targetReps,
@@ -36,8 +42,10 @@ class SetEditorSheet extends StatefulWidget {
     required double weightStep,
     required String unit,
     required bool showWeight,
+    CardioLevelSpec? levelSpec,
+    int? initialLevel,
   }) =>
-      showModalBottomSheet<(int, double)>(
+      showModalBottomSheet<(int, double, int?)>(
         context: context,
         showDragHandle: true,
         builder: (_) => SetEditorSheet(
@@ -49,6 +57,8 @@ class SetEditorSheet extends StatefulWidget {
           weightStep: weightStep,
           unit: unit,
           showWeight: showWeight,
+          levelSpec: levelSpec,
+          initialLevel: initialLevel,
         ),
       );
 
@@ -63,6 +73,9 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   late final int _maxWeightIdx;
   late final FixedExtentScrollController _repsCtrl;
   late final FixedExtentScrollController _weightCtrl;
+  late int _level;
+  late final FixedExtentScrollController _levelCtrl;
+  CardioLevelSpec? get _spec => widget.levelSpec;
 
   double get _step => widget.weightStep > 0 ? widget.weightStep : 2.5;
 
@@ -74,12 +87,16 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     _weightIdx = (widget.initialWeight / _step).round().clamp(0, _maxWeightIdx);
     _repsCtrl = FixedExtentScrollController(initialItem: _reps);
     _weightCtrl = FixedExtentScrollController(initialItem: _weightIdx);
+    final sp = _spec;
+    _level = sp == null ? 0 : (widget.initialLevel ?? sp.min).clamp(sp.min, sp.max);
+    _levelCtrl = FixedExtentScrollController(initialItem: sp == null ? 0 : _level - sp.min);
   }
 
   @override
   void dispose() {
     _repsCtrl.dispose();
     _weightCtrl.dispose();
+    _levelCtrl.dispose();
     super.dispose();
   }
 
@@ -138,6 +155,23 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                     onChanged: (i) => setState(() => _reps = i),
                   ),
                 ),
+                if (_spec != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('·', style: text.headlineSmall),
+                  ),
+                  Expanded(
+                    child: _Wheel(
+                      label: _spec!.label,
+                      controller: _levelCtrl,
+                      count: _spec!.max - _spec!.min + 1,
+                      selected: _level - _spec!.min,
+                      highlight: widget.initialLevel != null && _level > widget.initialLevel! ? cs.primary : null,
+                      itemText: (i) => '${i + _spec!.min}${_spec!.unit}',
+                      onChanged: (i) => setState(() => _level = i + _spec!.min),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -169,7 +203,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
               const SizedBox(width: 4),
               FilledButton.icon(
-                onPressed: () => Navigator.pop(context, (_reps, widget.showWeight ? _weight : 0.0)),
+                onPressed: () => Navigator.pop(context, (_reps, widget.showWeight ? _weight : 0.0, _spec == null ? null : _level)),
                 icon: const Icon(Icons.check),
                 label: const Text('저장 + 완료'),
               ),

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../engine/planner.dart';
+import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'day_page.dart';
 import 'day_plan_view.dart';
-import 'widgets/ai_coach_sheet.dart';
-import 'widgets/partner_widgets.dart';
 
 /// 월간 달력. 탭=상세, 길게 누르기=휴식 토글, 상단 버튼으로 주/월 생성.
 class CalendarScreen extends StatefulWidget {
@@ -99,52 +99,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Expanded(
             child: _selected == null
                 ? const SizedBox()
-                : selectedPlan == null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('${_selected!.month}월 ${_selected!.day}일 계획 없음', style: text.titleMedium),
-                            const SizedBox(height: 8),
-                            if (!_selected!.isBefore(today)) ...[
-                              OutlinedButton.icon(
-                                onPressed: () => state.regenerateDay(_selected!),
-                                icon: const Icon(Icons.add),
-                                label: const Text('이 날만 루틴 만들기'),
-                              ),
-                              TextButton.icon(
-                                onPressed: () => importRoutineDialog(context, _selected!),
-                                icon: const Icon(Icons.download_outlined),
-                                label: const Text('친구 루틴 불러오기'),
-                              ),
-                              PartnerDayButton(date: _selected!),
-                            ],
-                          ],
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          if (!_selected!.isBefore(today) && !selectedPlan.isFinished && !selectedPlan.isRest)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Row(children: [
-                                PartnerDayButton(date: _selected!, plan: selectedPlan),
-                                TextButton.icon(
-                                  onPressed: () => showAiCoach(context, _selected!),
-                                  icon: const Icon(Icons.auto_awesome),
-                                  label: const Text('AI 코치'),
-                                ),
-                              ]),
-                            ),
-                          Expanded(
-                            child: DayPlanView(
-                              plan: selectedPlan,
-                              editable: !selectedPlan.date.isBefore(today),
-                              logging: !selectedPlan.date.isAfter(today),
-                            ),
-                          ),
-                        ],
-                      ),
+                : _DaySummary(
+                    date: _selected!,
+                    plan: selectedPlan,
+                    isPast: _selected!.isBefore(today),
+                    onOpen: () => DayPage.open(context, _selected!),
+                    onMake: () => state.regenerateDay(_selected!),
+                    onImport: () => importRoutineDialog(context, _selected!),
+                  ),
           ),
         ],
       ),
@@ -341,4 +303,85 @@ class _Legend extends StatelessWidget {
           Text(label, style: Theme.of(context).textTheme.bodySmall),
         ]),
       );
+}
+
+/// 달력 아래 요약 카드. 탭하면 전체 화면으로.
+class _DaySummary extends StatelessWidget {
+  const _DaySummary({required this.date, required this.plan, required this.isPast, required this.onOpen, required this.onMake, required this.onImport});
+  final DateTime date;
+  final DayPlan? plan;
+  final bool isPast;
+  final VoidCallback onOpen, onMake, onImport;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final p = plan;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Card(
+        color: p == null ? cs.surfaceContainerHigh : p.isRest ? cs.tertiaryContainer : cs.primaryContainer,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: p == null ? null : onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(
+                      p == null ? '${date.month}/${date.day} 계획 없음' : p.isRest ? '${date.month}/${date.day} 휴식일' : p.title ?? '운동',
+                      style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (p != null) const Icon(Icons.open_in_full, size: 18),
+                ]),
+                if (p != null && !p.isRest) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${p.exercises.length}개 운동 · 약 ${p.estimatedMinutes}분'
+                    '${p.partnerName != null ? ' · 👥 ${p.partnerName}' : ''}'
+                    '${p.isFinished ? ' · 완료 ${(p.completionRatio * 100).round()}%' : ''}',
+                    style: text.bodySmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    p.exercises.map((e) => exerciseById(e.exerciseId)?.name ?? '').join(' · '),
+                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonalIcon(onPressed: onOpen, icon: const Icon(Icons.open_in_full, size: 16), label: const Text('자세히 · 수정')),
+                  ),
+                ],
+                if (p != null && p.isRest)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(children: [
+                      Expanded(child: Text(p.title ?? '', style: text.bodySmall)),
+                      TextButton(onPressed: onOpen, child: const Text('열기')),
+                    ]),
+                  ),
+                if (p == null && !isPast)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(spacing: 8, children: [
+                      OutlinedButton.icon(onPressed: onMake, icon: const Icon(Icons.add), label: const Text('이 날 루틴 만들기')),
+                      TextButton.icon(onPressed: onImport, icon: const Icon(Icons.download_outlined), label: const Text('친구 루틴 불러오기')),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

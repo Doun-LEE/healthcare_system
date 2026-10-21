@@ -92,7 +92,7 @@ void main() {
       available: _gym,
       progress: {'bb_bench': ExerciseProgress(exerciseId: 'bb_bench', workingWeight: 60)},
       plans: [plan],
-      email: 'a@b.c',
+      handle: '테스트#1234',
     );
     final pp = PartnerProfile.fromJson(json);
     expect(pp.name, '테스트');

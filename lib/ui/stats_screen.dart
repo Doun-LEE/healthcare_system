@@ -16,12 +16,14 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
-  int _days = 28;
+  String _period = 'month';
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final s = Stats.summarize(state.myPlans, days: _days);
+    final (from, to) = Stats.rangeFor(_period, DateTime.now());
+    final s = Stats.summarize(state.myPlans, from: from, to: to);
+    final days = s.days;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
@@ -31,16 +33,16 @@ class _StatsScreenState extends State<StatsScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: SegmentedButton<int>(
+            child: SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 14, label: Text('2주')),
-                ButtonSegment(value: 28, label: Text('4주')),
-                ButtonSegment(value: 84, label: Text('12주')),
+                ButtonSegment(value: 'week', label: Text('이번 주')),
+                ButtonSegment(value: 'month', label: Text('이번 달')),
+                ButtonSegment(value: 'year', label: Text('올해')),
               ],
-              selected: {_days},
+              selected: {_period},
               showSelectedIcon: false,
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
-              onSelectionChanged: (v) => setState(() => _days = v.first),
+              onSelectionChanged: (v) => setState(() => _period = v.first),
             ),
           ),
         ],
@@ -76,7 +78,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
                 // 부위별 밸런스
                 _Card(
-                  title: '부위별 밸런스 (완료 세트)',
+                  title: '부위별 비율 (완료 세트 기준, ${from.month}/${from.day}~${to.month}/${to.day})',
                   subtitle: s.sessions < 3
                       ? '세션이 3회 이상 쌓이면 부족한 부위를 알려드려요.'
                       : s.underTrained.isEmpty
@@ -105,7 +107,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 if (s.cardioMinutes > 0)
                   _Card(
                     title: '유산소',
-                    subtitle: '$_days일 동안 총 ${s.cardioMinutes}분 · 주 평균 ${(s.cardioMinutes / (_days / 7)).round()}분',
+                    subtitle: '$days일 동안 총 ${s.cardioMinutes}분 · 주 평균 ${(s.cardioMinutes / (days / 7)).round()}분',
                     child: const SizedBox.shrink(),
                   ),
               ],
@@ -186,6 +188,7 @@ class _BalanceBars extends StatelessWidget {
     final groups = summary.groups.where((g) => g.group != MuscleGroup.cardio).toList();
     final maxSets = groups.fold<int>(0, (a, g) => max(a, g.sets));
     final under = summary.underTrained;
+    final pct = summary.sharePct;
     return Column(
       children: [
         for (final g in groups)
@@ -219,12 +222,14 @@ class _BalanceBars extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 SizedBox(
-                  width: 70,
+                  width: 96,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       if (under.contains(g.group)) Icon(Icons.arrow_downward, size: 14, color: cs.tertiary),
-                      Text('${g.sets}세트', style: text.bodySmall),
+                      Text('${pct[g.group]!.round()}%', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(width: 4),
+                      Text('${g.sets}세트', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -236,7 +241,7 @@ class _BalanceBars extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '총 ${summary.totalSets}세트 · 가장 많이: ${summary.mostTrained?.label ?? '-'}',
+                '총 ${summary.totalSets}세트 · 가장 많이: ${summary.mostTrained?.label ?? '-'} · 6부위 균등이면 각 17%',
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:fit_routine/data/quotes.dart';
 import 'package:fit_routine/models/models.dart';
+import 'package:fit_routine/services/partner.dart';
 import 'package:fit_routine/services/routine_share.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -42,6 +43,15 @@ void main() {
     expect(decoded.items[0].sets, 4);
     expect(decoded.items[0].reps, 8);
     expect(decoded.items[1].equipment, EquipmentType.cableMachine);
+  });
+
+  test('handle is nickname#4digits, stable per uid, and different per uid', () {
+    final a = makeHandle('도운', 'uid-aaaa');
+    expect(a, matches(RegExp(r'^도운#\d{4}$')));
+    expect(makeHandle('도운', 'uid-aaaa'), a);
+    expect(makeHandle('도운', 'uid-bbbb'), isNot(a));
+    expect(makeHandle('  ', 'x'), startsWith('user#'));
+    expect(normalizeHandle(' 도운#1234 '), '도운#1234');
   });
 
   test('garbage codes decode to null', () {

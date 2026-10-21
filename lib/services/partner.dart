@@ -7,20 +7,37 @@ library;
 
 import '../models/models.dart';
 
+/// 계정의 공개 ID: `닉네임#1234`. uid 해시로 4자리를 만들어 닉네임이 같아도 구분된다.
+String makeHandle(String name, String uid) {
+  var h = 7;
+  for (final c in uid.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  final code = (h % 9000 + 1000).toString();
+  final clean = name.trim().replaceAll(RegExp(r'[#\s]+'), '');
+  return '${clean.isEmpty ? 'user' : clean}#$code';
+}
+
+String normalizeHandle(String s) => s.trim().toLowerCase().replaceAll(' ', '');
+
 class PartnerLink {
-  PartnerLink({required this.uid, required this.name, required this.email, this.pending = false});
+  PartnerLink({required this.uid, required this.name, this.handle = '', this.pending = false});
   final String uid;
   String name;
-  final String email;
+
+  /// 상대의 공개 ID(닉네임#1234). 이메일은 저장·표시하지 않는다.
+  String handle;
 
   /// 내가 요청을 보냈지만 상대가 아직 수락하지 않음.
   bool pending;
 
-  Map<String, dynamic> toJson() => {'uid': uid, 'name': name, 'email': email, 'pending': pending};
+  String get display => name.isEmpty ? (handle.isEmpty ? uid.substring(0, 6) : handle) : name;
+
+  Map<String, dynamic> toJson() => {'uid': uid, 'name': name, 'handle': handle, 'pending': pending};
   factory PartnerLink.fromJson(Map<String, dynamic> j) => PartnerLink(
         uid: j['uid'] as String,
         name: (j['name'] as String?) ?? '',
-        email: (j['email'] as String?) ?? '',
+        handle: (j['handle'] as String?) ?? '',
         pending: (j['pending'] as bool?) ?? false,
       );
 }
@@ -29,6 +46,7 @@ class PartnerProfile {
   PartnerProfile({
     required this.uid,
     required this.name,
+    this.handle = '',
     required this.profile,
     required this.available,
     required this.workingWeights,
@@ -38,6 +56,7 @@ class PartnerProfile {
 
   final String uid;
   final String name;
+  final String handle;
 
   /// 파트너의 신체 스펙(무게 추정용). 이름/기록만 담긴 축약 프로필.
   final UserProfile profile;
@@ -56,7 +75,7 @@ class PartnerProfile {
     required Set<EquipmentType> available,
     required Map<String, ExerciseProgress> progress,
     required List<DayPlan> plans,
-    String? email,
+    String? handle,
   }) {
     final today = dateOnly(DateTime.now());
     final from = today.subtract(const Duration(days: 7));
@@ -64,7 +83,7 @@ class PartnerProfile {
     return {
       'uid': uid,
       'name': me.name,
-      'email': email,
+      'handle': handle ?? makeHandle(me.name, uid),
       'profile': {
         'sex': me.sex.name,
         'weightKg': me.weightKg,
@@ -143,6 +162,7 @@ class PartnerProfile {
     return PartnerProfile(
       uid: j['uid'] as String,
       name: profile.name,
+      handle: (j['handle'] as String?) ?? '',
       profile: profile,
       available: available,
       workingWeights: {
@@ -163,7 +183,7 @@ class InboxItem {
     required this.type,
     required this.fromUid,
     required this.fromName,
-    required this.fromEmail,
+    this.fromHandle = '',
     this.date,
     this.code,
     this.title = '',
@@ -172,7 +192,7 @@ class InboxItem {
   final InboxType type;
   final String fromUid;
   final String fromName;
-  final String fromEmail;
+  final String fromHandle;
   final DateTime? date;
   final String? code;
   final String title;

@@ -153,6 +153,27 @@ void main() {
       expect(run(10).workingWeight, 60);
     });
 
+    test('cardio: minutes grow first, then level; user-changed level becomes baseline', () {
+      final p = PlannedExercise(
+        exerciseId: 'stairs',
+        equipmentType: EquipmentType.stairClimber,
+        restSeconds: 0,
+        sets: [SetEntry(targetReps: 20, targetWeight: 0, level: 8)..completed = true],
+      );
+      final prog = ExerciseProgress(exerciseId: 'stairs', workingWeight: 0, targetReps: 20, level: 8);
+      Progression.apply(p, prog, DateTime(2026, 10, 20));
+      expect(prog.targetReps, 22);
+      expect(prog.level, 8);
+      // 30분에 도달하면 레벨이 오른다
+      prog.targetReps = 30;
+      Progression.apply(p, prog, DateTime(2026, 10, 21));
+      expect(prog.level, 9);
+      // 사용자가 현장에서 레벨 11로 올렸으면 그게 기준
+      p.sets.first.doneLevel = 11;
+      Progression.apply(p, prog, DateTime(2026, 10, 22), rpe: 3);
+      expect(prog.level, 12);
+    });
+
     test('bodyweight exercise adjusts reps instead of weight', () {
       final p = PlannedExercise(
         exerciseId: 'pullup',
@@ -268,6 +289,34 @@ void main() {
       final squat = plan.firstWhere((p) => p.exerciseId == 'bb_squat');
       expect(squat.sets.first.targetWeight, 70);
       expect(squat.sets.first.targetReps, 8); // 6 + 2
+    });
+
+    test('equipment step (pin 5kg) rounds prescribed weights', () {
+      final prog = {
+        'lat_pulldown': ExerciseProgress(exerciseId: 'lat_pulldown', workingWeight: 47.5, targetReps: 10, lastPerformed: DateTime(2026, 10, 1)),
+        for (final e in exercisesOf(MuscleGroup.back))
+          if (e.id != 'lat_pulldown') e.id: ExerciseProgress(exerciseId: e.id, workingWeight: 20, lastPerformed: DateTime(2026, 10, 19)),
+      };
+      final plan = SessionGenerator(SessionRequest(
+        groups: [MuscleGroup.back],
+        available: _fullGym,
+        progress: prog,
+        profile: _user(),
+        minutesBudget: 120,
+        equipmentStep: {EquipmentType.latPulldown: 5},
+        now: DateTime(2026, 10, 20),
+        seed: 8,
+      )).generate();
+      final lat = plan.firstWhere((p) => p.exerciseId == 'lat_pulldown');
+      expect(lat.sets.first.targetWeight % 5, 0);
+    });
+
+    test('cardio level comes from the spec by level and goal', () {
+      final stairs = exerciseById('stairs')!;
+      expect(SessionGenerator.cardioLevelFor(stairs, _user(level: TrainingLevel.intermediate), null), 8);
+      expect(SessionGenerator.cardioLevelFor(stairs, _user()..goal = TrainingGoal.fatLoss, null), 6);
+      expect(SessionGenerator.cardioLevelFor(stairs, _user(), ExerciseProgress(exerciseId: 'stairs', workingWeight: 0, level: 12)), 12);
+      expect(SessionGenerator.cardioLevelFor(exerciseById('burpee')!, _user(), null), isNull);
     });
 
     test('uses working weight from progress when available', () {

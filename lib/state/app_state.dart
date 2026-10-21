@@ -64,6 +64,16 @@ class AppState extends ChangeNotifier {
     return m;
   }
 
+  /// 기구 종류별 무게 한 칸(핀 5 / 원판 2.5 / 사용자 지정).
+  Map<EquipmentType, double> get equipmentStep {
+    final m = <EquipmentType, double>{};
+    for (final e in activeGym?.equipment ?? const <GymEquipment>[]) {
+      final s = e.effectiveStep;
+      if (s > 0) m[e.type] = s;
+    }
+    return m;
+  }
+
   Map<String, ExerciseProgress> get progress =>
       _data.progress.putIfAbsent(currentUser?.id ?? '_', () => {});
 
@@ -348,11 +358,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
     g.equipment.add(GymEquipment(
-        id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note));
+        id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg));
     await _save();
   }
 
@@ -452,6 +462,7 @@ class AppState extends ChangeNotifier {
       history: history,
       newId: newId,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
     )).build();
 
     _data.plans.removeWhere((p) =>
@@ -509,6 +520,7 @@ class AppState extends ChangeNotifier {
       minutesBudget: u.sessionMinutes,
       now: d,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
     )).generate();
     final plan = DayPlan(
@@ -519,11 +531,13 @@ class AppState extends ChangeNotifier {
       focus: groups,
       exercises: exercises,
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
-      title: title ?? groups.map((g) => g.label).join('·'),
+      title: '${title ?? groups.map((g) => g.label).join('·')}${existing?.partnerName != null ? ' · ${existing!.partnerName}와 함께' : ''}',
+      partnerName: existing?.partnerName,
     );
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
+    await resyncPartnerDay(plan);
 
     if (shiftFollowing) {
       final future = myPlans.where((p) => p.date.isAfter(d) && !p.isFinished).toList();
@@ -605,6 +619,7 @@ class AppState extends ChangeNotifier {
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
+    await resyncPartnerDay(plan);
     return plan;
   }
 
@@ -627,6 +642,7 @@ class AppState extends ChangeNotifier {
       history: history,
       newId: newId,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
     )).build();
     if (existing != null) _data.plans.remove(existing);
     _data.plans.addAll(gen);
@@ -652,10 +668,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateSet(DayPlan plan, PlannedExercise ex, int setIndex,
-      {int? reps, double? weight, bool? completed}) async {
+      {int? reps, double? weight, int? level, bool? completed}) async {
     final s = ex.sets[setIndex];
     if (reps != null) s.doneReps = reps;
     if (weight != null) s.doneWeight = weight;
+    if (level != null) s.doneLevel = level;
     if (completed != null) s.completed = completed;
     await _save();
   }
@@ -663,13 +680,15 @@ class AppState extends ChangeNotifier {
   Future<void> addSet(DayPlan plan, PlannedExercise ex) async {
     final last = ex.sets.last;
     ex.sets.add(SetEntry(
-        targetReps: last.targetReps, targetWeight: last.targetWeight));
+        targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level));
     await _save();
+    await resyncPartnerDay(plan);
   }
 
   Future<void> removeExercise(DayPlan plan, PlannedExercise ex) async {
     plan.exercises.remove(ex);
     await _save();
+    await resyncPartnerDay(plan);
   }
 
   /// 운동 하나를 다른 운동으로 교체(같은 부위, 보유 기구로 가능한 것 중 선택).
@@ -684,12 +703,14 @@ class AppState extends ChangeNotifier {
       profile: u,
       minutesBudget: 30,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
     ));
     // 생성기의 처방 로직을 재사용하려고 단일 운동 세션을 만든 뒤 해당 운동만 뽑는다.
     final planned = gen.generate().where((p) => p.exerciseId == to.id).firstOrNull ??
         _planSingle(to, u);
     plan.exercises[i] = planned;
     await _save();
+    await resyncPartnerDay(plan);
   }
 
   PlannedExercise _planSingle(Exercise ex, UserProfile u) {
@@ -700,6 +721,7 @@ class AppState extends ChangeNotifier {
       profile: u,
       minutesBudget: 120,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
     ));
     return gen.generate().firstWhere((p) => p.exerciseId == ex.id,
         orElse: () => gen.generate().first);
@@ -736,6 +758,7 @@ class AppState extends ChangeNotifier {
               for (final s in pe.sets)
                 SetEntry(
                   targetReps: s.targetReps,
+                  level: s.level,
                   targetWeight: s.targetWeight > 0
                       ? max(
                           exerciseById(pe.exerciseId)!.loadType.increment,
@@ -760,6 +783,7 @@ class AppState extends ChangeNotifier {
         loadFactor: loadFactor,
         now: dateOnly(date),
         equipmentMax: equipmentMax,
+        equipmentStep: equipmentStep,
         seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
       )).generate();
     }
@@ -839,7 +863,7 @@ class AppState extends ChangeNotifier {
       available: availableEquipment,
       progress: progress,
       plans: myPlans,
-      email: CloudSync.instance.email,
+      handle: myHandle,
     ));
   }
 
@@ -857,7 +881,7 @@ class AppState extends ChangeNotifier {
             _data.partners[i].pending = false;
             _data.partners[i].name = it.fromName;
           } else {
-            _data.partners.add(PartnerLink(uid: it.fromUid, name: it.fromName, email: it.fromEmail));
+            _data.partners.add(PartnerLink(uid: it.fromUid, name: it.fromName, handle: it.fromHandle));
           }
           changed = true;
           lastPartnerNotice = '${it.fromName} 님이 파트너 요청을 수락했어요.';
@@ -880,6 +904,17 @@ class AppState extends ChangeNotifier {
             await CloudSync.instance.deleteInbox(it.id);
           } catch (_) {}
           notifyListeners();
+        } else if (it.type == InboxType.joint && it.date != null && it.code != null) {
+          // 이미 그 파트너와 잡아둔 날이고 아직 시작 전이면 자동으로 맞춘다(루틴 동기화).
+          final existing = planOn(it.date!);
+          final started = existing != null && (existing.isFinished || existing.exercises.any((e) => e.anyCompleted));
+          if (existing != null && existing.partnerName == it.fromName && !started) {
+            await _applyJointSilently(it);
+            lastPartnerNotice = '${it.fromName} 님이 ${it.date!.month}/${it.date!.day} 루틴을 바꿔서 내 것도 맞췄어요.';
+            changed = true;
+          } else {
+            keep.add(it);
+          }
         } else {
           keep.add(it);
         }
@@ -896,12 +931,18 @@ class AppState extends ChangeNotifier {
   /// 마지막 파트너 관련 알림(수락/거절). 화면에서 한 번 보여주고 지운다.
   String? lastPartnerNotice;
 
-  /// 이메일로 파트너 요청. 상대가 수락해야 양쪽에 등록된다. 결과 메시지를 돌려준다.
-  Future<String> addPartner(String email) async {
+  /// 내 공개 ID (닉네임#1234). 로그인 전이면 null.
+  String? get myHandle {
+    if (!cloudSignedIn) return null;
+    return makeHandle(currentUser?.name ?? '', CloudSync.instance.user!.uid);
+  }
+
+  /// 공개 ID(닉네임#1234) 또는 이메일로 파트너 요청. 상대가 수락해야 양쪽에 등록된다.
+  Future<String> addPartner(String query) async {
     if (!cloudSignedIn) return '계정에 로그인해야 파트너를 추가할 수 있어요.';
-    if (email.trim().toLowerCase() == (cloudEmail ?? '').toLowerCase()) return '본인 이메일이에요.';
-    final link = await CloudSync.instance.lookupByEmail(email);
-    if (link == null) return '그 이메일로 가입한 계정을 찾지 못했어요. 상대가 앱에 로그인한 적이 있어야 합니다.';
+    final link = await CloudSync.instance.lookup(query);
+    if (link == null) return '"$query" 를 찾지 못했어요. 상대의 ID(닉네임#1234)를 정확히 입력하고, 상대가 앱에 로그인한 적이 있어야 합니다.';
+    if (link.uid == CloudSync.instance.user!.uid) return '본인이에요.';
     final existing = _data.partners.where((p) => p.uid == link.uid).firstOrNull;
     if (existing != null && !existing.pending) return '이미 등록된 파트너예요.';
     try {
@@ -911,7 +952,7 @@ class AppState extends ChangeNotifier {
     }
     if (existing == null) _data.partners.add(link..pending = true);
     await _save();
-    return '${link.name.isEmpty ? link.email : link.name} 님에게 파트너 요청을 보냈어요. 상대가 수락하면 등록됩니다.';
+    return '${link.display} 님에게 파트너 요청을 보냈어요. 상대가 수락하면 등록됩니다.';
   }
 
   /// 받은 파트너 요청에 답한다.
@@ -930,7 +971,7 @@ class AppState extends ChangeNotifier {
         _data.partners[i].pending = false;
         _data.partners[i].name = item.fromName;
       } else {
-        _data.partners.add(PartnerLink(uid: item.fromUid, name: item.fromName, email: item.fromEmail));
+        _data.partners.add(PartnerLink(uid: item.fromUid, name: item.fromName, handle: item.fromHandle));
       }
       await _save();
       return '${item.fromName} 님과 파트너가 됐어요.';
@@ -959,7 +1000,7 @@ class AppState extends ChangeNotifier {
 
     final d = dateOnly(date);
     final key = dateKey(d);
-    if (partner.pending) return '${partner.name.isEmpty ? partner.email : partner.name} 님이 아직 요청을 수락하지 않았어요.';
+    if (partner.pending) return '${partner.display} 님이 아직 요청을 수락하지 않았어요.';
     final mine = planOn(d);
     if (mine != null && mine.isFinished) return '그날 운동은 이미 완료했어요.';
     final myFocus = (mine != null && !mine.isRest) ? mine.focus : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
@@ -985,6 +1026,7 @@ class AppState extends ChangeNotifier {
       minutesBudget: minutes,
       now: d,
       equipmentMax: equipmentMax,
+      equipmentStep: equipmentStep,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
       extraInjuries: pp.profile.injuries, // 상대 부상 부위도 제외
       cardioOverride: u.includeCardio && pp.profile.includeCardio, // 둘 다 원할 때만 유산소
@@ -1031,26 +1073,34 @@ class AppState extends ChangeNotifier {
     return '$note ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
   }
 
+  /// 루틴 가져오기 + 파트너 무게 붙이기 (알림·수락 전송 없음). 자동 동기화에 쓴다.
+  Future<DayPlan?> _applyJointSilently(InboxItem item) async {
+    final plan = await importRoutine(item.code!, item.date!);
+    if (plan == null) return null;
+    plan.partnerName = item.fromName;
+    try {
+      final pp = await CloudSync.instance.fetchPartner(item.fromUid);
+      if (pp != null) {
+        final est = LoadEstimator(pp.profile);
+        for (final pe in plan.exercises) {
+          final ex = exerciseById(pe.exerciseId)!;
+          plan.partnerWeights[ex.id] = pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
+        }
+      }
+    } catch (_) {}
+    await _save();
+    try {
+      await CloudSync.instance.deleteInbox(item.id);
+    } catch (_) {}
+    return plan;
+  }
+
   /// 받은편지함의 루틴을 내 계획으로 적용(무게는 내 기준, 파트너 무게는 보낸 사람 기준).
   /// 적용하면 보낸 사람에게 "수락됨"이 전달된다.
   Future<String> applyInbox(InboxItem item) async {
     if (item.code == null || item.date == null) return '루틴 정보가 없어요.';
-    final plan = await importRoutine(item.code!, item.date!);
+    final plan = await _applyJointSilently(item);
     if (plan != null) {
-      plan.partnerName = item.fromName;
-      // 파트너(보낸 사람)의 무게를 붙인다.
-      try {
-        final pp = await CloudSync.instance.fetchPartner(item.fromUid);
-        if (pp != null) {
-          final est = LoadEstimator(pp.profile);
-          for (final pe in plan.exercises) {
-            final ex = exerciseById(pe.exerciseId)!;
-            plan.partnerWeights[ex.id] =
-                pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
-          }
-        }
-      } catch (_) {}
-      await _save();
       try {
         await CloudSync.instance.sendJointAccepted(item.fromUid, item.date!, currentUser?.name ?? '');
       } catch (_) {}
@@ -1061,6 +1111,31 @@ class AppState extends ChangeNotifier {
     inbox = inbox.where((i) => i.id != item.id).toList();
     notifyListeners();
     return plan == null ? '루틴을 읽지 못했어요.' : '${item.date!.month}/${item.date!.day} ${item.fromName} 님과의 루틴을 넣었어요.';
+  }
+
+  /// 파트너 운동일의 루틴이 바뀌면(운동 교체·부위 변경·AI 적용 등) 파트너에게 다시 보낸다.
+  /// 상대 앱은 아직 시작 전이면 자동으로 같은 루틴으로 맞춘다.
+  Future<void> resyncPartnerDay(DayPlan plan) async {
+    if (plan.partnerName == null || !cloudSignedIn) return;
+    final link = _data.partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
+    if (link == null) return;
+    try {
+      await CloudSync.instance.sendJointRoutine(
+        toUid: link.uid,
+        date: plan.date,
+        code: encodeRoutine(plan, from: currentUser?.name),
+        title: plan.title ?? '파트너 루틴',
+        fromName: currentUser?.name ?? '',
+      );
+    } catch (_) {}
+  }
+
+  /// 날짜의 계획을 삭제한다(과거·완료 포함). 완료 기록도 함께 사라진다.
+  Future<void> deletePlan(DateTime date) async {
+    final p = planOn(date);
+    if (p == null) return;
+    _data.plans.remove(p);
+    await _save();
   }
 
   /// 파트너 운동일 해제: 그날을 혼자 하는 루틴으로 되돌린다.

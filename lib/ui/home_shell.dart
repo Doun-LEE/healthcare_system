@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import 'calendar_screen.dart';
 import 'gym_screen.dart';
+import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'stats_screen.dart';
 import 'today_screen.dart';
@@ -47,9 +48,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  void _go(int i) {
+    setState(() => _index = i);
+    if (i <= 1) _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
+      HomeScreen(onGoToTab: _go),
       const TodayScreen(),
       const CalendarScreen(),
       const StatsScreen(),
@@ -61,16 +68,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) {
-          setState(() => _index = i);
-          if (i == 0) _refresh();
-        },
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        onDestinationSelected: _go,
         destinations: [
           NavigationDestination(
-            icon: Badge(isLabelVisible: inboxCount > 0, label: Text('$inboxCount'), child: const Icon(Icons.today_outlined)),
-            selectedIcon: Badge(isLabelVisible: inboxCount > 0, label: Text('$inboxCount'), child: const Icon(Icons.today)),
-            label: '오늘',
+            icon: Badge(isLabelVisible: inboxCount > 0, label: Text('$inboxCount'), child: const Icon(Icons.home_outlined)),
+            selectedIcon: Badge(isLabelVisible: inboxCount > 0, label: Text('$inboxCount'), child: const Icon(Icons.home)),
+            label: '홈',
           ),
+          const NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today), label: '오늘'),
           const NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month), label: '달력'),
           const NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: '기록'),
           const NavigationDestination(icon: Icon(Icons.fitness_center_outlined), selectedIcon: Icon(Icons.fitness_center), label: '헬스장'),

@@ -63,15 +63,28 @@ class Progression {
                 planned.sets.length ||
             done.length * 2 < planned.sets.length;
 
-    // ── 유산소: 분 단위 ──
+    // ── 유산소: 분 → 레벨 순으로 올린다 ──
     if (ex.loadType == LoadType.cardio) {
+      final spec = cardioLevels[ex.id];
+      final doneLevel = done.first.effectiveLevel;
+      if (doneLevel != null) current.level = doneLevel; // 사용자가 바꾼 레벨이 새 기준
       if (allHit) {
-        current.targetReps = min(40, current.targetReps + 2);
         current.consecutiveSuccess += 1;
         current.consecutiveFail = 0;
-        return ProgressionResult(current, '완주 → 다음 ${current.targetReps}분');
+        final easy = rpe != null && rpe <= 4;
+        if (spec != null && current.level != null && (current.targetReps >= 30 || easy) && current.level! < spec.max) {
+          current.level = current.level! + 1;
+          return ProgressionResult(current, '완주 → 다음 ${spec.format(current.level!)} (${current.targetReps}분)');
+        }
+        current.targetReps = min(40, current.targetReps + 2);
+        return ProgressionResult(current, '완주 → 다음 ${current.targetReps}분${spec != null && current.level != null ? ' · ${spec.format(current.level!)}' : ''}');
       }
       current.consecutiveFail += 1;
+      if (spec != null && current.level != null && current.consecutiveFail >= 2 && current.level! > spec.min) {
+        current.level = current.level! - 1;
+        current.consecutiveFail = 0;
+        return ProgressionResult(current, '2회 못 채움 → ${spec.format(current.level!)}로 낮춤');
+      }
       return ProgressionResult(current, '유지 ${current.targetReps}분');
     }
 

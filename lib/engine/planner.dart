@@ -31,6 +31,7 @@ class PlannerInput {
     required this.history,
     required this.newId,
     this.equipmentMax = const {},
+    this.equipmentStep = const {},
     this.now,
   });
 
@@ -47,6 +48,7 @@ class PlannerInput {
   final List<DayPlan> history;
   final String Function() newId;
   final Map<EquipmentType, double> equipmentMax;
+  final Map<EquipmentType, double> equipmentStep;
   final DateTime? now;
 }
 
@@ -132,6 +134,7 @@ class Planner {
         intensityFactor: intensity,
         now: date,
         equipmentMax: input.equipmentMax,
+        equipmentStep: input.equipmentStep,
         seed: date.millisecondsSinceEpoch ~/ 86400000,
       )).generate();
 

@@ -24,7 +24,7 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(u.name),
+        title: Text(state.myHandle == null ? u.name : '${u.name}  ·  ${state.myHandle}'),
         actions: [
           IconButton(
             tooltip: '로그아웃',

@@ -429,6 +429,9 @@ class _ExerciseCard extends StatelessWidget {
                 set: pe.sets[i],
                 unit: unit,
                 showWeight: !isCardio && !isBw,
+                levelText: isCardio && pe.sets[i].effectiveLevel != null && cardioLevels[ex.id] != null
+                    ? cardioLevels[ex.id]!.format(pe.sets[i].effectiveLevel!)
+                    : null,
                 editable: logging,
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
@@ -447,6 +450,7 @@ class _ExerciseCard extends StatelessWidget {
   Future<void> _editSet(BuildContext context, AppState state, int i, String unit, bool showWeight) async {
     final s = pe.sets[i];
     final ex = exerciseById(pe.exerciseId);
+    final spec = ex == null ? null : cardioLevels[ex.id];
     final result = await SetEditorSheet.show(
       context,
       title: '${ex?.name ?? ''} ${i + 1}세트 실제 수행',
@@ -457,10 +461,12 @@ class _ExerciseCard extends StatelessWidget {
       weightStep: ex?.loadType.increment ?? 2.5,
       unit: unit,
       showWeight: showWeight,
+      levelSpec: spec,
+      initialLevel: s.effectiveLevel,
     );
     if (result != null) {
       await state.updateSet(plan, pe, i,
-          reps: result.$1, weight: showWeight ? result.$2 : null, completed: true);
+          reps: result.$1, weight: showWeight ? result.$2 : null, level: result.$3, completed: true);
     }
   }
 
@@ -503,6 +509,7 @@ class _SetRow extends StatelessWidget {
     required this.editable,
     required this.onToggle,
     required this.onEdit,
+    this.levelText,
   });
 
   final int index;
@@ -510,6 +517,9 @@ class _SetRow extends StatelessWidget {
   final String unit;
   final bool showWeight;
   final bool editable;
+
+  /// 유산소 강도 표시(예: '레벨 8').
+  final String? levelText;
   final VoidCallback onToggle;
   final VoidCallback onEdit;
 
@@ -535,7 +545,7 @@ class _SetRow extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '${showWeight ? '${_fmt(set.effectiveWeight)}kg × ' : ''}${set.effectiveReps}$unit',
+                '${showWeight ? '${_fmt(set.effectiveWeight)}kg × ' : ''}${set.effectiveReps}$unit${levelText != null ? ' · $levelText' : ''}',
                 style: text.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   decoration: set.completed ? TextDecoration.lineThrough : null,

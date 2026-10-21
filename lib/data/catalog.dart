@@ -1640,6 +1640,44 @@ const List<Exercise> exerciseCatalog = [
   ),
 ];
 
+/// 유산소 기구의 강도 단계 정의: 라벨, 범위, 숙련도별 시작 레벨.
+class CardioLevelSpec {
+  const CardioLevelSpec({required this.label, required this.unit, required this.min, required this.max, required this.start});
+  final String label; // 예: '레벨', '경사'
+  final String unit; // 예: '', '%'
+  final int min;
+  final int max;
+
+  /// [초급, 중급, 고급] 시작값.
+  final List<int> start;
+
+  int startFor(TrainingLevel l, TrainingGoal g) {
+    var v = start[l.index];
+    if (g == TrainingGoal.fatLoss) v += 1;
+    return v.clamp(min, max);
+  }
+
+  String format(int v) => '$label $v$unit';
+}
+
+/// exerciseId → 강도 단계 정의. 없는 유산소는 "편한 속도"로만 처방한다.
+const Map<String, CardioLevelSpec> cardioLevels = {
+  'stairs': CardioLevelSpec(label: '레벨', unit: '', min: 3, max: 20, start: [5, 8, 11]),
+  'treadmill_walk': CardioLevelSpec(label: '경사', unit: '%', min: 2, max: 15, start: [6, 9, 12]),
+  'treadmill_run': CardioLevelSpec(label: '속도', unit: 'km/h', min: 6, max: 16, start: [8, 10, 12]),
+  'curved_sprint': CardioLevelSpec(label: '인터벌', unit: '회', min: 4, max: 12, start: [5, 7, 9]),
+  'bike': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
+  'spin': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [6, 9, 12]),
+  'recumbent': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [4, 7, 10]),
+  'assault': CardioLevelSpec(label: '인터벌', unit: '회', min: 4, max: 12, start: [5, 7, 9]),
+  'rowing': CardioLevelSpec(label: '댐퍼', unit: '', min: 1, max: 10, start: [4, 5, 6]),
+  'ski_erg': CardioLevelSpec(label: '댐퍼', unit: '', min: 1, max: 10, start: [4, 5, 6]),
+  'elliptical': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
+  'jacobs': CardioLevelSpec(label: '속도', unit: '', min: 1, max: 10, start: [3, 5, 7]),
+  'versa': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 10, start: [3, 5, 7]),
+  'stair_run': CardioLevelSpec(label: '층', unit: '층', min: 5, max: 40, start: [8, 14, 20]),
+};
+
 /// 부상 부위별로 루틴에서 제외할 운동. 해당 부위에 큰 부하가 걸리는 것들.
 const Map<InjuryArea, Set<String>> injuryExclusions = {
   InjuryArea.lowerBack: {

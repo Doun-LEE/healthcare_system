@@ -345,6 +345,88 @@ class UserProfile {
       );
 }
 
+/// 기구의 중량 방식. 같은 숄더프레스라도 핀 꽂는 머신과 원판 끼우는 머신은 무게 단위가 다르다.
+enum LoadMechanism {
+  pin('핀 (선택식)', 5.0),
+  plate('원판 (플레이트)', 2.5),
+  free('프리웨이트', 2.5),
+  none('해당 없음', 0);
+
+  const LoadMechanism(this.label, this.defaultStepKg);
+  final String label;
+  final double defaultStepKg;
+
+  static LoadMechanism parse(String v) =>
+      LoadMechanism.values.firstWhere((e) => e.name == v, orElse: () => LoadMechanism.none);
+
+  /// 기구 종류별 기본 방식.
+  static LoadMechanism defaultFor(EquipmentType t) {
+    switch (t) {
+      case EquipmentType.barbell:
+      case EquipmentType.dumbbell:
+      case EquipmentType.kettlebell:
+      case EquipmentType.ezBar:
+      case EquipmentType.trapBar:
+      case EquipmentType.safetySquatBar:
+      case EquipmentType.fixedBarbell:
+      case EquipmentType.squatRack:
+      case EquipmentType.halfRack:
+      case EquipmentType.smithMachine:
+      case EquipmentType.landmine:
+      case EquipmentType.sled:
+      case EquipmentType.hipThrust:
+      case EquipmentType.beltSquat:
+        return LoadMechanism.free;
+      case EquipmentType.chestPressPlateLoaded:
+      case EquipmentType.shoulderPressPlateLoaded:
+      case EquipmentType.highRow:
+      case EquipmentType.lowRow:
+      case EquipmentType.tBarRow:
+      case EquipmentType.legPress:
+      case EquipmentType.hackSquat:
+      case EquipmentType.pendulumSquat:
+      case EquipmentType.vSquat:
+      case EquipmentType.calfRaise:
+      case EquipmentType.seatedCalfRaise:
+      case EquipmentType.reverseHyper:
+        return LoadMechanism.plate;
+      case EquipmentType.cableMachine:
+      case EquipmentType.functionalTrainer:
+      case EquipmentType.latPulldown:
+      case EquipmentType.seatedRow:
+      case EquipmentType.chestSupportedRow:
+      case EquipmentType.chestPress:
+      case EquipmentType.inclineChestPress:
+      case EquipmentType.declineChestPress:
+      case EquipmentType.pecDeck:
+      case EquipmentType.shoulderPress:
+      case EquipmentType.lateralRaiseMachine:
+      case EquipmentType.rearDeltMachine:
+      case EquipmentType.bicepCurlMachine:
+      case EquipmentType.preacherCurlMachine:
+      case EquipmentType.tricepExtensionMachine:
+      case EquipmentType.dipMachine:
+      case EquipmentType.horizontalLegPress:
+      case EquipmentType.legExtension:
+      case EquipmentType.legCurl:
+      case EquipmentType.lyingLegCurl:
+      case EquipmentType.hipAbductor:
+      case EquipmentType.hipAdductor:
+      case EquipmentType.gluteKickback:
+      case EquipmentType.abCrunchMachine:
+      case EquipmentType.torsoRotation:
+      case EquipmentType.pulloverMachine:
+      case EquipmentType.shrugMachine:
+      case EquipmentType.backExtensionMachine:
+      case EquipmentType.assistedPullUp:
+      case EquipmentType.multiStation:
+        return LoadMechanism.pin;
+      default:
+        return LoadMechanism.none;
+    }
+  }
+}
+
 /// 헬스장이 보유한 기구 한 대(또는 한 종류).
 class GymEquipment {
   GymEquipment({
@@ -353,7 +435,9 @@ class GymEquipment {
     this.customName,
     this.note,
     this.maxWeightKg,
-  });
+    LoadMechanism? mechanism,
+    this.stepKg,
+  }) : mechanism = mechanism ?? LoadMechanism.defaultFor(type);
 
   final String id;
   EquipmentType type;
@@ -365,6 +449,14 @@ class GymEquipment {
   /// 머신 최대 중량 등. 추정 무게의 상한으로 사용.
   double? maxWeightKg;
 
+  /// 핀/원판/프리웨이트.
+  LoadMechanism mechanism;
+
+  /// 무게 한 칸(kg). 비우면 방식의 기본값(핀 5 / 원판 2.5).
+  double? stepKg;
+
+  double get effectiveStep => stepKg ?? mechanism.defaultStepKg;
+
   String get displayName =>
       (customName == null || customName!.isEmpty) ? type.label : customName!;
 
@@ -374,6 +466,8 @@ class GymEquipment {
         'customName': customName,
         'note': note,
         'maxWeightKg': maxWeightKg,
+        'mechanism': mechanism.name,
+        'stepKg': stepKg,
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -382,6 +476,8 @@ class GymEquipment {
         customName: j['customName'] as String?,
         note: j['note'] as String?,
         maxWeightKg: (j['maxWeightKg'] as num?)?.toDouble(),
+        mechanism: j['mechanism'] == null ? null : LoadMechanism.parse(j['mechanism'] as String),
+        stepKg: (j['stepKg'] as num?)?.toDouble(),
       );
 }
 
@@ -448,6 +544,8 @@ class SetEntry {
     this.doneReps,
     this.doneWeight,
     this.completed = false,
+    this.level,
+    this.doneLevel,
   });
 
   final int targetReps;
@@ -458,8 +556,13 @@ class SetEntry {
   double? doneWeight;
   bool completed;
 
+  /// 유산소 기구 강도 단계(스텝밀 레벨, 트레드밀 경사%, 바이크 저항 등). 근력 운동은 null.
+  final int? level;
+  int? doneLevel;
+
   int get effectiveReps => doneReps ?? targetReps;
   double get effectiveWeight => doneWeight ?? targetWeight;
+  int? get effectiveLevel => doneLevel ?? level;
 
   Map<String, dynamic> toJson() => {
         'targetReps': targetReps,
@@ -467,6 +570,8 @@ class SetEntry {
         'doneReps': doneReps,
         'doneWeight': doneWeight,
         'completed': completed,
+        'level': level,
+        'doneLevel': doneLevel,
       };
 
   factory SetEntry.fromJson(Map<String, dynamic> j) => SetEntry(
@@ -475,6 +580,8 @@ class SetEntry {
         doneReps: j['doneReps'] as int?,
         doneWeight: (j['doneWeight'] as num?)?.toDouble(),
         completed: j['completed'] as bool,
+        level: j['level'] as int?,
+        doneLevel: j['doneLevel'] as int?,
       );
 }
 
@@ -635,11 +742,15 @@ class ExerciseProgress {
     this.timesPerformed = 0,
     this.consecutiveSuccess = 0,
     this.consecutiveFail = 0,
+    this.level,
   });
 
   final String exerciseId;
   double workingWeight;
   int targetReps;
+
+  /// 유산소 기구 강도 단계(현재 작업 레벨).
+  int? level;
   DateTime? lastPerformed;
   int timesPerformed;
   int consecutiveSuccess;
@@ -653,6 +764,7 @@ class ExerciseProgress {
         'timesPerformed': timesPerformed,
         'consecutiveSuccess': consecutiveSuccess,
         'consecutiveFail': consecutiveFail,
+        'level': level,
       };
 
   factory ExerciseProgress.fromJson(Map<String, dynamic> j) =>
@@ -666,6 +778,7 @@ class ExerciseProgress {
         timesPerformed: j['timesPerformed'] as int,
         consecutiveSuccess: j['consecutiveSuccess'] as int,
         consecutiveFail: j['consecutiveFail'] as int,
+        level: j['level'] as int?,
       );
 }
 

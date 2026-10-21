@@ -61,6 +61,14 @@ class StatsSummary {
   final List<LiftTrend> trends;
   final int cardioMinutes;
 
+  /// 근력 부위별 세트 비율(%). 합이 100.
+  Map<MuscleGroup, double> get sharePct {
+    final strength = groups.where((g) => g.group != MuscleGroup.cardio).toList();
+    final total = strength.fold<int>(0, (a, g) => a + g.sets);
+    if (total == 0) return {for (final g in strength) g.group: 0};
+    return {for (final g in strength) g.group: g.sets * 100 / total};
+  }
+
   /// 근력 부위(유산소 제외) 평균 세트 대비 60% 미만이면 "부족".
   /// 세션이 3회 미만이면 아직 판단하지 않는다(한두 번으로 치우침을 말하긴 이르다).
   Set<MuscleGroup> get underTrained {
@@ -81,12 +89,28 @@ class StatsSummary {
 }
 
 class Stats {
-  /// [days] 동안 완료된 계획으로 요약을 만든다.
-  static StatsSummary summarize(List<DayPlan> plans, {int days = 28, DateTime? now}) {
-    final today = dateOnly(now ?? DateTime.now());
-    final from = today.subtract(Duration(days: days - 1));
+  /// 달력 기준 기간: 이번 주(월~), 이번 달, 올해.
+  static (DateTime, DateTime) rangeFor(String period, DateTime now) {
+    final today = dateOnly(now);
+    switch (period) {
+      case 'week':
+        return (today.subtract(Duration(days: today.weekday - 1)), today);
+      case 'month':
+        return (DateTime(today.year, today.month, 1), today);
+      case 'year':
+        return (DateTime(today.year, 1, 1), today);
+      default:
+        return (today.subtract(const Duration(days: 27)), today);
+    }
+  }
+
+  /// [from]~[to] 또는 [days] 동안 완료된 계획으로 요약을 만든다.
+  static StatsSummary summarize(List<DayPlan> plans, {int days = 28, DateTime? now, DateTime? from, DateTime? to}) {
+    final today = to ?? dateOnly(now ?? DateTime.now());
+    final start = from ?? today.subtract(Duration(days: days - 1));
+    days = today.difference(start).inDays + 1;
     final done = plans
-        .where((p) => p.isFinished && !p.isRest && !p.date.isBefore(from) && !p.date.isAfter(today))
+        .where((p) => p.isFinished && !p.isRest && !p.date.isBefore(start) && !p.date.isAfter(today))
         .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
 
@@ -128,7 +152,7 @@ class Stats {
 
     // 주간 집계 (월요일 시작)
     final weeks = <WeekCount>[];
-    var ws = from.subtract(Duration(days: from.weekday - 1));
+    var ws = start.subtract(Duration(days: start.weekday - 1));
     while (!ws.isAfter(today)) {
       final we = ws.add(const Duration(days: 7));
       final inWeek = done.where((p) => !p.date.isBefore(ws) && p.date.isBefore(we)).toList();

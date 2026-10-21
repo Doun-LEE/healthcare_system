@@ -132,7 +132,8 @@ class GymScreen extends StatelessWidget {
       final detail = await _EquipmentEditor.show(context, chosen.first);
       if (detail == null) return;
       await state.addEquipment(gym.id, chosen.first,
-          name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note);
+          name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note,
+          mechanism: detail.mechanism, stepKg: detail.stepKg);
       return;
     }
     for (final t in chosen) {
@@ -335,6 +336,7 @@ class _EquipmentList extends StatelessWidget {
                     [
                       if (e.customName != null && e.customName!.isNotEmpty) e.type.label,
                       equipmentInfo(e.type).strengths.take(2).join(' · '),
+                      if (e.mechanism != LoadMechanism.none) '${e.mechanism.label.split(' ').first} ${e.effectiveStep}kg',
                       if (e.maxWeightKg != null) '최대 ${e.maxWeightKg!.toInt()}kg',
                     ].join(' · '),
                     maxLines: 2,
@@ -432,6 +434,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
   late final TextEditingController _name;
   late final TextEditingController _max;
   late final TextEditingController _note;
+  late final TextEditingController _step;
+  late LoadMechanism _mech;
 
   @override
   void initState() {
@@ -439,13 +443,18 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     _name = TextEditingController(text: widget.existing?.customName ?? '');
     _max = TextEditingController(text: widget.existing?.maxWeightKg?.toInt().toString() ?? '');
     _note = TextEditingController(text: widget.existing?.note ?? '');
+    _mech = widget.existing?.mechanism ?? LoadMechanism.defaultFor(widget.type);
+    _step = TextEditingController(text: widget.existing?.stepKg == null ? '' : _fmt(widget.existing!.stepKg!));
   }
+
+  String _fmt(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
 
   @override
   void dispose() {
     _name.dispose();
     _max.dispose();
     _note.dispose();
+    _step.dispose();
     super.dispose();
   }
 
@@ -467,11 +476,47 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
             decoration: const InputDecoration(labelText: '별칭 (선택)', hintText: '예: 해머 체스트프레스'),
           ),
           if (isMachine) ...[
+            const SizedBox(height: 10),
+            Align(alignment: Alignment.centerLeft, child: Text('중량 방식', style: Theme.of(context).textTheme.labelLarge)),
+            const SizedBox(height: 4),
+            SegmentedButton<LoadMechanism>(
+              segments: const [
+                ButtonSegment(value: LoadMechanism.pin, label: Text('핀'), icon: Icon(Icons.push_pin_outlined)),
+                ButtonSegment(value: LoadMechanism.plate, label: Text('원판'), icon: Icon(Icons.album_outlined)),
+                ButtonSegment(value: LoadMechanism.free, label: Text('프리')),
+              ],
+              selected: {_mech == LoadMechanism.none ? LoadMechanism.pin : _mech},
+              showSelectedIcon: false,
+              onSelectionChanged: (v) => setState(() => _mech = v.first),
+            ),
             const SizedBox(height: 8),
-            TextField(
-              controller: _max,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: '최대 중량 kg (선택)', hintText: '머신 스택 최대치'),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _step,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: '무게 한 칸 kg', hintText: '기본 ${_fmt(_mech.defaultStepKg)}'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _max,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: '최대 kg (선택)'),
+                ),
+              ),
+            ]),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _mech == LoadMechanism.pin
+                    ? '핀 머신: 스택 한 칸 무게(보통 5kg, 수입 머신은 4.5kg)로 처방 무게가 떨어집니다.'
+                    : _mech == LoadMechanism.plate
+                        ? '원판 머신: 끼우는 원판 단위(보통 2.5kg)로 처방됩니다.'
+                        : '프리웨이트: 2.5kg 단위.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ),
           ],
           const SizedBox(height: 8),
@@ -492,6 +537,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               customName: _name.text.trim().isEmpty ? null : _name.text.trim(),
               maxWeightKg: double.tryParse(_max.text),
               note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+              mechanism: isMachine ? _mech : LoadMechanism.defaultFor(widget.type),
+              stepKg: double.tryParse(_step.text),
             ),
           ),
           child: const Text('저장'),

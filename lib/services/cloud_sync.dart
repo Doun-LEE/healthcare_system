@@ -153,28 +153,33 @@ class CloudSync {
   static String emailKey(String email) =>
       base64Url.encode(utf8.encode(email.trim().toLowerCase())).replaceAll('=', '');
 
-  /// 내 이메일을 검색 가능하게 등록하고 공개 프로필을 올린다.
+  /// 공개 프로필을 올리고, 공개 ID(닉네임#1234)와 이메일을 검색표에 등록한다.
+  /// 검색표에는 uid·이름·ID만 저장하고 이메일 문자열은 상대에게 노출되지 않는다.
   Future<void> publishPublic(Map<String, dynamic> publicProfile) async {
     final u = user;
     if (u == null) return;
+    final handle = publicProfile['handle'] as String? ?? '';
     final batch = _db.batch();
     batch.set(_db.doc('users/${u.uid}/public/profile'), {...publicProfile, 'updatedAt': FieldValue.serverTimestamp()});
+    final entry = {'uid': u.uid, 'name': publicProfile['name'], 'handle': handle};
+    if (handle.isNotEmpty) {
+      batch.set(_db.doc('handles/${normalizeHandle(handle)}'), entry);
+    }
     if (u.email != null) {
-      batch.set(_db.doc('emails/${emailKey(u.email!)}'), {
-        'uid': u.uid,
-        'name': publicProfile['name'],
-        'email': u.email!.toLowerCase(),
-      });
+      batch.set(_db.doc('emails/${emailKey(u.email!)}'), entry);
     }
     await batch.commit();
   }
 
-  /// 이메일로 파트너 찾기. 없으면 null.
-  Future<PartnerLink?> lookupByEmail(String email) async {
-    final snap = await _db.doc('emails/${emailKey(email)}').get();
+  /// 공개 ID(닉네임#1234) 또는 이메일로 파트너 찾기. 없으면 null.
+  Future<PartnerLink?> lookup(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return null;
+    final doc = q.contains('@') ? 'emails/${emailKey(q)}' : 'handles/${normalizeHandle(q)}';
+    final snap = await _db.doc(doc).get();
     final d = snap.data();
     if (d == null) return null;
-    return PartnerLink(uid: d['uid'] as String, name: (d['name'] as String?) ?? '', email: (d['email'] as String?) ?? email);
+    return PartnerLink(uid: d['uid'] as String, name: (d['name'] as String?) ?? '', handle: (d['handle'] as String?) ?? '');
   }
 
   Future<PartnerProfile?> fetchPartner(String uid) async {
@@ -191,7 +196,7 @@ class CloudSync {
       ...data,
       'fromUid': u.uid,
       'fromName': fromName,
-      'fromEmail': u.email ?? '',
+      'fromHandle': makeHandle(fromName, u.uid),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
@@ -228,7 +233,7 @@ class CloudSync {
           type: type,
           fromUid: d['fromUid'] as String,
           fromName: (d['fromName'] as String?) ?? '파트너',
-          fromEmail: (d['fromEmail'] as String?) ?? '',
+          fromHandle: (d['fromHandle'] as String?) ?? '',
           date: d['date'] == null ? null : parseDateKey(d['date'] as String),
           code: d['code'] as String?,
           title: (d['title'] as String?) ?? '',
