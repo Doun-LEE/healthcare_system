@@ -549,6 +549,20 @@ class AppState extends ChangeNotifier {
   /// [d] 이후의 미완료 날짜를 다시 짠다. 플래너가 [d]까지의 계획을 이력으로 보고
   /// 분할 순서와 부위별 회복 시간을 이어가므로, 중간에 끼워 넣은 파트너 운동이나
   /// 바뀐 부위 뒤에서도 같은 부위가 연달아 오거나 빠지는 일이 없다.
+  /// 파트너 운동일처럼 중간에 고정된 날이 생겼을 때, 그 앞뒤의 아직 하지 않은 날짜를
+  /// 모두 다시 짠다. 오늘 이미 시작한 운동과 완료한 날, 파트너 날은 그대로 둔다.
+  Future<void> rebalanceAround(DateTime d) async {
+    final today = dateOnly(DateTime.now());
+    final todayPlan = planOn(today);
+    final todayStarted = todayPlan != null && (todayPlan.isFinished || todayPlan.exercises.any((e) => e.anyCompleted));
+    final from = todayStarted ? today.add(const Duration(days: 1)) : today;
+    final open = myPlans.where((p) => !p.isFinished && !p.date.isBefore(from)).toList();
+    if (open.isEmpty) return;
+    final last = open.map((p) => p.date).reduce((a, b) => a.isAfter(b) ? a : b);
+    final to = last.isAfter(d) ? last : d;
+    await generatePlans(from: from, to: to, restDays: manualRestDays);
+  }
+
   Future<void> rebalanceAfter(DateTime d) async {
     final future = myPlans.where((p) => p.date.isAfter(d) && !p.isFinished).toList();
     if (future.isEmpty) return;
@@ -1104,7 +1118,7 @@ class AppState extends ChangeNotifier {
     if (mine != null) _data.plans.remove(mine);
     _data.plans.add(plan);
     await _save();
-    if (focusChanged) await rebalanceAfter(d);
+    if (focusChanged) await rebalanceAround(d);
 
     try {
       await CloudSync.instance.sendJointRoutine(
@@ -1127,7 +1141,7 @@ class AppState extends ChangeNotifier {
     final plan = await importRoutine(item.code!, item.date!);
     if (plan == null) return null;
     plan.partnerName = item.fromName;
-    if (!_sameGroups(beforeFocus, plan.focus)) await rebalanceAfter(plan.date);
+    if (!_sameGroups(beforeFocus, plan.focus)) await rebalanceAround(plan.date);
     try {
       final pp = await CloudSync.instance.fetchPartner(item.fromUid);
       if (pp != null) {
@@ -1197,6 +1211,8 @@ class AppState extends ChangeNotifier {
     if (p == null || p.isFinished) return;
     _data.plans.remove(p);
     await regenerateDay(date);
+    // 파트너 날이 빠졌으니 앞뒤 날짜도 다시 맞춘다.
+    await rebalanceAround(date);
   }
 
   Future<void> dismissInbox(InboxItem item) async {
