@@ -73,7 +73,8 @@ class AiPlan {
 }
 
 class AiCoach {
-  static const model = 'gemini-2.5-flash';
+  /// 순서대로 시도한다. (3.8-flash는 응답이 60초 넘게 걸려 제외)
+  static const models = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'];
 
   static final _schema = Schema.object(
     properties: {
@@ -117,29 +118,36 @@ class AiCoach {
   /// 모델 호출. 네트워크/한도/설정 문제는 [AiCoachException]으로.
   static Future<AiPlan> generate(AiContext ctx) async {
     final prompt = buildPrompt(ctx);
-    final GenerateContentResponse res;
-    try {
-      final gm = FirebaseAI.googleAI().generativeModel(
-        model: model,
-        systemInstruction: Content.system(_system),
-        generationConfig: GenerationConfig(
-          responseMimeType: 'application/json',
-          responseSchema: _schema,
-        ),
-      );
-      res = await gm.generateContent([Content.text(prompt)]).timeout(const Duration(seconds: 60));
-    } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('403') || msg.contains('PERMISSION_DENIED') || msg.contains('not enabled') || msg.contains('API has not been used')) {
-        throw AiCoachException('Firebase 콘솔에서 AI Logic(Gemini)을 아직 켜지 않았습니다. (빌드 → AI Logic → 시작하기)');
+    String? text;
+    Object? lastError;
+    for (final m in models) {
+      try {
+        final gm = FirebaseAI.googleAI().generativeModel(
+          model: m,
+          systemInstruction: Content.system(_system),
+          generationConfig: GenerationConfig(
+            responseMimeType: 'application/json',
+            responseSchema: _schema,
+          ),
+        );
+        final res = await gm.generateContent([Content.text(prompt)]).timeout(const Duration(seconds: 45));
+        text = res.text;
+        if (text != null && text.trim().isNotEmpty) break;
+      } catch (e) {
+        lastError = e;
+        final msg = e.toString();
+        if (msg.contains('403') || msg.contains('PERMISSION_DENIED') || msg.contains('not enabled') || msg.contains('API has not been used')) {
+          throw AiCoachException('Firebase 콘솔에서 AI Logic(Gemini)을 아직 켜지 않았습니다. (빌드 → AI Logic → 시작하기)');
+        }
+        if (msg.contains('429') || msg.contains('RESOURCE_EXHAUSTED') || msg.contains('quota')) {
+          throw AiCoachException('오늘 AI 무료 한도를 다 썼어요. 규칙 기반 루틴을 사용하세요.');
+        }
+        // 그 외(타임아웃, 모델 없음 등)는 다음 모델로.
       }
-      if (msg.contains('429') || msg.contains('RESOURCE_EXHAUSTED') || msg.contains('quota')) {
-        throw AiCoachException('오늘 AI 무료 한도를 다 썼어요. 규칙 기반 루틴을 사용하세요.');
-      }
-      throw AiCoachException('AI 호출 실패: $msg');
     }
-    final text = res.text;
-    if (text == null || text.trim().isEmpty) throw AiCoachException('AI가 빈 응답을 보냈어요. 다시 시도하세요.');
+    if (text == null || text.trim().isEmpty) {
+      throw AiCoachException('AI 응답을 받지 못했어요. 잠시 후 다시 시도하세요.${lastError == null ? '' : ' ($lastError)'}');
+    }
     final Map<String, dynamic> json;
     try {
       json = jsonDecode(text) as Map<String, dynamic>;
