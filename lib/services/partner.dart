@@ -52,6 +52,8 @@ class PartnerProfile {
     required this.workingWeights,
     required this.planFocus,
     required this.planTitles,
+    this.dayCondition = const {},
+    this.dayLoad = const {},
   });
 
   final String uid;
@@ -68,6 +70,10 @@ class PartnerProfile {
   /// 'yyyy-MM-dd' → 부위 목록
   final Map<String, List<MuscleGroup>> planFocus;
   final Map<String, String> planTitles;
+
+  /// 'yyyy-MM-dd' → 그날 입력한 컨디션(1~10)과 무게 배율. 입력 전이면 없음.
+  final Map<String, int> dayCondition;
+  final Map<String, double> dayLoad;
 
   static Map<String, dynamic> build({
     required String uid,
@@ -107,7 +113,12 @@ class PartnerProfile {
       'plans': {
         for (final p in plans)
           if (!p.isRest && !p.date.isBefore(from) && !p.date.isAfter(to))
-            dateKey(p.date): {'focus': p.focus.map((g) => g.name).toList(), 'title': p.title ?? ''},
+            dateKey(p.date): {
+              'focus': p.focus.map((g) => g.name).toList(),
+              'title': p.title ?? '',
+              if (p.condition != null) 'condition': p.condition,
+              if (p.condition != null) 'load': p.loadFactor,
+            },
       },
     };
   }
@@ -145,6 +156,8 @@ class PartnerProfile {
     }
     final planFocus = <String, List<MuscleGroup>>{};
     final planTitles = <String, String>{};
+    final dayCondition = <String, int>{};
+    final dayLoad = <String, double>{};
     for (final e in ((j['plans'] as Map?) ?? const {}).entries) {
       final m = (e.value as Map).cast<String, dynamic>();
       planFocus[e.key as String] = ((m['focus'] as List?) ?? const [])
@@ -158,6 +171,10 @@ class PartnerProfile {
           .whereType<MuscleGroup>()
           .toList();
       planTitles[e.key as String] = (m['title'] as String?) ?? '';
+      if (m['condition'] is num) {
+        dayCondition[e.key as String] = (m['condition'] as num).toInt();
+        dayLoad[e.key as String] = (m['load'] as num?)?.toDouble() ?? 1.0;
+      }
     }
     return PartnerProfile(
       uid: j['uid'] as String,
@@ -170,8 +187,18 @@ class PartnerProfile {
       },
       planFocus: planFocus,
       planTitles: planTitles,
+      dayCondition: dayCondition,
+      dayLoad: dayLoad,
     );
   }
+}
+
+/// 파트너가 그날 입력한 컨디션. 파트너 운동일 화면에 보여주고 파트너 무게에 배율을 곱한다.
+class PartnerCondition {
+  const PartnerCondition({required this.name, required this.condition, required this.load});
+  final String name;
+  final int condition;
+  final double load;
 }
 
 enum InboxType { joint, jointAccepted, partnerRequest, partnerAccept, partnerDecline }

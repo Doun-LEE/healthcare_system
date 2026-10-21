@@ -1,3 +1,5 @@
+import 'dart:math';
+import '../engine/load_estimator.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -183,6 +185,7 @@ class DayPlanView extends StatelessWidget {
         _Header(plan: plan),
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
           ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
+        if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
         const SizedBox(height: 8),
         for (final pe in plan.exercises)
           _ExerciseCard(plan: plan, pe: pe, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
@@ -263,6 +266,42 @@ class DayPlanView extends StatelessWidget {
                 ),
         ),
         actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('확인'))],
+      ),
+    );
+  }
+}
+
+/// 파트너 무게에 파트너가 입력한 컨디션 배율을 곱한 값(기구 단위로 반올림).
+double _partnerWeight(BuildContext context, DayPlan plan, PlannedExercise pe) {
+  final base = plan.partnerWeights[pe.exerciseId]!;
+  final pc = context.read<AppState>().partnerConditionOn(plan.date);
+  if (pc == null || pc.load == 1.0) return base;
+  final inc = exerciseById(pe.exerciseId)!.loadType.increment;
+  return max(inc, LoadEstimator.roundTo(base * pc.load, inc));
+}
+
+/// 파트너가 그날 입력한 컨디션을 보여준다. 아직 없으면 안내.
+class _PartnerConditionLine extends StatelessWidget {
+  const _PartnerConditionLine({required this.plan});
+  final DayPlan plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final pc = context.watch<AppState>().partnerConditionOn(plan.date);
+    final msg = pc == null
+        ? '${plan.partnerName} 님은 아직 이 날 컨디션을 입력하지 않았어요. 입력하면 여기와 파트너 무게에 반영돼요.'
+        : '${pc.name} 님 컨디션 ${pc.condition}/10 · 무게 ${(pc.load * 100).round()}% 로 운동해요. 아래 파트너 무게에 반영됨.';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.group, size: 16, color: cs.secondary),
+          const SizedBox(width: 6),
+          Expanded(child: Text(msg, style: text.bodySmall?.copyWith(color: cs.secondary))),
+        ],
       ),
     );
   }
@@ -393,7 +432,7 @@ class _ExerciseCard extends StatelessWidget {
                               Text(
                                 isBw
                                     ? '${plan.partnerName}: 같은 횟수'
-                                    : '${plan.partnerName}: ${_fmt(plan.partnerWeights[pe.exerciseId]!)}kg',
+                                    : '${plan.partnerName}: ${_fmt(_partnerWeight(context, plan, pe))}kg',
                                 style: text.bodySmall?.copyWith(color: cs.secondary, fontWeight: FontWeight.w600),
                               ),
                             ]),

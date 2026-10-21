@@ -1,6 +1,7 @@
 /// 앱 전역 상태. 저장소를 메모리에 올려두고 변경 시마다 저장한다.
 library;
 
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -749,6 +750,7 @@ class AppState extends ChangeNotifier {
     if (existing.isFinished) return existing;
 
     List<PlannedExercise> exercises;
+    var trimmed = false;
     if (existing.partnerName != null) {
       // 파트너 운동일: 운동 구성은 그대로 두고(파트너와 같은 운동), 내 무게만 배율 적용.
       exercises = [
@@ -776,6 +778,12 @@ class AppState extends ChangeNotifier {
             ],
           ),
       ];
+      // 시간을 줄였으면 뒤쪽(보조) 운동부터 뺀다. 유산소는 마지막에 남긴다.
+      while (exercises.length > 1 && SessionGenerator.estimateMinutes(exercises) > minutes) {
+        final idx = exercises.lastIndexWhere((e) => exerciseById(e.exerciseId)!.loadType != LoadType.cardio);
+        exercises.removeAt(idx < 0 ? exercises.length - 1 : idx);
+        trimmed = true;
+      }
     } else {
       exercises = SessionGenerator(SessionRequest(
         groups: existing.focus,
@@ -809,6 +817,11 @@ class AppState extends ChangeNotifier {
     _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
+    if (plan.partnerName != null) {
+      // 파트너도 내 컨디션을 보고, 줄인 시간은 둘이 같은 루틴이어야 하므로 다시 보낸다.
+      unawaited(_publishPublic().catchError((_) {}));
+      if (trimmed) await resyncPartnerDay(plan);
+    }
     return plan;
   }
 
@@ -924,6 +937,9 @@ class AppState extends ChangeNotifier {
         }
       }
       inbox = keep;
+      try {
+        await _refreshPartnerConditions();
+      } catch (_) {}
       if (changed) {
         await _save();
       } else {
@@ -934,6 +950,28 @@ class AppState extends ChangeNotifier {
 
   /// 마지막 파트너 관련 알림(수락/거절). 화면에서 한 번 보여주고 지운다.
   String? lastPartnerNotice;
+
+  /// 파트너 운동일(dateKey) → 파트너가 입력한 컨디션. 받은편지함 갱신 때 같이 가져온다.
+  Map<String, PartnerCondition> partnerConditions = {};
+
+  PartnerCondition? partnerConditionOn(DateTime d) => partnerConditions[dateKey(d)];
+
+  Future<void> _refreshPartnerConditions() async {
+    final today = dateOnly(DateTime.now());
+    final days = myPlans.where((p) =>
+        p.partnerName != null && !p.isFinished && !p.date.isBefore(today) && p.date.difference(today).inDays <= 7);
+    final cache = <String, PartnerProfile?>{};
+    final next = <String, PartnerCondition>{};
+    for (final p in days) {
+      final link = _data.partners.where((l) => l.name == p.partnerName && !l.pending).firstOrNull;
+      if (link == null) continue;
+      final pp = cache[link.uid] ??= await CloudSync.instance.fetchPartner(link.uid);
+      final key = dateKey(p.date);
+      final c = pp?.dayCondition[key];
+      if (c != null) next[key] = PartnerCondition(name: pp!.name, condition: c, load: pp.dayLoad[key] ?? 1.0);
+    }
+    partnerConditions = next;
+  }
 
   /// 내 공개 ID (닉네임#1234). 로그인 전이면 null.
   String? get myHandle {

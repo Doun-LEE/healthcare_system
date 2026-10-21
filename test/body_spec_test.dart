@@ -85,6 +85,8 @@ void main() {
       kind: DayKind.workout,
       focus: [MuscleGroup.chest, MuscleGroup.arms],
       title: '밀기',
+      condition: 6,
+      loadFactor: 0.9,
     );
     final json = PartnerProfile.build(
       uid: 'uid1',
@@ -100,5 +102,8 @@ void main() {
     expect(pp.available, contains(EquipmentType.legPress));
     expect(pp.workingWeights['bb_bench'], 60);
     expect(pp.planFocus[dateKey(plan.date)], [MuscleGroup.chest, MuscleGroup.arms]);
+    // 그날 입력한 컨디션·무게 배율도 파트너에게 공유된다.
+    expect(pp.dayCondition[dateKey(plan.date)], 6);
+    expect(pp.dayLoad[dateKey(plan.date)], 0.9);
   });
 }
