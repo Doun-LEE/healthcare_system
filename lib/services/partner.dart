@@ -154,7 +154,7 @@ class PartnerProfile {
   }
 }
 
-enum InboxType { joint, partnerRequest, partnerAccept, partnerDecline }
+enum InboxType { joint, jointAccepted, partnerRequest, partnerAccept, partnerDecline }
 
 /// 받은편지함 항목: 파트너 요청/수락/거절, 또는 "같이 할 루틴".
 class InboxItem {

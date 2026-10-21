@@ -486,6 +486,55 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 그날의 부위를 바꾸고 루틴을 다시 뽑는다. [shiftFollowing]이면 이후 미완료 날짜를
+  /// 이 날 기준으로 다시 배치한다(플래너가 이 날의 제목을 보고 분할 순서를 이어감).
+  Future<void> changeDayFocus(
+    DateTime date,
+    List<MuscleGroup> groups, {
+    String? title,
+    bool shiftFollowing = false,
+  }) async {
+    final u = currentUser;
+    if (u == null || groups.isEmpty) return;
+    final d = dateOnly(date);
+    final existing = planOn(d);
+    if (existing != null && existing.isFinished) return;
+    final exercises = SessionGenerator(SessionRequest(
+      groups: groups,
+      available: availableEquipment,
+      progress: progress,
+      profile: u,
+      minutesBudget: u.sessionMinutes,
+      now: d,
+      equipmentMax: equipmentMax,
+      seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
+    )).generate();
+    final plan = DayPlan(
+      id: existing?.id ?? newId(),
+      userId: u.id,
+      date: d,
+      kind: DayKind.workout,
+      focus: groups,
+      exercises: exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
+      title: title ?? groups.map((g) => g.label).join('·'),
+    );
+    if (existing != null) _data.plans.remove(existing);
+    _data.plans.add(plan);
+    await _save();
+
+    if (shiftFollowing) {
+      final future = myPlans.where((p) => p.date.isAfter(d) && !p.isFinished).toList();
+      if (future.isNotEmpty) {
+        await generatePlans(
+          from: d.add(const Duration(days: 1)),
+          to: future.last.date,
+          restDays: manualRestDays,
+        );
+      }
+    }
+  }
+
   /// 하루만 다시 생성(기구 변경 등 반영).
   Future<DayPlan?> regenerateDay(DateTime date) async {
     final u = currentUser;
@@ -749,6 +798,15 @@ class AppState extends ChangeNotifier {
           try {
             await CloudSync.instance.deleteInbox(it.id);
           } catch (_) {}
+        } else if (it.type == InboxType.jointAccepted) {
+          final d = it.date;
+          lastPartnerNotice = d == null
+              ? '${it.fromName} 님이 파트너 루틴을 수락했어요.'
+              : '${it.fromName} 님이 ${d.month}/${d.day} 파트너 루틴을 수락했어요. 둘 다 같은 루틴으로 뜹니다.';
+          try {
+            await CloudSync.instance.deleteInbox(it.id);
+          } catch (_) {}
+          notifyListeners();
         } else {
           keep.add(it);
         }
@@ -900,13 +958,29 @@ class AppState extends ChangeNotifier {
     return '$note ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
   }
 
-  /// 받은편지함의 루틴을 내 계획으로 적용(무게는 내 기준).
+  /// 받은편지함의 루틴을 내 계획으로 적용(무게는 내 기준, 파트너 무게는 보낸 사람 기준).
+  /// 적용하면 보낸 사람에게 "수락됨"이 전달된다.
   Future<String> applyInbox(InboxItem item) async {
     if (item.code == null || item.date == null) return '루틴 정보가 없어요.';
     final plan = await importRoutine(item.code!, item.date!);
     if (plan != null) {
       plan.partnerName = item.fromName;
+      // 파트너(보낸 사람)의 무게를 붙인다.
+      try {
+        final pp = await CloudSync.instance.fetchPartner(item.fromUid);
+        if (pp != null) {
+          final est = LoadEstimator(pp.profile);
+          for (final pe in plan.exercises) {
+            final ex = exerciseById(pe.exerciseId)!;
+            plan.partnerWeights[ex.id] =
+                pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
+          }
+        }
+      } catch (_) {}
       await _save();
+      try {
+        await CloudSync.instance.sendJointAccepted(item.fromUid, item.date!, currentUser?.name ?? '');
+      } catch (_) {}
     }
     try {
       await CloudSync.instance.deleteInbox(item.id);

@@ -131,7 +131,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                 child: PartnerDayButton(date: _selected!, plan: selectedPlan),
                               ),
                             ),
-                          Expanded(child: DayPlanView(plan: selectedPlan, editable: !selectedPlan.date.isAfter(today))),
+                          Expanded(
+                            child: DayPlanView(
+                              plan: selectedPlan,
+                              editable: !selectedPlan.date.isBefore(today),
+                              logging: !selectedPlan.date.isAfter(today),
+                            ),
+                          ),
                         ],
                       ),
           ),

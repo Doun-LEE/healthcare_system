@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/catalog.dart';
+import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +48,84 @@ Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
   ));
 }
 
+/// 그날의 부위를 바꾼다: 분할 템플릿의 다른 날을 고르거나 부위를 직접 선택.
+/// "이후 날짜도 이어서 재배치"를 켜면 분할 순서가 그날부터 다시 이어진다.
+Future<void> changeDayFocusDialog(BuildContext context, DayPlan plan) async {
+  final state = context.read<AppState>();
+  final user = state.currentUser;
+  if (user == null) return;
+  final cycle = splitCycles[user.splitDays.clamp(1, 6)]!;
+  final custom = <MuscleGroup>{...plan.focus};
+  var shift = true;
+
+  final result = await showModalBottomSheet<(List<MuscleGroup>, String?, bool)>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (c) => StatefulBuilder(
+      builder: (c, setSheet) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('${plan.date.month}/${plan.date.day} 부위 바꾸기', style: Theme.of(c).textTheme.titleLarge),
+            Text('예: 오늘이 하체 날인데 가슴을 하고 싶으면 "밀기"를 고르세요.',
+                style: Theme.of(c).textTheme.bodySmall?.copyWith(color: Theme.of(c).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 10),
+            Text('내 ${user.splitDays}분할의 날', style: Theme.of(c).textTheme.labelLarge),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final d in cycle)
+                  ActionChip(
+                    label: Text(d.title),
+                    onPressed: () => Navigator.pop(c, (d.groups, d.title, shift)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('또는 부위 직접 선택', style: Theme.of(c).textTheme.labelLarge),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final g in MuscleGroup.values)
+                  FilterChip(
+                    label: Text(g.label),
+                    selected: custom.contains(g),
+                    onSelected: (v) => setSheet(() => v ? custom.add(g) : custom.remove(g)),
+                  ),
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: shift,
+              title: const Text('이후 날짜도 이어서 재배치'),
+              subtitle: const Text('분할 순서가 이 날부터 다시 이어집니다 (완료한 날은 그대로)'),
+              onChanged: (v) => setSheet(() => shift = v),
+            ),
+            const SizedBox(height: 4),
+            FilledButton(
+              onPressed: custom.isEmpty ? null : () => Navigator.pop(c, (custom.toList(), null, shift)),
+              child: const Text('선택한 부위로 다시 만들기'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (result == null || !context.mounted) return;
+  final (groups, title, doShift) = result;
+  await state.changeDayFocus(plan.date, groups, title: title, shiftFollowing: doShift);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${plan.date.month}/${plan.date.day} 루틴을 ${title ?? groups.map((g) => g.label).join('·')}(으)로 바꿨어요${doShift ? ' · 이후 날짜 재배치됨' : ''}.'),
+    ));
+  }
+}
+
 Future<void> shareRoutine(BuildContext context, DayPlan plan) async {
   final state = context.read<AppState>();
   final code = state.shareCode(plan);
@@ -65,9 +144,15 @@ Future<void> shareRoutine(BuildContext context, DayPlan plan) async {
 /// 하루 계획 상세. 오늘 화면과 달력 상세에서 공용으로 쓴다.
 /// 세트 체크, 횟수/무게 수정, 세트 추가, 운동 교체/삭제, 완료 처리.
 class DayPlanView extends StatelessWidget {
-  const DayPlanView({super.key, required this.plan, this.editable = true});
+  const DayPlanView({super.key, required this.plan, this.editable = true, bool? logging})
+      : logging = logging ?? editable;
   final DayPlan plan;
+
+  /// 운동 교체/제외/세트 추가/부위 바꾸기 허용.
   final bool editable;
+
+  /// 세트 체크·실제 수행 입력·완료 허용 (오늘/과거만).
+  final bool logging;
 
   @override
   Widget build(BuildContext context) {
@@ -96,11 +181,11 @@ class DayPlanView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
         _Header(plan: plan),
-        if (editable && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
+        if (logging && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
           ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
         const SizedBox(height: 8),
         for (final pe in plan.exercises)
-          _ExerciseCard(plan: plan, pe: pe, editable: editable && !plan.isFinished),
+          _ExerciseCard(plan: plan, pe: pe, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
         if (plan.exercises.isEmpty)
           Padding(
             padding: const EdgeInsets.all(24),
@@ -111,7 +196,7 @@ class DayPlanView extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        if (editable && !plan.isFinished && plan.exercises.isNotEmpty)
+        if (logging && !plan.isFinished && plan.exercises.isNotEmpty)
           FilledButton.icon(
             onPressed: () => _finish(context, state),
             icon: const Icon(Icons.flag),
@@ -128,7 +213,7 @@ class DayPlanView extends StatelessWidget {
             if (plan.rpe != null)
               Text('체감 강도 ${plan.rpe}/10 · ${rpeLabel(plan.rpe!)}',
                   style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-            if (editable)
+            if (logging)
               TextButton(
                 onPressed: () => state.reopenDay(plan),
                 child: const Text('다시 열기'),
@@ -204,6 +289,12 @@ class _Header extends StatelessWidget {
                   child: Text(plan.title ?? '운동',
                       style: text.titleLarge?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
                 ),
+                if (!plan.isFinished)
+                  IconButton(
+                    tooltip: '부위 바꾸기',
+                    icon: Icon(Icons.swap_horiz, color: cs.onPrimaryContainer),
+                    onPressed: () => changeDayFocusDialog(context, plan),
+                  ),
                 if (plan.exercises.isNotEmpty)
                   IconButton(
                     tooltip: '루틴 공유 (파트너와 같은 운동)',
@@ -252,10 +343,11 @@ class _Header extends StatelessWidget {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({required this.plan, required this.pe, required this.editable});
+  const _ExerciseCard({required this.plan, required this.pe, required this.editable, required this.logging});
   final DayPlan plan;
   final PlannedExercise pe;
   final bool editable;
+  final bool logging;
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +429,7 @@ class _ExerciseCard extends StatelessWidget {
                 set: pe.sets[i],
                 unit: unit,
                 showWeight: !isCardio && !isBw,
-                editable: editable,
+                editable: logging,
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
                   if (pe.sets[i].completed && pe.restSeconds > 0 && i < pe.sets.length - 1 && context.mounted) {

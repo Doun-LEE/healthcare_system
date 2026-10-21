@@ -205,6 +205,9 @@ class CloudSync {
   }) =>
       _sendInbox(toUid, {'type': 'joint', 'date': dateKey(date), 'code': code, 'title': title}, fromName);
 
+  Future<void> sendJointAccepted(String toUid, DateTime date, String fromName) =>
+      _sendInbox(toUid, {'type': 'jointAccepted', 'date': dateKey(date)}, fromName);
+
   Future<void> sendPartnerRequest(String toUid, String fromName) =>
       _sendInbox(toUid, {'type': 'partnerRequest'}, fromName);
 
