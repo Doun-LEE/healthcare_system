@@ -448,10 +448,12 @@ class AppState extends ChangeNotifier {
     final history = myPlans
         .where((p) => p.isFinished || p.date.isBefore(f))
         .toList();
-    final keep = <String>{
+    // 완료한 날과 파트너 운동일은 그대로 둔다(파트너와 같은 루틴이어야 하므로).
+    final fixed = <String, DayPlan>{
       for (final p in myPlans)
-        if (p.isFinished && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date),
+        if ((p.isFinished || p.partnerName != null) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
     };
+    final keep = fixed.keys.toSet();
 
     final generated = Planner(PlannerInput(
       profile: u,
@@ -464,6 +466,7 @@ class AppState extends ChangeNotifier {
       newId: newId,
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
+      fixed: fixed,
     )).build();
 
     _data.plans.removeWhere((p) =>

@@ -449,6 +449,36 @@ void main() {
   });
 
   group('LocalStore', () {
+
+  test('planner keeps fixed (partner) days and continues the split after them', () {
+    final u = UserProfile(id: 'u1', name: '도운', sex: Sex.male, weightKg: 75, heightCm: 178, age: 28, level: TrainingLevel.intermediate, splitDays: 3);
+    final partnerDay = DayPlan(
+      id: 'pd',
+      userId: 'u1',
+      date: DateTime(2026, 10, 21),
+      kind: DayKind.workout,
+      focus: [MuscleGroup.back, MuscleGroup.arms],
+      title: '당기기 · 친구와 함께',
+      partnerName: '친구',
+    );
+    final plans = Planner(PlannerInput(
+      profile: u,
+      from: DateTime(2026, 10, 20),
+      to: DateTime(2026, 10, 23),
+      restDays: const {},
+      available: _fullGym,
+      progress: {},
+      history: [],
+      newId: _id,
+      fixed: {'2026-10-21': partnerDay},
+    )).build();
+    expect(plans.length, 4);
+    expect(identical(plans[1], partnerDay), isTrue);
+    expect(plans[1].partnerName, '친구');
+    // 파트너 날에 등을 했으니 바로 다음 날은 등이 아니다.
+    expect(plans[2].focus.first, isNot(MuscleGroup.back));
+  });
+
     test('round-trips all data through JSON', () async {
       final dir = await Directory.systemTemp.createTemp('fitroutine_test');
       final store = LocalStore(File('${dir.path}/data.json'));

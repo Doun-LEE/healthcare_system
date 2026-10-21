@@ -33,6 +33,7 @@ class PlannerInput {
     this.equipmentMax = const {},
     this.equipmentStep = const {},
     this.now,
+    this.fixed = const {},
   });
 
   final UserProfile profile;
@@ -50,6 +51,10 @@ class PlannerInput {
   final Map<EquipmentType, double> equipmentMax;
   final Map<EquipmentType, double> equipmentStep;
   final DateTime? now;
+
+  /// 기간 안에서 그대로 두어야 하는 날(dateKey → 계획). 파트너 운동일 등.
+  /// 플래너는 이 날을 건드리지 않고, 그 부위를 훈련한 것으로 보고 다음 날을 고른다.
+  final Map<String, DayPlan> fixed;
 }
 
 class Planner {
@@ -97,6 +102,22 @@ class Planner {
       final date = dateOnly(input.from.add(Duration(days: i)));
       final key = dateKey(date);
 
+      final fixedDay = input.fixed[key];
+      if (fixedDay != null) {
+        plans.add(fixedDay);
+        if (fixedDay.isRest) {
+          streak = 0;
+        } else {
+          for (final g in fixedDay.focus) {
+            lastTrained[g] = date;
+          }
+          // 고정된 날이 분할의 어느 날과 같으면 사이클을 그 다음으로 넘긴다.
+          final i = cycle.indexWhere((d) => d.groups.every(fixedDay.focus.contains));
+          if (i >= 0) cycleIdx = (i + 1) % cycle.length;
+          streak++;
+        }
+        continue;
+      }
       if (input.restDays.contains(key)) {
         plans.add(_rest(date, '휴식 (직접 설정)'));
         streak = 0;
