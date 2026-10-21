@@ -645,8 +645,8 @@ const List<EquipmentInfo> equipmentCatalog = [
   ),
   EquipmentInfo(
     type: EquipmentType.versaClimber,
-    summary: '수직으로 기어오르는 기구.',
-    strengths: ['전신 고강도', '짧은 시간 최대 효과'],
+    summary: '수직으로 기어오르는 기구(마운틴 클라이머 머신). 팔다리를 번갈아 밀고 당긴다.',
+    strengths: ['전신 고강도', '짧은 시간 최대 효과', '상체·코어 함께'],
     groups: [MuscleGroup.cardio],
   ),
   EquipmentInfo(
@@ -1139,7 +1139,7 @@ const List<Exercise> exerciseCatalog = [
     repRange: [12, 20], priority: 2,
   ),
   Exercise(
-    id: 'stairs', name: '스텝밀', group: MuscleGroup.cardio,
+    id: 'stairs', name: '천국의 계단', group: MuscleGroup.cardio,
     emphasis: ['둔근', '고강도'], equipment: [EquipmentType.stairClimber],
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [10, 20], priority: 2,
@@ -1549,7 +1549,7 @@ const List<Exercise> exerciseCatalog = [
     repRange: [10, 20], priority: 1,
   ),
   Exercise(
-    id: 'versa', name: '버사클라이머', group: MuscleGroup.cardio,
+    id: 'versa', name: '마운틴 클라이머 머신', group: MuscleGroup.cardio,
     emphasis: ['전신 고강도'], equipment: [EquipmentType.versaClimber],
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [8, 15], priority: 1,
