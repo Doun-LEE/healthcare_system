@@ -52,3 +52,6 @@ app.*.map.json
 *.p12
 *.jks
 *.keystore
+
+# Firebase CLI cache
+.firebase/

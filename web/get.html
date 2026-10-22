@@ -65,7 +65,7 @@
   <!-- QR -->
   <div class="card qr">
     <h2 style="align-self:flex-start">친구에게 보여주기</h2>
-    <img id="qrc" width="180" height="180" alt="QR" src="https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=https%3A%2F%2Fdoun-lee.github.io%2Fhealthcare_system%2Fget.html">
+    <img id="qrc" width="180" height="180" alt="QR" src="https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=https%3A%2F%2Fhealthcare-system-b55c0.web.app%2Fget.html">
     <p style="margin:0">이 페이지 QR — 카메라로 찍으면 바로 이 화면</p>
     <button class="btn secondary" id="copy" style="width:auto;padding:10px 18px">링크 복사</button>
   </div>
@@ -99,7 +99,7 @@
       if (j.published_at) { n.textContent = '업데이트: ' + new Date(j.published_at).toLocaleDateString('ko-KR'); n.classList.remove('hide'); }
     }).catch(function () {});
 
-  var url = 'https://doun-lee.github.io/healthcare_system/get.html';
+  var url = 'https://healthcare-system-b55c0.web.app/get.html';
   document.getElementById('copy').addEventListener('click', function () {
     navigator.clipboard.writeText(url).then(function () { this.textContent = '복사됨!'; }.bind(this)).catch(function () { prompt('링크', url); });
   });

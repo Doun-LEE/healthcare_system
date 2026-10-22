@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>FitRoutine 주소가 바뀌었어요</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; margin: 0; padding: 32px 20px; background: #f7f8f2; color: #1b1c18; text-align: center; }
+    a.btn { display: inline-block; margin-top: 16px; padding: 14px 22px; border-radius: 999px; background: #4f6a2f; color: #fff; text-decoration: none; font-weight: 600; }
+    p { color: #44483e; line-height: 1.6; }
+  </style>
+  <script>
+    // 옛 주소(GitHub Pages)에서 새 주소(Firebase Hosting)로 옮긴다.
+    // 이 기기에만 저장돼 있던 데이터(계정 없이 쓰던 경우)는 주소의 # 뒤에 담아 함께 넘긴다.
+    // # 뒤 내용은 서버로 전송되지 않고, 새 주소의 앱이 읽자마자 주소창에서 지운다.
+    (function () {
+      var target = 'https://healthcare-system-b55c0.web.app/';
+      var isGet = /get\.html$/.test(location.pathname);
+      var url = target + (isGet ? 'get.html' : '');
+      try {
+        var d = localStorage.getItem('fit_routine_data');
+        if (d && !isGet) {
+          var enc = btoa(unescape(encodeURIComponent(d))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+          if (enc.length < 1500000) url += '#import=' + enc;
+        }
+      } catch (e) {}
+      try {
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
+        }
+        if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+      } catch (e) {}
+      document.addEventListener('DOMContentLoaded', function () {
+        var a = document.getElementById('go');
+        if (a) a.href = url;
+      });
+      setTimeout(function () { location.replace(url); }, 300);
+    })();
+  </script>
+</head>
+<body>
+  <h2>FitRoutine 주소가 바뀌었어요</h2>
+  <p>새 주소로 이동하는 중입니다.<br>홈 화면에 추가해 쓰셨다면 새 주소에서 다시 추가해 주세요.</p>
+  <a class="btn" id="go" href="https://healthcare-system-b55c0.web.app/">새 주소로 이동</a>
+  <p style="font-size:13px">healthcare-system-b55c0.web.app</p>
+</body>
+</html>

@@ -28,17 +28,17 @@
 
 ## 설치 안내 페이지 (친구에게 이 링크 하나만)
 
-**https://doun-lee.github.io/healthcare_system/get.html** — 기기를 감지해 안드로이드는 최신 APK 버튼, 아이폰은 홈 화면 추가 안내, 그 외는 웹앱. QR 포함.
+**https://healthcare-system-b55c0.web.app/get.html** — 기기를 감지해 안드로이드는 최신 APK 버튼, 아이폰은 홈 화면 추가 안내, 그 외는 웹앱. QR 포함.
 
 ## APK 배포 (정식)
 
 `main`에 push될 때마다 GitHub Actions가 버전을 자동으로 올리고(패치 +1, 커밋 메시지에 `#minor`/`#major`로 조절) 릴리스 키로 서명한 `ldw_healthcare_system_vX.Y.Z.apk`를 **Releases**에 올립니다. 앱의 **내 정보 → 앱 정보**에서 현재 버전과 새 버전 알림/다운로드를 확인할 수 있습니다.
 
-필요한 GitHub Secrets (Settings → Secrets and variables → Actions): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`. 키스토어는 저장소에 넣지 않습니다. 없으면 debug 서명 아티팩트만 만들고 릴리스는 생략합니다.
+필요한 GitHub Secrets (Settings → Secrets and variables → Actions): `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, 웹 배포용 `FIREBASE_SERVICE_ACCOUNT`(Firebase 서비스 계정 키 JSON 전체). 키스토어는 저장소에 넣지 않습니다. 없으면 debug 서명 아티팩트만 만들고 릴리스는 생략합니다.
 
 ## 웹앱 (개발 확인용)
 
-`main`에 push될 때마다 GitHub Pages로 배포됩니다: **https://doun-lee.github.io/healthcare_system/**
+APK 릴리스가 끝나면 Firebase Hosting으로 배포됩니다: **https://healthcare-system-b55c0.web.app/** (옛 GitHub Pages 주소는 새 주소로 이동시키는 안내 페이지)
 
 폰 브라우저로 열고 **홈 화면에 추가**(Chrome: ⋮ → 홈 화면에 추가 / Safari: 공유 → 홈 화면에 추가)하면 앱처럼 실행됩니다. 데이터는 그 브라우저의 저장소에 남습니다. 오프라인에서도 열립니다.
 
@@ -70,7 +70,7 @@ run_web.bat
 로컬 저장이 항상 1차라 오프라인에서도 동작하고, 변경 1초 뒤 Firestore `users/{uid}/data/app`에 올라갑니다.
 다른 기기에서 더 최신이면 앱 시작/로그인 시 내려받습니다.
 
-Firebase 콘솔 설정: Authentication → 이메일/비밀번호·Google 사용, 승인된 도메인에 `doun-lee.github.io`, Firestore 생성, 규칙은 `firestore.rules` 내용을 붙여넣기(파트너 기능은 `public`/`inbox`/`emails` 규칙이 필요).
+Firebase 콘솔 설정: Authentication → 이메일/비밀번호·Google 사용, 승인된 도메인에 `healthcare-system-b55c0.web.app`(기본 포함), Firestore 생성, 규칙은 `firestore.rules` 내용을 붙여넣기(파트너 기능은 `public`/`inbox`/`emails` 규칙이 필요).
 
 ## 개발
 

@@ -29,6 +29,30 @@
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: fixed; width: 100%; overscroll-behavior: none; touch-action: manipulation; }
   </style>
   <script>
+    // 옛 주소(GitHub Pages)에서 넘어올 때 #import= 뒤에 담겨 온 "이 기기에만 저장된 데이터"를
+    // 이 주소의 저장소로 옮긴다. 이미 여기 데이터가 있으면 더 최근 것만 쓴다. 처리 뒤 주소창에서 지운다.
+    (function () {
+      var h = location.hash || '';
+      if (h.indexOf('#import=') !== 0) return;
+      try {
+        var b = h.slice(8).replace(/-/g, '+').replace(/_/g, '/');
+        while (b.length % 4) b += '=';
+        var json = decodeURIComponent(escape(atob(b)));
+        var incoming = JSON.parse(json);
+        var cur = localStorage.getItem('fit_routine_data');
+        var take = true;
+        if (cur) {
+          try {
+            var c = JSON.parse(cur);
+            take = !c.updatedAt || (incoming.updatedAt && incoming.updatedAt > c.updatedAt);
+          } catch (e) {}
+        }
+        if (take) localStorage.setItem('fit_routine_data', json);
+      } catch (e) {}
+      history.replaceState(null, '', location.pathname + location.search);
+    })();
+  </script>
+  <script>
     // 안드로이드/iOS 브라우저에서 키보드가 올라왔다 내려가면 페이지가 살짝 스크롤된 채 남아
     // 터치 좌표가 한 줄 아래로 밀리는 문제가 있다. 페이지 스크롤을 항상 0으로 되돌린다.
     (function () {

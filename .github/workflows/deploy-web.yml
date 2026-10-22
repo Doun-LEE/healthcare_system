@@ -1,7 +1,11 @@
-name: Deploy Web (GitHub Pages)
+name: Deploy Web
 
+# 웹앱 배포: Firebase Hosting(https://healthcare-system-b55c0.web.app).
+# 옛 주소(GitHub Pages)는 새 주소로 보내는 안내 페이지만 남긴다.
+# Secrets에 FIREBASE_SERVICE_ACCOUNT가 아직 없으면 예전처럼 GitHub Pages에 앱 전체를 올린다.
+#
 # APK 릴리스(Release APK)가 끝난 뒤에 돈다. 그래야 그 커밋에 붙은 v* 태그를 읽어
-# 웹과 APK 버전 번호가 항상 같다(동시에 돌면 태그가 아직 없어 한 단계 낮게 찍힘).
+# 웹과 APK 버전 번호가 항상 같다.
 on:
   workflow_run:
     workflows: ["Release APK"]
@@ -20,15 +24,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 릴리스가 성공한 경우(또는 수동 실행)에만. 뒤 커밋에 밀려 취소된 릴리스는 건너뛴다.
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    env:
+      FB_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      # APK 와 같은 버전 번호를 쓴다 (build.yml 과 같은 계산).
       - name: Compute version
         id: ver
         shell: bash
@@ -40,7 +44,6 @@ jobs:
           if echo "$msg" | grep -q '#major'; then major=$((major+1)); minor=0; patch=0
           elif echo "$msg" | grep -q '#minor'; then minor=$((minor+1)); patch=0
           else patch=$((patch+1)); fi
-          # 이 커밋에 이미 태그가 붙어 있으면(릴리스가 먼저 끝난 경우) 그 태그를 쓴다.
           here=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)
           [ -n "$here" ] && major=$(echo "${here#v}" | cut -d. -f1) && minor=$(echo "${here#v}" | cut -d. -f2) && patch=$(echo "${here#v}" | cut -d. -f3)
           echo "version=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
@@ -53,14 +56,44 @@ jobs:
 
       - run: flutter pub get
 
-      # 저장소 이름이 URL 경로가 된다: https://doun-lee.github.io/healthcare_system/
-      - name: Build web
+      # ── Firebase Hosting (주 배포) ──
+      - name: Build web (Firebase, base /)
+        if: env.FB_SA != ''
+        run: |
+          flutter build web --release \
+            --base-href "/" \
+            --pwa-strategy offline-first \
+            --build-name=${{ steps.ver.outputs.version }} \
+            --build-number=${{ github.run_number }}
+
+      - name: Deploy to Firebase Hosting
+        if: env.FB_SA != ''
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: healthcare-system-b55c0
+          channelId: live
+
+      - name: Pages = redirect to new address
+        if: env.FB_SA != ''
+        run: |
+          mkdir -p pages
+          cp hosting/redirect.html pages/index.html
+          cp hosting/redirect.html pages/get.html
+          cp hosting/redirect.html pages/404.html
+          cp hosting/flutter_service_worker.js pages/flutter_service_worker.js
+          touch pages/.nojekyll
+
+      # ── Firebase 설정 전: 예전처럼 GitHub Pages에 앱 전체 ──
+      - name: Build web (GitHub Pages fallback)
+        if: env.FB_SA == ''
         run: |
           flutter build web --release \
             --base-href "/${{ github.event.repository.name }}/" \
             --pwa-strategy offline-first \
             --build-name=${{ steps.ver.outputs.version }} \
             --build-number=${{ github.run_number }}
+          mv build/web pages
 
       - uses: actions/configure-pages@v5
         with:
@@ -68,7 +101,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: pages
 
   deploy:
     needs: build
