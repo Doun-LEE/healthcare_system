@@ -194,11 +194,31 @@ class DayPlanView extends StatelessWidget {
           _WorkoutClock(plan: plan, onStart: () => state.startWorkout(plan)),
         if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
         const SizedBox(height: 8),
-        for (var i = 0; i < plan.exercises.length; i++) ...[
-          if (i == 0 || SessionGenerator.sectionOf(plan.exercises[i]) != SessionGenerator.sectionOf(plan.exercises[i - 1]))
-            _SectionLabel(SessionGenerator.sectionLabels[SessionGenerator.sectionOf(plan.exercises[i])]),
-          _ExerciseCard(plan: plan, pe: plan.exercises[i], editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
-        ],
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: plan.exercises.length,
+          onReorderItem: (o, n) => state.reorderExercise(plan, o, n),
+          proxyDecorator: (child, i, anim) => Material(color: Colors.transparent, elevation: 6, child: child),
+          itemBuilder: (c, i) {
+            final pe = plan.exercises[i];
+            final sectionStart = i == 0 || SessionGenerator.sectionOf(pe) != SessionGenerator.sectionOf(plan.exercises[i - 1]);
+            return Column(
+              key: ObjectKey(pe),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (sectionStart) _SectionLabel(SessionGenerator.sectionLabel(SessionGenerator.sectionOf(pe))),
+                _ExerciseCard(plan: plan, pe: pe, index: i, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
+              ],
+            );
+          },
+        ),
+        if (editable && !plan.isFinished && plan.exercises.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(left: 6, top: 2),
+            child: Text('≡ 손잡이를 끌어 순서를 바꾸면 다음 루틴에도 그 순서가 반영돼요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          ),
         if (editable && !plan.isFinished)
           Align(
             alignment: Alignment.centerLeft,
@@ -592,9 +612,10 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  const _ExerciseCard({required this.plan, required this.pe, required this.editable, required this.logging});
+  const _ExerciseCard({required this.plan, required this.pe, required this.index, required this.editable, required this.logging});
   final DayPlan plan;
   final PlannedExercise pe;
+  final int index;
   final bool editable;
   final bool logging;
 
@@ -652,6 +673,14 @@ class _ExerciseCard extends StatelessWidget {
                   ),
                 ),
                 if (editable)
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                      child: Icon(Icons.drag_handle, color: cs.onSurfaceVariant),
+                    ),
+                  ),
+                if (editable)
                   PopupMenuButton<String>(
                     onSelected: (v) async {
                       switch (v) {
@@ -673,8 +702,6 @@ class _ExerciseCard extends StatelessWidget {
                       PopupMenuItem(value: 'up', child: Text('↑ 위로')),
                       PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
                       PopupMenuItem(value: 'swap', child: Text('다른 운동으로 교체')),
-                      PopupMenuItem(value: 'add', child: Text('세트 추가')),
-                      PopupMenuItem(value: 'removeSet', child: Text('세트 빼기')),
                       PopupMenuItem(value: 'remove', child: Text('이 운동 제외')),
                     ],
                   ),
@@ -699,6 +726,21 @@ class _ExerciseCard extends StatelessWidget {
                 },
                 onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw),
               ),
+            if ((editable || logging) && !isCardio)
+              Row(children: [
+                TextButton.icon(
+                  onPressed: pe.sets.length > 1 ? () => state.removeSet(plan, pe) : null,
+                  icon: const Icon(Icons.remove_circle_outline, size: 18),
+                  label: const Text('세트 빼기'),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+                TextButton.icon(
+                  onPressed: () => state.addSet(plan, pe),
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('세트 추가'),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
+              ]),
           ],
         ),
       ),

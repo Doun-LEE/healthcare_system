@@ -263,6 +263,9 @@ class UserProfile {
     this.includeCardio = true,
     this.startWith = 'auto',
     this.volumeBias = 1.0,
+    List<String>? sectionOrder,
+    Map<String, double>? exerciseRank,
+    Map<String, double>? groupRank,
     this.activeGymId,
     this.inbodyScannedAt,
     this.squat1rm,
@@ -271,7 +274,10 @@ class UserProfile {
     this.ohp1rm,
     this.goal = TrainingGoal.hypertrophy,
     Set<InjuryArea>? injuries,
-  }) : injuries = injuries ?? {};
+  })  : injuries = injuries ?? {},
+        sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
+        exerciseRank = exerciseRank ?? {},
+        groupRank = groupRank ?? {};
 
   final String id;
   String name;
@@ -295,6 +301,15 @@ class UserProfile {
 
   /// 볼륨 보정(0.8~1.3). 계획보다 더 하면 올라가고, 못 채우면 내려간다. 세션 시간 예산에 곱한다.
   double volumeBias;
+
+  /// 구역 순서: 'upper'(웨이트 상체) · 'lower'(웨이트 하체) · 'abs' · 'cardio'.
+  List<String> sectionOrder;
+
+  /// 사용자가 직접 바꾼 순서에서 학습한 운동/부위 순위(0=앞, 1=뒤). 다음 루틴 정렬에 반영.
+  Map<String, double> exerciseRank;
+  Map<String, double> groupRank;
+
+  static const defaultSectionOrder = ['upper', 'lower', 'abs', 'cardio'];
   String? activeGymId;
   DateTime? inbodyScannedAt;
 
@@ -321,6 +336,9 @@ class UserProfile {
         'includeCardio': includeCardio,
         'startWith': startWith,
         'volumeBias': volumeBias,
+        'sectionOrder': sectionOrder,
+        'exerciseRank': exerciseRank,
+        'groupRank': groupRank,
         'activeGymId': activeGymId,
         'inbodyScannedAt': inbodyScannedAt?.toIso8601String(),
         'squat1rm': squat1rm,
@@ -346,6 +364,14 @@ class UserProfile {
         includeCardio: j['includeCardio'] as bool,
         startWith: (j['startWith'] as String?) ?? 'auto',
         volumeBias: (j['volumeBias'] as num?)?.toDouble() ?? 1.0,
+        sectionOrder: (j['sectionOrder'] as List?)?.cast<String>() ??
+            switch (j['startWith']) {
+              'cardio' => ['cardio', 'upper', 'lower', 'abs'],
+              'abs' => ['abs', 'upper', 'lower', 'cardio'],
+              _ => null,
+            },
+        exerciseRank: {for (final e in ((j['exerciseRank'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
+        groupRank: {for (final e in ((j['groupRank'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
         activeGymId: j['activeGymId'] as String?,
         inbodyScannedAt: j['inbodyScannedAt'] == null
             ? null

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
 import '../engine/splits.dart';
+import '../engine/session_generator.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
@@ -186,29 +187,42 @@ class ProfileScreen extends StatelessWidget {
               onChanged: (v) => _edit(state, (p) => p.includeCardio = v),
             ),
             const SizedBox(height: 8),
-            Text('운동 시작 순서', style: text.labelLarge),
+            Text('운동 구역 순서', style: text.labelLarge),
+            Text('손잡이를 끌어 하루 루틴에서 어떤 구역을 먼저 할지 정합니다.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'auto', label: Text('자동')),
-                ButtonSegment(value: 'weights', label: Text('웨이트')),
-                ButtonSegment(value: 'cardio', label: Text('유산소')),
-                ButtonSegment(value: 'abs', label: Text('복근')),
+            ReorderableListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              onReorderItem: (o, n) => _edit(state, (p) {
+                final list = List.of(p.sectionOrder);
+                final item = list.removeAt(o);
+                list.insert(n, item);
+                p.sectionOrder = list;
+              }),
+              children: [
+                for (var i = 0; i < u.sectionOrder.length; i++)
+                  ListTile(
+                    key: ValueKey(u.sectionOrder[i]),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(radius: 12, child: Text('${i + 1}', style: const TextStyle(fontSize: 12))),
+                    title: Text(SessionGenerator.sectionLabel(u.sectionOrder[i])),
+                    trailing: ReorderableDragStartListener(index: i, child: const Icon(Icons.drag_handle)),
+                  ),
               ],
-              selected: {u.startWith},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) => _edit(state, (p) => p.startWith = s.first),
             ),
             const SizedBox(height: 4),
             Text(
-              switch (u.startWith) {
-                'cardio' => '유산소로 몸을 데운 뒤 복합 → 고립 → 복근 순서. 유산소가 워밍업이 됩니다.',
-                'abs' => '복근 먼저, 그다음 복합 → 고립 → 유산소.',
-                'weights' => '웨이트 먼저(복합 → 고립), 그다음 복근 → 유산소.',
-                _ => '힘이 가장 많이 드는 복합운동 → 고립운동 → 복근 → 유산소 순으로 배치합니다(덜 힘든 순서).',
-              },
+              '웨이트 구역 안은 처음엔 복합운동(고중량) → 고립운동 순서로 짜고, 루틴에서 직접 순서를 바꾸면 그 순서를 기억해 다음 루틴에도 반영합니다.'
+              '${u.exerciseRank.isNotEmpty ? ' 현재 ${u.exerciseRank.length}개 운동의 순서를 학습했어요.' : ''}',
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
+            if (u.exerciseRank.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: () => state.resetOrderLearning(), child: const Text('학습한 순서 초기화')),
+              ),
           ]),
 
           // 계정

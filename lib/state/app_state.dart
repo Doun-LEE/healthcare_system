@@ -744,8 +744,8 @@ class AppState extends ChangeNotifier {
     );
     // 같은 구역(웨이트/복근/유산소)의 마지막 뒤에 넣는다.
     final sec = SessionGenerator.sectionOf(planned);
-    var idx = plan.exercises.lastIndexWhere((p) => SessionGenerator.sectionOf(p) <= sec);
-    plan.exercises.insert(idx + 1, planned);
+    final idx = plan.exercises.lastIndexWhere((p) => SessionGenerator.sectionOf(p) == sec);
+    plan.exercises.insert(idx < 0 ? plan.exercises.length : idx + 1, planned);
     plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
     await _save();
     if (!personal) await resyncPartnerDay(plan);
@@ -759,8 +759,49 @@ class AppState extends ChangeNotifier {
     if (i < 0 || j < 0 || j >= plan.exercises.length) return;
     plan.exercises.removeAt(i);
     plan.exercises.insert(j, ex);
+    _learnOrder(plan);
     await _save();
     await resyncPartnerDay(plan);
+  }
+
+  /// 드래그로 순서 변경(onReorderItem: newIndex는 제거 후 기준).
+  Future<void> reorderExercise(DayPlan plan, int oldIndex, int newIndex) async {
+    if (oldIndex < 0 || oldIndex >= plan.exercises.length) return;
+    final ex = plan.exercises.removeAt(oldIndex);
+    plan.exercises.insert(newIndex.clamp(0, plan.exercises.length), ex);
+    _learnOrder(plan);
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
+  /// 사용자가 직접 바꾼 순서를 학습: 웨이트 구역(상체/하체) 안에서 각 운동의 상대 위치(0~1)와
+  /// 부위별 평균 위치를 저장한다. 생성기가 다음 루틴을 짤 때 이 순위를 우선한다.
+  void _learnOrder(DayPlan plan) {
+    final u = currentUser;
+    if (u == null) return;
+    for (final sec in ['upper', 'lower']) {
+      final list = plan.exercises.where((e) => SessionGenerator.sectionOf(e) == sec).toList();
+      if (list.length < 2) continue;
+      final byGroup = <String, List<double>>{};
+      for (var i = 0; i < list.length; i++) {
+        final r = i / (list.length - 1);
+        u.exerciseRank[list[i].exerciseId] = r;
+        final g = exerciseById(list[i].exerciseId)?.group.name ?? '';
+        (byGroup[g] ??= []).add(r);
+      }
+      for (final e in byGroup.entries) {
+        u.groupRank[e.key] = e.value.reduce((a, b) => a + b) / e.value.length;
+      }
+    }
+  }
+
+  /// 학습한 정렬 초기화(다시 기본 효율 순서로).
+  Future<void> resetOrderLearning() async {
+    final u = currentUser;
+    if (u == null) return;
+    u.exerciseRank.clear();
+    u.groupRank.clear();
+    await _save();
   }
 
   /// 운동 하나를 다른 운동으로 교체(같은 부위, 보유 기구로 가능한 것 중 선택).

@@ -157,7 +157,7 @@ class SessionGenerator {
 
     if (cardioSec > 0) {
       final cardio = _best(MuscleGroup.cardio, picked, usedEmphasis, null, strengthGroups);
-      final cardioFirst = req.profile.startWith == 'cardio';
+      final cardioFirst = req.profile.sectionOrder.isNotEmpty && req.profile.sectionOrder.first == 'cardio';
       if (cardio != null) {
         final minutes = (cardioSec / 60).round().clamp(10, 30);
         final level = cardioLevelFor(cardio, req.profile, req.progress[cardio.id]);
@@ -171,33 +171,62 @@ class SessionGenerator {
         ));
       }
     }
-    return orderForSession(picked, req.profile.startWith);
+    return orderForSession(picked, req.profile);
   }
 
-  /// 운동 구역: 0 웨이트, 1 복근, 2 유산소.
-  static int sectionOf(PlannedExercise p) {
+  /// 운동 구역: 'upper'(웨이트 상체) · 'lower'(웨이트 하체) · 'abs' · 'cardio'.
+  static String sectionOf(PlannedExercise p) {
     final ex = exerciseById(p.exerciseId);
-    if (ex == null) return 0;
-    if (ex.loadType == LoadType.cardio) return 2;
-    if (ex.group == MuscleGroup.abs) return 1;
-    return 0;
+    if (ex == null) return 'upper';
+    if (ex.loadType == LoadType.cardio) return 'cardio';
+    if (ex.group == MuscleGroup.abs) return 'abs';
+    if (ex.group == MuscleGroup.legs) return 'lower';
+    return 'upper';
   }
 
-  static const sectionLabels = ['웨이트', '복근', '유산소'];
+  static const sectionKeys = ['upper', 'lower', 'abs', 'cardio'];
+  static const sectionLabels = {'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
+  static String sectionLabel(String key) => sectionLabels[key] ?? key;
 
-  /// 덜 힘든 순서로 정렬: 복합(고중량) → 고립 → 복근 → 유산소. [startWith]가
-  /// 'cardio'/'abs'면 그 구역을 앞으로(워밍업). 구역 안의 상대 순서는 유지한다.
-  static List<PlannedExercise> orderForSession(List<PlannedExercise> picked, String startWith) {
-    final weights = picked.where((p) => sectionOf(p) == 0).toList();
-    final compound = weights.where((p) => exerciseById(p.exerciseId)?.compound ?? false).toList();
-    final isolation = weights.where((p) => !(exerciseById(p.exerciseId)?.compound ?? false)).toList();
-    final abs = picked.where((p) => sectionOf(p) == 1).toList();
-    final cardio = picked.where((p) => sectionOf(p) == 2).toList();
-    return switch (startWith) {
-      'cardio' => [...cardio, ...compound, ...isolation, ...abs],
-      'abs' => [...abs, ...compound, ...isolation, ...cardio],
-      _ => [...compound, ...isolation, ...abs, ...cardio],
-    };
+  /// 세션 정렬. 구역은 프로필의 [UserProfile.sectionOrder] 순서, 웨이트 구역 안은
+  /// 기본적으로 복합(고중량) → 고립 순서(덜 힘든 순서)이되, 사용자가 직접 바꾼 적이 있으면
+  /// 그때 학습한 부위/운동 순위([UserProfile.groupRank], [UserProfile.exerciseRank])를 우선한다.
+  static List<PlannedExercise> orderForSession(List<PlannedExercise> picked, UserProfile p) {
+    final bySec = <String, List<PlannedExercise>>{};
+    for (final e in picked) {
+      (bySec[sectionOf(e)] ??= []).add(e);
+    }
+    final order = [...p.sectionOrder, for (final k in sectionKeys) if (!p.sectionOrder.contains(k)) k];
+    final out = <PlannedExercise>[];
+    for (final k in order) {
+      final list = bySec[k] ?? const [];
+      out.addAll(k == 'upper' || k == 'lower' ? orderWeights(list, p) : list);
+    }
+    return out;
+  }
+
+  static List<PlannedExercise> orderWeights(List<PlannedExercise> list, UserProfile p) {
+    if (list.length < 2) return list;
+    bool isCompound(PlannedExercise e) => exerciseById(e.exerciseId)?.compound ?? false;
+    MuscleGroup groupOf(PlannedExercise e) => exerciseById(e.exerciseId)?.group ?? MuscleGroup.chest;
+    final base = [...list.where(isCompound), ...list.where((e) => !isCompound(e))];
+    // 학습한 순위가 하나도 없으면 기본 효율 순서(복합 → 고립) 그대로.
+    final learned = list.any((e) => p.exerciseRank.containsKey(e.exerciseId) || p.groupRank.containsKey(groupOf(e).name));
+    if (!learned) return base;
+    final groups = <MuscleGroup>[];
+    for (final e in base) {
+      if (!groups.contains(groupOf(e))) groups.add(groupOf(e));
+    }
+    double gRank(MuscleGroup g) => p.groupRank[g.name] ?? (groups.indexOf(g) / max(1, groups.length - 1));
+    double eRank(int i, PlannedExercise e) => p.exerciseRank[e.exerciseId] ?? (i / max(1, base.length - 1));
+    final keyed = <(double, int, PlannedExercise)>[
+      for (var i = 0; i < base.length; i++) (gRank(groupOf(base[i])) * 10 + eRank(i, base[i]), i, base[i]),
+    ];
+    keyed.sort((a, b) {
+      final c = a.$1.compareTo(b.$1);
+      return c != 0 ? c : a.$2.compareTo(b.$2);
+    });
+    return [for (final k in keyed) k.$3];
   }
 
   bool _shouldAppendCardio(List<MuscleGroup> groups) =>
