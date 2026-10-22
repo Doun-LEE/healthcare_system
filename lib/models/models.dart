@@ -259,6 +259,7 @@ class UserProfile {
     this.bodyFatPct,
     this.level = TrainingLevel.beginner,
     this.levelAuto = true,
+    this.onboarded = true,
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
@@ -292,6 +293,9 @@ class UserProfile {
 
   /// 숙련도를 스펙·3대 기록으로 자동 판정할지. 끄면 직접 고른 값을 쓴다.
   bool levelAuto;
+
+  /// 처음 만든 프로필이면 false: 홈 전에 초기 설정(신체 정보 등)을 보여준다.
+  bool onboarded;
 
   /// n분할. 1(무분할)~6.
   int splitDays;
@@ -336,6 +340,7 @@ class UserProfile {
         'bodyFatPct': bodyFatPct,
         'level': level.name,
         'levelAuto': levelAuto,
+        'onboarded': onboarded,
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
@@ -365,6 +370,7 @@ class UserProfile {
         bodyFatPct: (j['bodyFatPct'] as num?)?.toDouble(),
         level: TrainingLevel.parse(j['level'] as String),
         levelAuto: (j['levelAuto'] as bool?) ?? true,
+        onboarded: (j['onboarded'] as bool?) ?? true,
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
@@ -758,6 +764,7 @@ class DayPlan {
     this.endedAt,
     this.gymId,
     this.jointAt,
+    this.custom = false,
     this.venueOwner,
     this.venueGymId,
     this.venueName,
@@ -814,6 +821,10 @@ class DayPlan {
   String? venueName;
   List<EquipmentType> venueTypes;
 
+  /// 사용자가 직접 손본 날(부위 변경·운동 교체/추가/삭제·AI 적용 등).
+  /// 이후 날짜를 자동으로 다시 맞출 때 이 날은 그대로 두고 기준으로 삼는다.
+  bool custom;
+
   /// 파트너 루틴의 마지막 변경 시각(나든 파트너든). 서로 보낸 루틴이 엇갈리면 더 최근 것만 남긴다.
   DateTime? jointAt;
 
@@ -857,6 +868,7 @@ class DayPlan {
         'endedAt': endedAt?.toIso8601String(),
         'gymId': gymId,
         if (jointAt != null) 'jointAt': jointAt!.toUtc().toIso8601String(),
+        if (custom) 'custom': true,
         if (venueOwner != null) 'venueOwner': venueOwner,
         if (venueGymId != null) 'venueGymId': venueGymId,
         if (venueName != null) 'venueName': venueName,
@@ -893,6 +905,7 @@ class DayPlan {
         endedAt: j['endedAt'] == null ? null : DateTime.parse(j['endedAt'] as String),
         gymId: j['gymId'] as String?,
         jointAt: j['jointAt'] == null ? null : DateTime.tryParse(j['jointAt'] as String),
+        custom: (j['custom'] as bool?) ?? false,
         venueOwner: j['venueOwner'] as String?,
         venueGymId: j['venueGymId'] as String?,
         venueName: j['venueName'] as String?,

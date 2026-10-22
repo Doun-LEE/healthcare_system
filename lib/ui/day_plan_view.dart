@@ -405,6 +405,41 @@ Future<void> switchGymDialog(BuildContext context, DayPlan plan) async {
     ),
   );
   if (picked == null || !context.mounted) return;
+  final mode = await showDialog<String>(
+    context: context,
+    builder: (c) => SimpleDialog(
+      title: const Text('루틴은 어떻게 할까요?'),
+      children: [
+        SimpleDialogOption(
+          onPressed: () => Navigator.pop(c, 'rebuild'),
+          child: const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.auto_awesome),
+            title: Text('이 헬스장 기구로 새로 짜기'),
+            subtitle: Text('같은 부위로, 그 헬스장에만 있는 머신까지 후보로 다시 구성'),
+          ),
+        ),
+        SimpleDialogOption(
+          onPressed: () => Navigator.pop(c, 'swap'),
+          child: const ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.swap_horiz),
+            title: Text('지금 루틴 유지, 없는 기구만 대체'),
+            subtitle: Text('짜둔 운동은 그대로 두고 그 헬스장에 없는 기구의 운동만 비슷한 운동으로'),
+          ),
+        ),
+      ],
+    ),
+  );
+  if (mode == null || !context.mounted) return;
+  if (mode == 'rebuild') {
+    await state.rebuildDayAtGym(plan, picked);
+    if (context.mounted) {
+      final name = state.gyms.firstWhere((g) => g.id == picked).name;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name 기구로 같은 부위 루틴을 새로 짰어요.')));
+    }
+    return;
+  }
   final msgs = await state.switchDayGym(plan, picked);
   if (!context.mounted) return;
   final gymName = state.gyms.firstWhere((g) => g.id == picked).name;

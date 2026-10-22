@@ -74,4 +74,17 @@ void main() {
     plan.jointAt = t1;
     expect(DayPlan.fromJson(plan.toJson()).jointAt, t1);
   });
+
+  test('hand-edited days stay fixed when the plan is re-balanced', () {
+    final u = UserProfile(id: 'u', name: 'x', splitDays: 3, includeCardio: false);
+    final edited = DayPlan(id: 'e', userId: 'u', date: DateTime(2026, 10, 21), kind: DayKind.workout,
+        focus: [MuscleGroup.shoulder], title: '어깨만', custom: true);
+    final plans = Planner(PlannerInput(
+      profile: u, from: DateTime(2026, 10, 20), to: DateTime(2026, 10, 22), restDays: const {},
+      available: {EquipmentType.bodyweight, EquipmentType.dumbbell, EquipmentType.barbell, EquipmentType.flatBench},
+      progress: {}, history: [], newId: _id, fixed: {'2026-10-21': edited},
+    )).build();
+    expect(identical(plans[1], edited), isTrue);
+    expect(DayPlan.fromJson(edited.toJson()).custom, isTrue);
+  });
 }

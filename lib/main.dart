@@ -7,6 +7,7 @@ import 'services/cloud_sync.dart';
 import 'state/app_state.dart';
 import 'ui/home_shell.dart';
 import 'ui/login_screen.dart';
+import 'ui/onboarding_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,9 @@ class FitRoutineApp extends StatelessWidget {
         darkTheme: _theme(Brightness.dark),
         themeMode: ThemeMode.system,
         home: Consumer<AppState>(
-          builder: (_, s, _) => s.authed ? const HomeShell() : const LoginScreen(),
+          builder: (_, s, _) => !s.authed
+              ? const LoginScreen()
+              : (s.currentUser!.onboarded ? const HomeShell() : const OnboardingScreen()),
         ),
       ),
     );

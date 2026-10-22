@@ -133,9 +133,31 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// 다른 헬스장으로 바꾸고, 같은 부위로 그 헬스장 기구에 맞춰 루틴을 새로 짠다
+  /// (그 헬스장에만 있는 머신도 후보가 된다). 파트너 날이면 파트너에게도 다시 보낸다.
+  Future<void> rebuildDayAtGym(DayPlan plan, String gymId) async {
+    final gym = gymById(gymId);
+    if (gym == null || plan.isFinished) return;
+    plan.gymId = gymId;
+    if (plan.partnerName != null && cloudSignedIn) {
+      plan.venueOwner = CloudSync.instance.user!.uid;
+      plan.venueGymId = gymId;
+      plan.venueName = gym.name;
+    } else {
+      plan.venueOwner = null;
+      plan.venueGymId = null;
+      plan.venueName = null;
+    }
+    plan.venueTypes = [];
+    final base = (plan.title ?? '').split(' · ').first.replaceAll(' ✨', '');
+    // changeDayFocus가 파트너 날이면 파트너에게도 다시 보낸다.
+    await changeDayFocus(plan.date, plan.focus, title: base.isEmpty ? null : base, shiftFollowing: false);
+  }
+
   /// 다른 헬스장으로 바꾸고, 거기 없는 기구의 운동을 비슷한 운동으로 대체한다.
   /// 운동 구성(세트 수·횟수 틀)은 최대한 유지. 바뀐 내용을 문장으로 돌려준다.
   Future<List<String>> switchDayGym(DayPlan plan, String gymId) async {
+    _markCustom(plan);
     final u = currentUser;
     final gym = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (u == null || gym == null || plan.isFinished) return const [];
@@ -240,6 +262,7 @@ class AppState extends ChangeNotifier {
       final p = UserProfile(
         id: newId(),
         name: (name == null || name.isEmpty) ? email.split('@').first : name,
+        onboarded: false,
       );
       if (_data.gyms.isNotEmpty) p.activeGymId = _data.gyms.first.id;
       _data.profiles.add(p);
@@ -417,7 +440,7 @@ class AppState extends ChangeNotifier {
 
   Future<UserProfile?> createProfile(String name, String code) async {
     if (!checkCode(code) || name.trim().isEmpty) return null;
-    final p = UserProfile(id: newId(), name: name.trim());
+    final p = UserProfile(id: newId(), name: name.trim(), onboarded: false);
     if (_data.gyms.isNotEmpty) p.activeGymId = _data.gyms.first.id;
     _data.profiles.add(p);
     _data.currentUserId = p.id;
@@ -632,7 +655,7 @@ class AppState extends ChangeNotifier {
     // 완료한 날과 파트너 운동일은 그대로 둔다(파트너와 같은 루틴이어야 하므로).
     final fixed = <String, DayPlan>{
       for (final p in myPlans)
-        if ((p.isFinished || p.partnerName != null) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
+        if ((p.isFinished || p.partnerName != null || p.custom) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
     };
     final keep = fixed.keys.toSet();
 
@@ -682,9 +705,10 @@ class AppState extends ChangeNotifier {
     final existing = planOn(date);
     if (existing != null && existing.isFinished) return;
     if (existing != null && existing.isRest) {
-      // 휴식 → 그날 하루만 운동으로 재생성
+      // 휴식 → 그날 하루만 운동으로 재생성하고 앞뒤를 다시 맞춘다
       _data.plans.remove(existing);
       await regenerateDay(date);
+      await rebalanceAround(dateOnly(date));
       return;
     }
     if (existing != null) _data.plans.remove(existing);
@@ -697,6 +721,8 @@ class AppState extends ChangeNotifier {
       title: '휴식 (직접 설정)',
     ));
     await _save();
+    // 쉬는 날이 생겼으니 그 부위가 빠지지 않게 이후(와 오늘 이후 앞쪽) 날짜를 다시 맞춘다.
+    await rebalanceAround(dateOnly(date));
   }
 
   /// 그날의 부위를 바꾸고 루틴을 다시 뽑는다. [shiftFollowing]이면 이후 미완료 날짜를
@@ -705,7 +731,7 @@ class AppState extends ChangeNotifier {
     DateTime date,
     List<MuscleGroup> groups, {
     String? title,
-    bool shiftFollowing = false,
+    bool shiftFollowing = true,
   }) async {
     final u = currentUser;
     if (u == null || groups.isEmpty) return;
@@ -735,12 +761,13 @@ class AppState extends ChangeNotifier {
       partnerName: existing?.partnerName,
     );
     if (existing != null) _copyVenue(existing, plan);
+    plan.custom = true;
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
     await resyncPartnerDay(plan);
 
-    if (shiftFollowing) await rebalanceAfter(d);
+    if (shiftFollowing && !_sameGroups(existing?.focus ?? const [], groups)) await rebalanceAround(d);
   }
 
   /// [d] 이후의 미완료 날짜를 다시 짠다. 플래너가 [d]까지의 계획을 이력으로 보고
@@ -836,10 +863,12 @@ class AppState extends ChangeNotifier {
       },
     );
     if (existing != null) _copyVenue(existing, plan);
+    plan.custom = true;
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
     await resyncPartnerDay(plan);
+    await _rebalanceIfFocusChanged(plan, existing?.isRest == false ? existing!.focus : const []);
     return plan;
   }
 
@@ -926,6 +955,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addSet(DayPlan plan, PlannedExercise ex) async {
+    _markCustom(plan);
     final last = ex.sets.last;
     ex.sets.add(SetEntry(
         targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level, extra: true));
@@ -935,6 +965,7 @@ class AppState extends ChangeNotifier {
 
   /// 마지막 세트를 뺀다(최소 1세트).
   Future<void> removeSet(DayPlan plan, PlannedExercise ex) async {
+    _markCustom(plan);
     if (ex.sets.length <= 1) return;
     ex.sets.removeLast();
     await _save();
@@ -942,6 +973,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> removeExercise(DayPlan plan, PlannedExercise ex) async {
+    _markCustom(plan);
     plan.exercises.remove(ex);
     await _save();
     await resyncPartnerDay(plan);
@@ -952,6 +984,7 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     if (u == null || plan.isFinished) return null;
     final base = _planSingle(ex, u, plan);
+    _markCustom(plan);
     final planned = PlannedExercise(
       exerciseId: base.exerciseId,
       equipmentType: base.equipmentType,
@@ -972,6 +1005,7 @@ class AppState extends ChangeNotifier {
 
   /// 운동 순서를 [delta]만큼 이동(-1 위로, +1 아래로).
   Future<void> moveExercise(DayPlan plan, PlannedExercise ex, int delta) async {
+    _markCustom(plan);
     final i = plan.exercises.indexOf(ex);
     final j = i + delta;
     if (i < 0 || j < 0 || j >= plan.exercises.length) return;
@@ -984,6 +1018,7 @@ class AppState extends ChangeNotifier {
 
   /// 드래그로 순서 변경(onReorderItem: newIndex는 제거 후 기준).
   Future<void> reorderExercise(DayPlan plan, int oldIndex, int newIndex) async {
+    _markCustom(plan);
     if (oldIndex < 0 || oldIndex >= plan.exercises.length) return;
     final ex = plan.exercises.removeAt(oldIndex);
     plan.exercises.insert(newIndex.clamp(0, plan.exercises.length), ex);
@@ -1013,6 +1048,16 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// 직접 손본 날로 표시(이후 자동 재배치 때 그대로 두고 기준으로 삼는다).
+  void _markCustom(DayPlan plan) {
+    plan.custom = true;
+  }
+
+  /// 부위가 바뀐 날이 있으면 앞뒤 미완료 날짜를 바로 다시 맞춘다.
+  Future<void> _rebalanceIfFocusChanged(DayPlan plan, List<MuscleGroup> before) async {
+    if (!_sameGroups(before, plan.focus)) await rebalanceAround(plan.date);
+  }
+
   /// 학습한 정렬 초기화(다시 기본 효율 순서로).
   Future<void> resetOrderLearning() async {
     final u = currentUser;
@@ -1024,6 +1069,7 @@ class AppState extends ChangeNotifier {
 
   /// 운동 하나를 다른 운동으로 교체(같은 부위, 보유 기구로 가능한 것 중 선택).
   Future<void> swapExercise(DayPlan plan, PlannedExercise old, Exercise to) async {
+    _markCustom(plan);
     final i = plan.exercises.indexOf(old);
     if (i < 0) return;
     final u = currentUser!;
@@ -1057,6 +1103,7 @@ class AppState extends ChangeNotifier {
 
   /// 자세에 따라 타깃이 바뀌는 운동의 부위를 바꾼다(덤벨 풀오버: 등 → 가슴).
   Future<void> setExerciseTarget(DayPlan plan, PlannedExercise pe, MuscleGroup? group) async {
+    _markCustom(plan);
     pe.groupOverride = group;
     await _save();
     await resyncPartnerDay(plan);
