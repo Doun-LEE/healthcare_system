@@ -96,6 +96,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.declineAbBench => _bench(incline: -1),
       EquipmentType.abWheel => _abWheel(),
       EquipmentType.abCoaster => _legMachine(curl: true),
+      EquipmentType.monsterGlute => _hipThrust(),
       // 유산소
       EquipmentType.treadmill => _treadmill(),
       EquipmentType.curvedTreadmill => _treadmill(),

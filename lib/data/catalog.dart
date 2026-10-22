@@ -290,6 +290,12 @@ const List<EquipmentInfo> equipmentCatalog = [
     groups: [MuscleGroup.legs],
   ),
   EquipmentInfo(
+    type: EquipmentType.monsterGlute,
+    summary: '서서 상체를 고정하고 고관절을 펴는 둔근 전용 머신. 힙 쓰러스트와 비슷하지만 세팅이 빠르다.',
+    strengths: ['대둔근 고립', '허리 부담 ↓', '안전한 고중량'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
     type: EquipmentType.abCoaster,
     summary: '무릎을 당겨 올리는 복근 기구. 하복부에 집중.',
     strengths: ['하복부', '허리 부담 ↓'],
@@ -1097,6 +1103,12 @@ const List<Exercise> exerciseCatalog = [
     emphasis: ['상복부', '점진적 과부하'], equipment: [EquipmentType.cableMachine],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.5,
     repRange: [12, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'monster_glute', name: '몬스터 글루트', group: MuscleGroup.legs,
+    emphasis: ['대둔근', '허리 부담 ↓'], equipment: [EquipmentType.monsterGlute],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.9,
+    repRange: [10, 15], priority: 2,
   ),
   Exercise(
     id: 'ab_coaster', name: '앱 코스터', group: MuscleGroup.abs,

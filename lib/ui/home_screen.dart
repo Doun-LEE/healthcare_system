@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
+import 'chat_screen.dart';
 import 'widgets/partner_widgets.dart';
 
 /// 홈: 오늘 운동 요약, 이번 주 현황, 파트너, 바로가기.
@@ -192,10 +193,11 @@ class HomeScreen extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         for (final p in state.partners)
-                          Chip(
-                            avatar: CircleAvatar(child: Text(p.display.characters.first)),
-                            label: Text(p.pending ? '${p.display} (대기)' : p.display),
+                          ActionChip(
+                            avatar: p.pending ? CircleAvatar(child: Text(p.display.characters.first)) : const Icon(Icons.chat_bubble_outline, size: 18),
+                            label: Text(p.pending ? '${p.display} (대기)' : '${p.display} 채팅'),
                             backgroundColor: p.pending ? cs.surfaceContainerHighest : null,
+                            onPressed: p.pending ? null : () => PartnerChatScreen.open(context, p),
                           ),
                       ],
                     ),

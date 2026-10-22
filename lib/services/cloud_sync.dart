@@ -16,6 +16,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/store.dart';
 import '../models/models.dart';
+import 'chat.dart';
 import 'partner.dart';
 
 class CloudException implements Exception {
@@ -218,6 +219,28 @@ class CloudSync {
 
   Future<void> sendPartnerAnswer(String toUid, String fromName, {required bool accept}) =>
       _sendInbox(toUid, {'type': accept ? 'partnerAccept' : 'partnerDecline'}, fromName);
+
+  // ───────── 파트너 채팅 ─────────
+
+  Stream<List<ChatMessage>> chatStream(String pairId) => _db
+      .collection('chats/$pairId/messages')
+      .orderBy('at', descending: true)
+      .limit(150)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) ChatMessage.fromJson(d.id, d.data())]);
+
+  Future<void> sendChat(String pairId, {String text = '', String emoji = '', int burst = 0, String? fromName}) async {
+    final u = user;
+    if (u == null) throw StateError('로그인이 필요해요.');
+    await _db.collection('chats/$pairId/messages').add({
+      'fromUid': u.uid,
+      'fromName': fromName ?? (u.displayName ?? ''),
+      'text': text,
+      'emoji': emoji,
+      'burst': burst,
+      'at': FieldValue.serverTimestamp(),
+    });
+  }
 
   Future<List<InboxItem>> readInbox() async {
     final u = user;

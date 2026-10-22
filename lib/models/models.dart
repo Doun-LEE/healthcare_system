@@ -70,7 +70,7 @@ enum EquipmentType {
   chestPress('체스트 프레스 머신', EquipmentCategory.chest, ['chest press', '체스트프레스']),
   inclineChestPress('인클라인 체스트 프레스 머신', EquipmentCategory.chest, ['incline chest press', '인클라인 프레스']),
   declineChestPress('디클라인 체스트 프레스 머신', EquipmentCategory.chest, ['decline chest press']),
-  chestPressPlateLoaded('플레이트 로디드 체스트 프레스(해머)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소']),
+  chestPressPlateLoaded('해머 체스트 프레스(플레이트 로디드)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소', '해머 프레스', '해머프레스', '해머 체스트']),
   pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
   cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신', '케이블', '암풀다운', '케이블 크런치', '페이스풀']),
   functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
@@ -91,7 +91,7 @@ enum EquipmentType {
 
   // ── 어깨 ──
   shoulderPress('숄더 프레스 머신', EquipmentCategory.shoulder, ['shoulder press', '숄더프레스']),
-  shoulderPressPlateLoaded('플레이트 로디드 숄더 프레스', EquipmentCategory.shoulder, ['hammer shoulder press', 'iso shoulder']),
+  shoulderPressPlateLoaded('해머 숄더 프레스(플레이트 로디드)', EquipmentCategory.shoulder, ['hammer shoulder press', 'iso shoulder', '해머 프레스', '해머프레스', '해머 숄더', '아이소 숄더']),
   lateralRaiseMachine('레터럴 레이즈 머신', EquipmentCategory.shoulder, ['lateral raise machine', '사레레 머신']),
   rearDeltMachine('리어 델트 머신', EquipmentCategory.shoulder, ['rear delt machine', 'reverse fly']),
 
@@ -117,6 +117,7 @@ enum EquipmentType {
   hipThrust('힙 쓰러스트 머신', EquipmentCategory.legs, ['hip thrust', '글루트 드라이브']),
   gluteKickback('글루트 킥백 머신', EquipmentCategory.legs, ['glute kickback', 'glute machine']),
   multiHip('멀티 힙 머신', EquipmentCategory.legs, ['multi hip', '멀티힙', 'hip machine']),
+  monsterGlute('몬스터 글루트', EquipmentCategory.legs, ['monster glute', '몬스터글루트', '글루트 머신', '힙 익스텐션 머신']),
   calfRaise('스탠딩 카프 레이즈', EquipmentCategory.legs, ['standing calf', 'calf raise', '종아리']),
   seatedCalfRaise('시티드 카프 레이즈', EquipmentCategory.legs, ['seated calf']),
   sissySquat('시시 스쿼트 머신', EquipmentCategory.legs, ['sissy squat']),
@@ -389,6 +390,7 @@ enum LoadMechanism {
         return LoadMechanism.free;
       case EquipmentType.chestPressPlateLoaded:
       case EquipmentType.latPulldownPlateLoaded:
+      case EquipmentType.monsterGlute:
       case EquipmentType.shoulderPressPlateLoaded:
       case EquipmentType.highRow:
       case EquipmentType.lowRow:

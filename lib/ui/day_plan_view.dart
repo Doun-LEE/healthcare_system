@@ -11,6 +11,7 @@ import '../engine/session_generator.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
@@ -325,14 +326,22 @@ class _PartnerConditionLine extends StatelessWidget {
     final msg = pc == null
         ? '${plan.partnerName} 님은 아직 이 날 컨디션을 입력하지 않았어요. 입력하면 여기와 파트너 무게에 반영돼요.'
         : '${pc.name} 님 컨디션 ${pc.condition}/10 · 무게 ${(pc.load * 100).round()}% 로 운동해요. 아래 파트너 무게에 반영됨.';
+    final link = context.read<AppState>().partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(Icons.group, size: 16, color: cs.secondary),
           const SizedBox(width: 6),
           Expanded(child: Text(msg, style: text.bodySmall?.copyWith(color: cs.secondary))),
+          if (link != null)
+            IconButton(
+              tooltip: '${link.display}와 채팅',
+              icon: Icon(Icons.chat_bubble_outline, size: 18, color: cs.secondary),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => PartnerChatScreen.open(context, link),
+            ),
         ],
       ),
     );
