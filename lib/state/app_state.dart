@@ -1461,12 +1461,29 @@ class AppState extends ChangeNotifier {
   /// - 무게: 내 것은 내 이력, 파트너 것은 파트너 작업 중량 또는 파트너 스펙으로 추정.
   /// - 파트너 앱의 받은편지함에 같은 루틴을 보낸다(파트너는 자기 무게로 받음).
   /// [venue]: 운동 장소(내 헬스장 또는 파트너 헬스장). null이면 두 사람 헬스장의 공통 기구로.
-  Future<String> generateJointSession(DateTime date, PartnerLink partner, {SharedVenue? venue}) async {
+  /// [prefetched]: 장소 고를 때 이미 받아온 파트너 정보(다시 받지 않는다).
+  /// [onStep]: 진행 단계 문구(화면 표시용).
+  Future<String> generateJointSession(
+    DateTime date,
+    PartnerLink partner, {
+    SharedVenue? venue,
+    PartnerProfile? prefetched,
+    void Function(String step)? onStep,
+  }) async {
     final u = currentUser;
     if (u == null || !cloudSignedIn) return '계정 로그인이 필요해요.';
-    final pp = await CloudSync.instance.fetchPartner(partner.uid);
+    onStep?.call('파트너 정보 받는 중…');
+    PartnerProfile? pp = prefetched;
+    if (pp == null) {
+      try {
+        pp = await CloudSync.instance.fetchPartner(partner.uid);
+      } on TimeoutException {
+        return '연결이 느려서 ${partner.name} 님 정보를 받지 못했어요. 잠시 뒤 다시 해주세요.';
+      }
+    }
     if (pp == null) return '${partner.name} 님의 정보를 아직 받을 수 없어요. 상대가 앱을 한 번 열면 됩니다.';
     partner.name = pp.name;
+    onStep?.call('두 사람 일정·기구로 루틴 맞추는 중…');
 
     final d = dateOnly(date);
     final key = dateKey(d);
@@ -1544,21 +1561,28 @@ class AppState extends ChangeNotifier {
     if (mine != null) _data.plans.remove(mine);
     _data.plans.add(plan);
     await _save();
-    if (focusChanged) await rebalanceAround(d);
-
+    onStep?.call('${pp.name} 님에게 보내는 중…');
+    final where = venue == null ? '' : ' · 장소: ${venue.name}';
+    var sent = '$note$where ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
     try {
-      await CloudSync.instance.sendJointRoutine(
-        toUid: partner.uid,
-        date: d,
-        code: encodeRoutine(plan, from: u.name, venue: venueOf(plan), at: plan.jointAt),
-        title: title,
-        fromName: u.name,
-      );
+      // 서버 확인을 오래 기다리지 않는다. 시간이 넘어도 전송은 뒤에서 계속돼 연결되면 도착한다.
+      await CloudSync.instance
+          .sendJointRoutine(
+            toUid: partner.uid,
+            date: d,
+            code: encodeRoutine(plan, from: u.name, venue: venueOf(plan), at: plan.jointAt),
+            title: title,
+            fromName: u.name,
+          )
+          .timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      sent = '$note$where 연결이 느려 전송이 조금 늦어요. 잠시 뒤 ${pp.name} 님 앱에 도착해요.';
     } catch (_) {
       return '$note 파트너에게 보내기는 실패했어요(네트워크).';
     }
-    final where = venue == null ? '' : ' · 장소: ${venue.name}';
-    return '$note$where ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
+    // 이후 날짜 재배치는 화면을 붙잡지 않고 뒤에서 한다.
+    if (focusChanged) unawaited(rebalanceAround(d));
+    return sent;
   }
 
   /// 루틴 가져오기 + 파트너 무게 붙이기 (알림·수락 전송 없음). 자동 동기화에 쓴다.

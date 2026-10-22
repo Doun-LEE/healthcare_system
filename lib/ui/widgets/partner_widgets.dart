@@ -288,9 +288,22 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   final partner = chosen as PartnerLink;
   // 어디서 운동할지: 내 헬스장 / 파트너 헬스장 / 각자 헬스장 공통 기구
   PartnerProfile? pp;
+  final loading = showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(children: [
+        CircularProgressIndicator(),
+        SizedBox(width: 16),
+        Expanded(child: Text('파트너 헬스장 정보 받는 중…')),
+      ]),
+    ),
+  );
   try {
     pp = await CloudSync.instance.fetchPartner(partner.uid);
   } catch (_) {}
+  if (context.mounted) Navigator.pop(context);
+  await loading;
   if (!context.mounted) return;
   final myUid = CloudSync.instance.user!.uid;
   final options = <(String, SharedVenue?)>[
@@ -324,20 +337,27 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   );
   if (pickedIndex == null || !context.mounted) return;
   final venue = options[pickedIndex].$2;
+  final step = ValueNotifier<String>('루틴 맞추는 중…');
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const AlertDialog(
+    builder: (_) => AlertDialog(
       content: Row(children: [
-        CircularProgressIndicator(),
-        SizedBox(width: 16),
-        Expanded(child: Text('파트너 정보를 받아 루틴을 맞추는 중…')),
+        const CircularProgressIndicator(),
+        const SizedBox(width: 16),
+        Expanded(child: ValueListenableBuilder<String>(valueListenable: step, builder: (_, v, _) => Text(v))),
       ]),
     ),
   );
   String msg;
   try {
-    msg = await state.generateJointSession(date, partner, venue: venue);
+    msg = await state.generateJointSession(
+      date,
+      partner,
+      venue: venue,
+      prefetched: pp,
+      onStep: (s) => step.value = s,
+    );
   } catch (e) {
     msg = '파트너 루틴 생성 실패: $e';
   }

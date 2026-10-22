@@ -184,7 +184,8 @@ class CloudSync {
   }
 
   Future<PartnerProfile?> fetchPartner(String uid) async {
-    final snap = await _db.doc('users/$uid/public/profile').get();
+    // 느린 연결에서 무한정 기다리지 않게 제한(넘으면 TimeoutException).
+    final snap = await _db.doc('users/$uid/public/profile').get().timeout(const Duration(seconds: 12));
     final d = snap.data();
     if (d == null) return null;
     return PartnerProfile.fromJson(d);
