@@ -12,6 +12,9 @@ import 'partner_profile_screen.dart';
 import 'widgets/level_card.dart';
 import 'widgets/partner_widgets.dart';
 
+// 하단 탭 순서: 오늘 · 달력 · 홈 · 기록 · 헬스장 · 내 정보
+const _tabToday = 0, _tabCalendar = 1, _tabStats = 3, _tabProfile = 5;
+
 /// 홈: 오늘 운동 요약, 이번 주 현황, 파트너, 바로가기.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, required this.onGoToTab});
@@ -39,7 +42,7 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('$greet, ${user.name}님'),
         actions: [
-          IconButton(tooltip: '동기화', icon: Icon(state.cloudSignedIn ? Icons.cloud_done_outlined : Icons.cloud_off_outlined), onPressed: state.cloudSignedIn ? () => state.syncNow() : () => onGoToTab(5)),
+          IconButton(tooltip: '동기화', icon: Icon(state.cloudSignedIn ? Icons.cloud_done_outlined : Icons.cloud_off_outlined), onPressed: state.cloudSignedIn ? () => state.syncNow() : () => onGoToTab(_tabProfile)),
         ],
       ),
       body: ListView(
@@ -49,7 +52,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 4),
           const InboxBanner(),
           const SizedBox(height: 6),
-          LevelCard(profile: user, compact: true, onTap: () => PartnerProfileScreen.openMine(context, onEdit: () => onGoToTab(5))),
+          LevelCard(profile: user, compact: true, onTap: () => PartnerProfileScreen.openMine(context, onEdit: () => onGoToTab(_tabProfile))),
           const SizedBox(height: 6),
 
           // 오늘 운동 카드
@@ -57,7 +60,7 @@ class HomeScreen extends StatelessWidget {
             color: plan == null || plan.isRest ? cs.surfaceContainerHigh : cs.primaryContainer,
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onTap: () => onGoToTab(1),
+              onTap: () => onGoToTab(_tabToday),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -112,8 +115,8 @@ class HomeScreen extends StatelessWidget {
           Row(children: [
             _Quick(icon: Icons.auto_awesome, label: 'AI 코치', onTap: () => showAiCoach(context, today)),
             _Quick(icon: Icons.group_outlined, label: '파트너 운동', onTap: () => showPartnerPicker(context, today)),
-            _Quick(icon: Icons.calendar_month_outlined, label: '달력', onTap: () => onGoToTab(2)),
-            _Quick(icon: Icons.insights_outlined, label: '기록', onTap: () => onGoToTab(3)),
+            _Quick(icon: Icons.calendar_month_outlined, label: '달력', onTap: () => onGoToTab(_tabCalendar)),
+            _Quick(icon: Icons.insights_outlined, label: '기록', onTap: () => onGoToTab(_tabStats)),
           ]),
 
           // 이번 주
@@ -167,7 +170,7 @@ class HomeScreen extends StatelessWidget {
                         leading: Text('${p.date.month}/${p.date.day}', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                         title: Text(p.title ?? ''),
                         subtitle: Text('${p.exercises.length}개 · ${p.estimatedMinutes}분${p.partnerName != null ? ' · 👥 ${p.partnerName}' : ''}'),
-                        onTap: () => onGoToTab(2),
+                        onTap: () => onGoToTab(_tabCalendar),
                       ),
                   ],
                 ),
@@ -184,7 +187,7 @@ class HomeScreen extends StatelessWidget {
                   Row(children: [
                     Text('운동 파트너', style: text.titleMedium),
                     const Spacer(),
-                    TextButton(onPressed: () => onGoToTab(5), child: const Text('관리')),
+                    TextButton(onPressed: () => onGoToTab(_tabProfile), child: const Text('관리')),
                   ]),
                   if (!state.cloudSignedIn)
                     Text('계정에 로그인하면 파트너와 같은 루틴으로 운동할 수 있어요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant))

@@ -426,11 +426,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
     g.equipment.add(GymEquipment(
-        id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg));
+        id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg,
+        extraTypes: extraTypes));
     await _save();
   }
 

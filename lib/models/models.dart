@@ -488,7 +488,9 @@ class GymEquipment {
     this.maxWeightKg,
     LoadMechanism? mechanism,
     this.stepKg,
-  }) : mechanism = mechanism ?? LoadMechanism.defaultFor(type);
+    List<EquipmentType>? extraTypes,
+  })  : mechanism = mechanism ?? LoadMechanism.defaultFor(type),
+        extraTypes = extraTypes ?? [];
 
   final String id;
   EquipmentType type;
@@ -508,6 +510,12 @@ class GymEquipment {
 
   double get effectiveStep => stepKg ?? mechanism.defaultStepKg;
 
+  /// 복합(짬뽕) 머신: 한 기구로 여러 종류 운동이 될 때 추가로 해당하는 기구 종류.
+  /// 예) 레그 익스텐션 + 레그 컬 겸용, 랫풀다운 + 시티드 로우 겸용.
+  final List<EquipmentType> extraTypes;
+
+  List<EquipmentType> get allTypes => [type, ...extraTypes];
+
   String get displayName =>
       (customName == null || customName!.isEmpty) ? type.label : customName!;
 
@@ -519,6 +527,7 @@ class GymEquipment {
         'maxWeightKg': maxWeightKg,
         'mechanism': mechanism.name,
         'stepKg': stepKg,
+        if (extraTypes.isNotEmpty) 'extraTypes': extraTypes.map((t) => t.name).toList(),
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -529,6 +538,10 @@ class GymEquipment {
         maxWeightKg: (j['maxWeightKg'] as num?)?.toDouble(),
         mechanism: j['mechanism'] == null ? null : LoadMechanism.parse(j['mechanism'] as String),
         stepKg: (j['stepKg'] as num?)?.toDouble(),
+        extraTypes: [
+          for (final n in ((j['extraTypes'] as List?) ?? const []))
+            if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+        ],
       );
 }
 
@@ -556,7 +569,7 @@ class Gym {
 
   /// 보유 기구 + 그 기구가 대신할 수 있는 기구(하프랙→스쿼트랙, 펑셔널 트레이너→케이블 등).
   Set<EquipmentType> get availableTypes {
-    final s = {EquipmentType.bodyweight, ...equipment.map((e) => e.type)};
+    final s = {EquipmentType.bodyweight, for (final e in equipment) ...e.allTypes};
     for (final t in s.toList()) {
       s.addAll(impliedEquipment[t] ?? const []);
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/body_model.dart';
+import '../data/brands.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
@@ -132,11 +133,22 @@ class GymScreen extends StatelessWidget {
       builder: (c) => _EquipmentPicker(have: gym.equipment.map((e) => e.type).toSet()),
     );
     if (result == null || !context.mounted) return;
-    if (result.customBase != null && result.customName != null) {
-      await state.addEquipment(gym.id, result.customBase!, name: result.customName);
+    final custom = result.custom;
+    if (custom != null) {
+      await state.addEquipment(gym.id, custom.types.first,
+          name: custom.name, mechanism: custom.mechanism, extraTypes: custom.types.skip(1).toList());
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('"${result.customName}" 추가 (운동은 ${result.customBase!.label} 기준으로 짭니다)')));
+            content: Text('"${custom.name}" 추가 · ${custom.types.map((t) => t.label).join(' + ')} 기준으로 운동을 짭니다')));
+      }
+      return;
+    }
+    for (final m in result.named) {
+      await state.addEquipment(gym.id, m.type, name: m.name, mechanism: m.mechanism);
+    }
+    if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('브랜드 기구 ${result.named.length}개를 추가했어요.')));
       }
       return;
     }
@@ -174,13 +186,106 @@ class GymScreen extends StatelessWidget {
 
 /// 기구 선택기 결과: 새로 추가할 기구와 보유 해제한 기구.
 class PickerResult {
-  const PickerResult({required this.add, required this.remove, this.customName, this.customBase});
+  const PickerResult({required this.add, required this.remove, this.named = const [], this.custom});
   final List<EquipmentType> add;
   final List<EquipmentType> remove;
 
-  /// 목록에 없는 기구를 이름 그대로 추가할 때: 표시 이름과 운동 매핑에 쓸 비슷한 기구.
-  final String? customName;
-  final EquipmentType? customBase;
+  /// 브랜드 탭에서 고른 모델(이름·종류·방식 그대로 등록).
+  final List<BrandModel> named;
+
+  /// 직접 추가(목록에 없는 기구·복합 머신).
+  final CustomEquipment? custom;
+}
+
+class CustomEquipment {
+  const CustomEquipment({required this.name, required this.types, required this.mechanism});
+  final String name;
+
+  /// 첫 번째가 주 종류, 나머지는 복합 머신의 겸용 종류.
+  final List<EquipmentType> types;
+  final LoadMechanism mechanism;
+}
+
+/// 목록에 없는 기구 / 복합(짬뽕) 머신 직접 추가.
+Future<CustomEquipment?> customEquipmentDialog(BuildContext context, {String initialName = ''}) {
+  final nameCtrl = TextEditingController(text: initialName);
+  final picked = <EquipmentType>[];
+  var query = '';
+  var mech = LoadMechanism.pin;
+  return showDialog<CustomEquipment>(
+    context: context,
+    builder: (c) => StatefulBuilder(builder: (c, setState) {
+      final list = equipmentCatalog.where((i) => i.type != EquipmentType.bodyweight && i.type.matches(query)).toList();
+      final text = Theme.of(c).textTheme;
+      return AlertDialog(
+        title: const Text('기구 직접 추가'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 460,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: '기구 이름 (예: 디랙스 레그 익스텐션/컬)'),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<LoadMechanism>(
+              segments: const [
+                ButtonSegment(value: LoadMechanism.pin, label: Text('핀')),
+                ButtonSegment(value: LoadMechanism.plate, label: Text('원판')),
+                ButtonSegment(value: LoadMechanism.free, label: Text('프리')),
+              ],
+              selected: {mech},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => setState(() => mech = s.first),
+            ),
+            const SizedBox(height: 8),
+            Text('이 기구로 할 수 있는 운동 종류 (여러 개 = 복합 머신)', style: text.labelLarge),
+            if (picked.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Wrap(spacing: 6, runSpacing: 4, children: [
+                  for (final t in picked)
+                    InputChip(label: Text(t.label), onDeleted: () => setState(() => picked.remove(t)), visualDensity: VisualDensity.compact),
+                ]),
+              ),
+            TextField(
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '예: 레그 컬, 로우, 프레스', isDense: true),
+              onChanged: (v) => setState(() => query = v),
+            ),
+            Expanded(
+              child: ListView(children: [
+                for (final i in list)
+                  CheckboxListTile(
+                    dense: true,
+                    value: picked.contains(i.type),
+                    title: Text(i.type.label),
+                    subtitle: Text(i.strengths.take(2).join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onChanged: (_) => setState(() => picked.contains(i.type) ? picked.remove(i.type) : picked.add(i.type)),
+                  ),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소')),
+          FilledButton(
+            onPressed: nameCtrl.text.trim().isEmpty && picked.isEmpty
+                ? null
+                : () {
+                    if (picked.isEmpty) {
+                      ScaffoldMessenger.of(c).showSnackBar(const SnackBar(content: Text('어떤 운동이 되는 기구인지 하나 이상 골라주세요.')));
+                      return;
+                    }
+                    final name = nameCtrl.text.trim().isEmpty ? picked.map((t) => t.label).join(' + ') : nameCtrl.text.trim();
+                    Navigator.pop(c, CustomEquipment(name: name, types: List.of(picked), mechanism: mech));
+                  },
+            child: const Text('추가'),
+          ),
+        ],
+      );
+    }),
+  );
 }
 
 /// 기구 종류별로 할 수 있는 운동 이름(검색용).
@@ -203,51 +308,54 @@ class _EquipmentPicker extends StatefulWidget {
   State<_EquipmentPicker> createState() => _EquipmentPickerState();
 }
 
-/// 직접 추가할 기구와 가장 비슷한 기구 고르기.
-Future<EquipmentType?> _pickBaseType(BuildContext context) {
-  return showDialog<EquipmentType>(
-    context: context,
-    builder: (c) {
-      var query = '';
-      return StatefulBuilder(builder: (c, setState) {
-        final list = equipmentCatalog.where((i) => i.type.matches(query)).toList();
-        return AlertDialog(
-          title: const Text('가장 비슷한 기구는?'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 380,
-            child: Column(children: [
-              TextField(
-                autofocus: true,
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '예: 로우, 프레스, 케이블'),
-                onChanged: (v) => setState(() => query = v),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(children: [
-                  for (final i in list)
-                    ListTile(
-                      dense: true,
-                      title: Text(i.type.label),
-                      subtitle: Text(i.strengths.take(2).join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      onTap: () => Navigator.pop(c, i.type),
-                    ),
-                ]),
-              ),
-            ]),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소'))],
-        );
-      });
-    },
-  );
-}
-
 class _EquipmentPickerState extends State<_EquipmentPicker> {
   String _query = '';
   EquipmentCategory? _category;
   final _selected = <EquipmentType>{};
   final _removed = <EquipmentType>{};
+
+  /// 브랜드 탭
+  bool _byBrand = false;
+  final _brandPicked = <BrandModel>{};
+
+  Future<void> _custom() async {
+    final custom = await customEquipmentDialog(context, initialName: _query.trim());
+    if (custom != null && mounted) {
+      Navigator.pop(context, PickerResult(add: const [], remove: const [], custom: custom));
+    }
+  }
+
+  Widget _brandList(ScrollController ctrl, ColorScheme cs, TextTheme text) {
+    final q = _query.trim().toLowerCase();
+    final brands = equipmentBrands.where((b) => q.isEmpty || b.matches(q) || b.models.any((m) => m.name.toLowerCase().contains(q) || m.type.matches(q))).toList();
+    return ListView(
+      controller: ctrl,
+      children: [
+        for (final b in brands)
+          ExpansionTile(
+            initiallyExpanded: q.isNotEmpty,
+            title: Text(b.name),
+            subtitle: Text(b.note.isEmpty ? '${b.models.length}개 모델' : '${b.models.length}개 모델 · ${b.note}', maxLines: 2, overflow: TextOverflow.ellipsis),
+            children: [
+              for (final m in b.models.where((m) => q.isEmpty || b.matches(q) || m.name.toLowerCase().contains(q) || m.type.matches(q)))
+                CheckboxListTile(
+                  dense: true,
+                  value: _brandPicked.contains(m),
+                  title: Text(m.name),
+                  subtitle: Text('${m.type.label} · ${m.mechanism.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onChanged: (_) => setState(() => _brandPicked.contains(m) ? _brandPicked.remove(m) : _brandPicked.add(m)),
+                ),
+            ],
+          ),
+        ListTile(
+          leading: Icon(Icons.add_circle_outline, color: cs.tertiary),
+          title: const Text('찾는 모델이 없나요? 직접 추가'),
+          subtitle: const Text('이름을 그대로 쓰고, 복합 머신이면 되는 운동 종류를 여러 개 고르세요.'),
+          onTap: _custom,
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -280,10 +388,28 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
             ),
           ),
           Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(children: [
+              Expanded(
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('종류별'), icon: Icon(Icons.category_outlined)),
+                    ButtonSegment(value: true, label: Text('브랜드별'), icon: Icon(Icons.storefront_outlined)),
+                  ],
+                  selected: {_byBrand},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _byBrand = s.first),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(onPressed: _custom, icon: const Icon(Icons.add), label: const Text('직접 추가')),
+            ]),
+          ),
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               decoration: InputDecoration(
-                hintText: '검색: 해머, 레그프레스, cable, 둔근 …',
+                hintText: _byBrand ? '검색: 디랙스, 해머, 레그 컬 …' : '검색: 해머, 레그프레스, cable, 둔근 …',
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _query = '')),
@@ -291,6 +417,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               onChanged: (v) => setState(() => _query = v),
             ),
           ),
+          if (!_byBrand)
           SizedBox(
             height: 48,
             child: ListView(
@@ -313,6 +440,10 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               ],
             ),
           ),
+          if (_byBrand) const SizedBox(height: 6),
+          if (_byBrand)
+            Expanded(child: _brandList(ctrl, cs, text))
+          else
           Expanded(
             child: ListView.builder(
               controller: ctrl,
@@ -324,9 +455,9 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                     title: Text('"$q" 이름 그대로 추가'),
                     subtitle: Text(items.isEmpty ? '목록에 없는 기구예요. 비슷한 기구를 골라주면 그 기준으로 운동을 짭니다.' : '위에 없으면 비슷한 기구를 골라 직접 추가'),
                     onTap: () async {
-                      final base = await _pickBaseType(context);
-                      if (base != null && context.mounted) {
-                        Navigator.pop(context, PickerResult(add: const [], remove: const [], customName: q, customBase: base));
+                      final custom = await customEquipmentDialog(context, initialName: q);
+                      if (custom != null && context.mounted) {
+                        Navigator.pop(context, PickerResult(add: const [], remove: const [], custom: custom));
                       }
                     },
                   );
@@ -365,21 +496,25 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               children: [
                 Expanded(
                   child: Text(
-                    _selected.isEmpty && _removed.isEmpty
-                        ? '체크해서 추가 · 보유 기구는 체크를 풀어 제거'
+                    _selected.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
+                        ? (_byBrand ? '브랜드 모델을 체크해서 추가' : '체크해서 추가 · 보유 기구는 체크를 풀어 제거')
                         : [
                             if (_selected.isNotEmpty) '${_selected.length}개 추가',
+                            if (_brandPicked.isNotEmpty) '브랜드 ${_brandPicked.length}개',
                             if (_removed.isNotEmpty) '${_removed.length}개 제거',
                           ].join(' · '),
                     style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: _selected.isEmpty && _removed.isEmpty
+                  onPressed: _selected.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
                       ? null
-                      : () => Navigator.pop(context, PickerResult(add: _selected.toList(), remove: _removed.toList())),
-                  icon: Icon(_selected.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
-                  label: Text(_selected.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
+                      : () => Navigator.pop(
+                          context,
+                          PickerResult(add: _selected.toList(), remove: _removed.toList(), named: _brandPicked.toList()),
+                        ),
+                  icon: Icon(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
+                  label: Text(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
                 ),
               ],
             ),
