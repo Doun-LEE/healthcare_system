@@ -6,6 +6,7 @@ import '../../data/how_to.dart';
 import '../../models/models.dart';
 import 'body_view.dart';
 import 'equipment_3d.dart';
+import 'app_sheet.dart';
 
 /// 운동 상세: 설명, 세부 타깃, 사용 기구의 3D 모델과 기구 특징.
 class ExerciseSheet extends StatelessWidget {
@@ -14,7 +15,7 @@ class ExerciseSheet extends StatelessWidget {
   final EquipmentType equipment;
 
   static Future<void> show(BuildContext context, Exercise ex, EquipmentType eq) =>
-      showModalBottomSheet(
+      showAppSheet(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,

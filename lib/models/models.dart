@@ -262,6 +262,7 @@ class UserProfile {
     this.sessionMinutes = 120,
     this.includeCardio = true,
     this.startWith = 'auto',
+    this.volumeBias = 1.0,
     this.activeGymId,
     this.inbodyScannedAt,
     this.squat1rm,
@@ -291,6 +292,9 @@ class UserProfile {
 
   /// 운동 시작 순서: 'auto'(복합→고립→복근→유산소) | 'weights' | 'cardio' | 'abs'.
   String startWith;
+
+  /// 볼륨 보정(0.8~1.3). 계획보다 더 하면 올라가고, 못 채우면 내려간다. 세션 시간 예산에 곱한다.
+  double volumeBias;
   String? activeGymId;
   DateTime? inbodyScannedAt;
 
@@ -316,6 +320,7 @@ class UserProfile {
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
         'startWith': startWith,
+        'volumeBias': volumeBias,
         'activeGymId': activeGymId,
         'inbodyScannedAt': inbodyScannedAt?.toIso8601String(),
         'squat1rm': squat1rm,
@@ -340,6 +345,7 @@ class UserProfile {
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
         startWith: (j['startWith'] as String?) ?? 'auto',
+        volumeBias: (j['volumeBias'] as num?)?.toDouble() ?? 1.0,
         activeGymId: j['activeGymId'] as String?,
         inbodyScannedAt: j['inbodyScannedAt'] == null
             ? null
@@ -559,6 +565,7 @@ class SetEntry {
     this.completed = false,
     this.level,
     this.doneLevel,
+    this.extra = false,
   });
 
   final int targetReps;
@@ -573,6 +580,9 @@ class SetEntry {
   final int? level;
   int? doneLevel;
 
+  /// 처방 외에 직접 추가한 세트. 완료하면 다음 루틴 볼륨을 올리는 근거가 된다.
+  final bool extra;
+
   int get effectiveReps => doneReps ?? targetReps;
   double get effectiveWeight => doneWeight ?? targetWeight;
   int? get effectiveLevel => doneLevel ?? level;
@@ -585,6 +595,7 @@ class SetEntry {
         'completed': completed,
         'level': level,
         'doneLevel': doneLevel,
+        if (extra) 'extra': true,
       };
 
   factory SetEntry.fromJson(Map<String, dynamic> j) => SetEntry(
@@ -595,6 +606,7 @@ class SetEntry {
         completed: j['completed'] as bool,
         level: j['level'] as int?,
         doneLevel: j['doneLevel'] as int?,
+        extra: (j['extra'] as bool?) ?? false,
       );
 }
 
@@ -663,6 +675,8 @@ class DayPlan {
     this.rpe,
     this.title,
     this.finishedAt,
+    this.startedAt,
+    this.endedAt,
     this.partnerName,
     Map<String, double>? partnerWeights,
   })  : exercises = exercises ?? [],
@@ -699,6 +713,22 @@ class DayPlan {
   bool get isRest => kind == DayKind.rest;
   bool get isFinished => finishedAt != null;
 
+  /// '운동 시작'을 누른 시각(또는 첫 세트 체크 시각)과 끝낸 시각.
+  DateTime? startedAt;
+  DateTime? endedAt;
+  bool get isStarted => startedAt != null;
+
+  /// 실제 운동 시간(분). 시작하지 않았으면 null, 진행 중이면 지금까지.
+  int? get actualMinutes {
+    final s = startedAt;
+    if (s == null) return null;
+    return (endedAt ?? DateTime.now()).difference(s).inMinutes;
+  }
+
+  /// 처방 외 추가로 완료한 세트 수(직접 추가한 세트 + 직접 추가한 운동의 세트).
+  int get extraSetsDone => exercises.fold(
+      0, (a, e) => a + e.sets.where((s) => s.completed && (s.extra || e.note == '직접 추가')).length);
+
   double get completionRatio {
     final total = exercises.fold<int>(0, (a, e) => a + e.sets.length);
     if (total == 0) return 0;
@@ -721,6 +751,8 @@ class DayPlan {
         'rpe': rpe,
         'title': title,
         'finishedAt': finishedAt?.toIso8601String(),
+        'startedAt': startedAt?.toIso8601String(),
+        'endedAt': endedAt?.toIso8601String(),
         'partnerName': partnerName,
         'partnerWeights': partnerWeights,
       };
@@ -749,6 +781,8 @@ class DayPlan {
         finishedAt: j['finishedAt'] == null
             ? null
             : DateTime.parse(j['finishedAt'] as String),
+        startedAt: j['startedAt'] == null ? null : DateTime.parse(j['startedAt'] as String),
+        endedAt: j['endedAt'] == null ? null : DateTime.parse(j['endedAt'] as String),
       );
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/catalog.dart';
+import 'app_sheet.dart';
 
 /// 실제 수행 무게·횟수를 위아래로 돌려서 고르는 휠 입력.
 /// 무게는 기구 단위(바벨 2.5 / 덤벨 2 / 머신 5kg)로, 횟수는 1씩 움직인다.
@@ -45,7 +46,7 @@ class SetEditorSheet extends StatefulWidget {
     CardioLevelSpec? levelSpec,
     int? initialLevel,
   }) =>
-      showModalBottomSheet<(int, double, int?)>(
+      showAppSheet<(int, double, int?)>(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
@@ -115,7 +116,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final upR = _reps > widget.targetReps;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

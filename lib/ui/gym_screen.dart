@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import 'widgets/body_view.dart';
 import 'widgets/equipment_3d.dart';
 import 'widgets/exercise_sheet.dart';
+import 'widgets/app_sheet.dart';
 
 /// 헬스장별 보유 기구 추가/수정/삭제 (요구사항 3) + 기구 3D/특징 보기.
 class GymScreen extends StatelessWidget {
@@ -123,7 +124,7 @@ class GymScreen extends StatelessWidget {
   }
 
   Future<void> _addEquipment(BuildContext context, AppState state, Gym gym) async {
-    final result = await showModalBottomSheet<PickerResult>(
+    final result = await showAppSheet<PickerResult>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -485,7 +486,7 @@ class _EquipmentDetail extends StatelessWidget {
   const _EquipmentDetail({required this.eq});
   final GymEquipment eq;
 
-  static Future<void> show(BuildContext context, GymEquipment eq) => showModalBottomSheet(
+  static Future<void> show(BuildContext context, GymEquipment eq) => showAppSheet(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,

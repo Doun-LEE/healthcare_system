@@ -5,6 +5,7 @@ import '../../data/catalog.dart';
 import '../../models/models.dart';
 import '../../services/ai_coach.dart';
 import '../../state/app_state.dart';
+import 'app_sheet.dart';
 
 /// AI 코치: 요청 입력 → 생성 → 미리보기(근거·운동 목록) → 적용.
 Future<void> showAiCoach(BuildContext context, DateTime date) async {
@@ -14,12 +15,12 @@ Future<void> showAiCoach(BuildContext context, DateTime date) async {
     return;
   }
   final reqCtrl = TextEditingController();
-  final go = await showModalBottomSheet<bool>(
+  final go = await showAppSheet<bool>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     builder: (c) => Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(c).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -82,7 +83,7 @@ Future<void> showAiCoach(BuildContext context, DateTime date) async {
     return;
   }
   final ai = plan!;
-  final apply = await showModalBottomSheet<bool>(
+  final apply = await showAppSheet<bool>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,

@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../services/partner.dart';
 import '../../state/app_state.dart';
 import '../chat_screen.dart';
+import 'app_sheet.dart';
 
 /// 내 정보 화면의 파트너 섹션: 이메일로 요청, 목록(대기중 표시), 삭제.
 class PartnerSection extends StatelessWidget {
@@ -243,7 +244,7 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
     return;
   }
   final existing = state.planOn(date);
-  final chosen = await showModalBottomSheet<Object>(
+  final chosen = await showAppSheet<Object>(
     context: context,
     showDragHandle: true,
     builder: (c) => ListView(

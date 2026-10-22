@@ -521,7 +521,7 @@ class AppState extends ChangeNotifier {
       available: availableEquipment,
       progress: progress,
       profile: u,
-      minutesBudget: u.sessionMinutes,
+      minutesBudget: (u.sessionMinutes * u.volumeBias).round(),
       now: d,
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
@@ -696,13 +696,21 @@ class AppState extends ChangeNotifier {
     if (weight != null) s.doneWeight = weight;
     if (level != null) s.doneLevel = level;
     if (completed != null) s.completed = completed;
+    if (completed == true && plan.startedAt == null) plan.startedAt = DateTime.now();
+    await _save();
+  }
+
+  /// '운동 시작': 시작 시각을 기록한다(이미 시작했으면 유지).
+  Future<void> startWorkout(DayPlan plan) async {
+    if (plan.isFinished) return;
+    plan.startedAt ??= DateTime.now();
     await _save();
   }
 
   Future<void> addSet(DayPlan plan, PlannedExercise ex) async {
     final last = ex.sets.last;
     ex.sets.add(SetEntry(
-        targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level));
+        targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level, extra: true));
     await _save();
     await resyncPartnerDay(plan);
   }
@@ -916,6 +924,39 @@ class AppState extends ChangeNotifier {
       msgs.add('${ex.name}: ${r.message}');
     }
     plan.finishedAt = now;
+    if (plan.startedAt != null) plan.endedAt = now;
+
+    // 계획 대비 실제 수행 → 다음 루틴 볼륨 보정.
+    final u = currentUser;
+    if (u != null && plan.exercises.isNotEmpty) {
+      final planned = plan.estimatedMinutes;
+      final actual = plan.actualMinutes;
+      final ratio = plan.completionRatio;
+      final extra = plan.extraSetsDone;
+      var delta = 0.0;
+      final why = <String>[];
+      if (ratio >= 0.9 && extra >= 3) {
+        delta += 0.05;
+        why.add('추가 세트 $extra개');
+      }
+      if (ratio >= 0.95 && actual != null && planned > 0 && actual >= 15 && actual < planned * 0.7) {
+        delta += 0.05;
+        why.add('계획 $planned분보다 빨리($actual분) 끝냄');
+      }
+      if (ratio < 0.7) {
+        delta -= 0.05;
+        why.add('수행 ${(ratio * 100).round()}%');
+      } else if (actual != null && planned > 0 && actual > planned * 1.4 && (rpe ?? 0) >= 8) {
+        delta -= 0.05;
+        why.add('계획 $planned분보다 많이 걸림($actual분)');
+      }
+      if (delta != 0) {
+        u.volumeBias = (u.volumeBias + delta).clamp(0.8, 1.3);
+        msgs.add('⏱ ${why.join(' · ')} → 다음 루틴 볼륨 ${delta > 0 ? '+' : ''}${(delta * 100).round()}% (현재 ${(u.volumeBias * 100).round()}%)');
+      } else if (actual != null) {
+        msgs.add('⏱ 실제 $actual분 / 계획 $planned분 · 볼륨 유지');
+      }
+    }
     await _save();
     return msgs;
   }

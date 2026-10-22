@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
 import 'widgets/workout_card.dart';
+import 'widgets/app_sheet.dart';
 
 /// 공유 코드 붙여넣기 → 해당 날짜로 가져오기. 오늘/달력 화면에서 공용.
 Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
@@ -63,7 +65,7 @@ Future<void> changeDayFocusDialog(BuildContext context, DayPlan plan) async {
   final custom = <MuscleGroup>{...plan.focus};
   var shift = true;
 
-  final result = await showModalBottomSheet<(List<MuscleGroup>, String?, bool)>(
+  final result = await showAppSheet<(List<MuscleGroup>, String?, bool)>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -188,6 +190,8 @@ class DayPlanView extends StatelessWidget {
         _Header(plan: plan),
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
           ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
+        if (logging && !plan.isFinished && plan.exercises.isNotEmpty)
+          _WorkoutClock(plan: plan, onStart: () => state.startWorkout(plan)),
         if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
         const SizedBox(height: 8),
         for (var i = 0; i < plan.exercises.length; i++) ...[
@@ -228,6 +232,9 @@ class DayPlanView extends StatelessWidget {
               const SizedBox(width: 8),
               Text('완료됨 · ${(plan.completionRatio * 100).round()}% 수행', style: text.titleMedium),
             ]),
+            if (plan.actualMinutes != null)
+              Text('실제 ${plan.actualMinutes}분 / 계획 ${plan.estimatedMinutes}분${plan.extraSetsDone > 0 ? ' · 추가 세트 ${plan.extraSetsDone}개' : ''}',
+                  style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
             if (plan.rpe != null)
               Text('체감 강도 ${plan.rpe}/10 · ${rpeLabel(plan.rpe!)}',
                   style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -422,6 +429,69 @@ class _Header extends StatelessWidget {
   }
 }
 
+/// 운동 시작 버튼과 경과 시간. 시작 전엔 버튼, 시작 후엔 경과/예상 시간 표시(30초마다 갱신).
+class _WorkoutClock extends StatefulWidget {
+  const _WorkoutClock({required this.plan, required this.onStart});
+  final DayPlan plan;
+  final VoidCallback onStart;
+
+  @override
+  State<_WorkoutClock> createState() => _WorkoutClockState();
+}
+
+class _WorkoutClockState extends State<_WorkoutClock> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final p = widget.plan;
+    if (!p.isStarted) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: FilledButton.tonalIcon(
+          onPressed: widget.onStart,
+          icon: const Icon(Icons.play_arrow),
+          label: Text('운동 시작 (예상 ${p.estimatedMinutes}분)'),
+          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+        ),
+      );
+    }
+    final elapsed = p.actualMinutes ?? 0;
+    final over = p.estimatedMinutes > 0 && elapsed > p.estimatedMinutes;
+    final start = p.startedAt!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Icon(Icons.timer_outlined, size: 18, color: over ? cs.error : cs.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '경과 $elapsed분 / 예상 ${p.estimatedMinutes}분 · ${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')} 시작'
+            '${p.extraSetsDone > 0 ? ' · 추가 세트 ${p.extraSetsDone}' : ''}',
+            style: text.bodyMedium?.copyWith(color: over ? cs.error : cs.onSurfaceVariant, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.label);
   final String label;
@@ -446,7 +516,7 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
   var query = '';
   MuscleGroup? group;
   var personal = plan.partnerName != null;
-  final picked = await showModalBottomSheet<(Exercise, bool)>(
+  final picked = await showAppSheet<(Exercise, bool)>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
@@ -662,7 +732,7 @@ class _ExerciseCard extends StatelessWidget {
     final options = exercisesOf(ex.group)
         .where((e) => e.id != ex.id && e.canDoWith(state.availableEquipment))
         .toList();
-    final chosen = await showModalBottomSheet<Exercise>(
+    final chosen = await showAppSheet<Exercise>(
       context: context,
       showDragHandle: true,
       builder: (c) => ListView(

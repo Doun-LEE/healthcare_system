@@ -151,7 +151,7 @@ class Planner {
         available: input.available,
         progress: input.progress,
         profile: input.profile,
-        minutesBudget: input.profile.sessionMinutes,
+        minutesBudget: (input.profile.sessionMinutes * input.profile.volumeBias).round(),
         intensityFactor: intensity,
         now: date,
         equipmentMax: input.equipmentMax,

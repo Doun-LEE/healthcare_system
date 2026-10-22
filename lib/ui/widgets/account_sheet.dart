@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../../services/cloud_sync.dart';
 import '../../state/app_state.dart';
+import 'app_sheet.dart';
 
 /// 계정 로그인/회원가입 시트. 이메일 + 비밀번호.
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
 
-  static Future<void> show(BuildContext context) => showModalBottomSheet(
+  static Future<void> show(BuildContext context) => showAppSheet(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
@@ -93,7 +94,7 @@ class _AccountSheetState extends State<AccountSheet> {
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

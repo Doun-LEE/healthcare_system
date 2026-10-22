@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/cloud_sync.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
+import 'widgets/app_sheet.dart';
 
 /// 로그인.
 /// - 기본: Google 또는 이메일 계정 (어느 기기에서든 같은 데이터).
@@ -118,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
 class _LocalOnlySheet extends StatelessWidget {
   const _LocalOnlySheet();
 
-  static Future<void> show(BuildContext context) => showModalBottomSheet(
+  static Future<void> show(BuildContext context) => showAppSheet(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
@@ -128,7 +129,7 @@ class _LocalOnlySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: const _LocalOnlyForm(),
       );
 }

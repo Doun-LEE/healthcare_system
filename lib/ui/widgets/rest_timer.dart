@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'app_sheet.dart';
 
 /// 세트 간 휴식 타이머. 하단 시트로 띄운다.
 class RestTimerSheet extends StatefulWidget {
@@ -9,7 +10,7 @@ class RestTimerSheet extends StatefulWidget {
   final int seconds;
 
   static Future<void> show(BuildContext context, int seconds) =>
-      showModalBottomSheet(
+      showAppSheet(
         context: context,
         showDragHandle: true,
         builder: (_) => RestTimerSheet(seconds: seconds),

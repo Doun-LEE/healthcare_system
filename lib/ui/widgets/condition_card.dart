@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../state/app_state.dart';
+import 'app_sheet.dart';
 
 /// 컨디션 1~10 → 기본 무게 배율. 사용자가 % 를 따로 조절할 수도 있다.
 double loadFactorForCondition(int c) => switch (c) {
@@ -197,7 +198,7 @@ class _ConditionCardState extends State<ConditionCard> {
 
 /// 운동 후 강도 평가. 선택한 1~10을 돌려주고, 건너뛰면 null.
 Future<int?> showRpePicker(BuildContext context) {
-  return showModalBottomSheet<int>(
+  return showAppSheet<int>(
     context: context,
     showDragHandle: true,
     builder: (c) {

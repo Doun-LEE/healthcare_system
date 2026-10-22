@@ -159,7 +159,17 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text('하루 운동 시간: ${u.sessionMinutes}분', style: text.labelLarge),
+            Text('하루 운동 시간: ${u.sessionMinutes}분${u.volumeBias != 1.0 ? ' · 볼륨 보정 ${(u.volumeBias * 100).round()}%' : ''}', style: text.labelLarge),
+            if (u.volumeBias != 1.0)
+              Row(children: [
+                Expanded(
+                  child: Text(
+                    '운동 완료 때 계획보다 ${u.volumeBias > 1 ? '더' : '덜'} 수행해서 루틴 볼륨을 ${u.volumeBias > 1 ? '늘려' : '줄여'} 짭니다.',
+                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ),
+                TextButton(onPressed: () => _edit(state, (p) => p.volumeBias = 1.0), child: const Text('초기화')),
+              ]),
             Slider(
               value: u.sessionMinutes.toDouble(),
               min: 30,
