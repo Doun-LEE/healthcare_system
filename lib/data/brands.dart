@@ -178,6 +178,19 @@ final equipmentBrands = <EquipmentBrand>[
     models: [..._selectorized('짐80'), ..._plateLoaded('짐80')],
   ),
   EquipmentBrand(
+    name: '렉스코 (LEXCO)',
+    aliases: ['lexco', '렉스코', '렉스', '렉스코피트니스'],
+    note: '국산 브랜드. 핀·원판 머신과 유산소 기구.',
+    models: [
+      ..._selectorized('렉스코'),
+      ..._plateLoaded('렉스코'),
+      const BrandModel('렉스코 스미스 머신', EquipmentType.smithMachine, _plate),
+      const BrandModel('렉스코 파워랙', EquipmentType.squatRack, LoadMechanism.free),
+      const BrandModel('렉스코 트레드밀', EquipmentType.treadmill, LoadMechanism.none),
+      const BrandModel('렉스코 업라이트 바이크', EquipmentType.bike, LoadMechanism.none),
+    ],
+  ),
+  EquipmentBrand(
     name: '뉴텍 (Newtech)',
     aliases: ['newtech', '뉴텍'],
     note: '국산 브랜드.',

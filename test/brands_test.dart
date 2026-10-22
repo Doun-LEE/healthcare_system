@@ -10,6 +10,7 @@ void main() {
     }
     expect(equipmentBrands.where((b) => b.matches('디렉스')), isNotEmpty);
     expect(equipmentBrands.where((b) => b.matches('hammer')), isNotEmpty);
+    expect(equipmentBrands.where((b) => b.matches('렉스코')), isNotEmpty);
   });
 
   test('combo machine contributes all its types to the gym and survives JSON', () {
