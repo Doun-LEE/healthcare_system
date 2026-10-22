@@ -66,13 +66,29 @@ jobs:
             --build-name=${{ steps.ver.outputs.version }} \
             --build-number=${{ github.run_number }}
 
+      # firebase-tools를 직접 실행한다. 실패하면 원인 문구를 annotation(공개)으로 남겨
+      # 로그인 없이도 실패 이유를 볼 수 있게 한다(키 내용은 출력하지 않음).
       - name: Deploy to Firebase Hosting
         if: env.FB_SA != ''
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: healthcare-system-b55c0
-          channelId: live
+        shell: bash
+        run: |
+          printf '%s' "$FB_SA" > "$RUNNER_TEMP/sa.json"
+          if ! python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d.get('type')=='service_account'; print('::notice::service account OK, project_id =', d.get('project_id'))" "$RUNNER_TEMP/sa.json"; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT 값이 서비스 계정 JSON이 아닙니다. 다운로드한 JSON 파일 내용 전체({ 부터 } 까지)를 그대로 넣어주세요."
+            exit 1
+          fi
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          set +e
+          npx -y firebase-tools@latest deploy --only hosting --project healthcare-system-b55c0 --non-interactive > deploy.log 2>&1
+          code=$?
+          set -e
+          cat deploy.log
+          rm -f "$RUNNER_TEMP/sa.json"
+          if [ $code -ne 0 ]; then
+            grep -iE "error|denied|permission|not found|not enabled|failed|403|404" deploy.log | grep -v "^\s*$" | head -6 | while IFS= read -r l; do echo "::error::$l"; done
+            exit $code
+          fi
+          echo "::notice::Firebase Hosting 배포 완료 https://healthcare-system-b55c0.web.app"
 
       - name: Pages = redirect to new address
         if: env.FB_SA != ''
