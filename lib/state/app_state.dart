@@ -886,17 +886,15 @@ class AppState extends ChangeNotifier {
     final u = currentUser!;
     final gen = SessionGenerator(SessionRequest(
       groups: [to.group],
-      available: availableEquipment,
+      available: {...availableEquipment, ...to.equipment},
       progress: progress,
       profile: u,
       minutesBudget: 30,
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
     ));
-    // 생성기의 처방 로직을 재사용하려고 단일 운동 세션을 만든 뒤 해당 운동만 뽑는다.
-    final planned = gen.generate().where((p) => p.exerciseId == to.id).firstOrNull ??
-        _planSingle(to, u);
-    plan.exercises[i] = planned;
+    // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
+    plan.exercises[i] = gen.planExercise(to);
     await _save();
     await resyncPartnerDay(plan);
   }
@@ -911,8 +909,14 @@ class AppState extends ChangeNotifier {
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
     ));
-    return gen.generate().firstWhere((p) => p.exerciseId == ex.id,
-        orElse: () => gen.generate().first);
+    return gen.planExercise(ex);
+  }
+
+  /// 자세에 따라 타깃이 바뀌는 운동의 부위를 바꾼다(덤벨 풀오버: 등 → 가슴).
+  Future<void> setExerciseTarget(DayPlan plan, PlannedExercise pe, MuscleGroup? group) async {
+    pe.groupOverride = group;
+    await _save();
+    await resyncPartnerDay(plan);
   }
 
   /// 오늘 컨디션 적용: 같은 부위 구성으로 무게 배율·시간 예산만 바꿔 다시 뽑는다.

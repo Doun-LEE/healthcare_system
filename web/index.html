@@ -23,7 +23,11 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <style>
+    /* 모바일 브라우저에서 페이지가 살짝 스크롤/확대되면 터치 좌표가 아래로 밀리는 현상 방지 */
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: fixed; width: 100%; overscroll-behavior: none; touch-action: manipulation; }
+  </style>
   <meta name="apple-mobile-web-app-title" content="FitRoutine">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 

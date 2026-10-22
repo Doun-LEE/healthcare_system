@@ -179,8 +179,9 @@ class SessionGenerator {
     final ex = exerciseById(p.exerciseId);
     if (ex == null) return 'upper';
     if (ex.loadType == LoadType.cardio) return 'cardio';
-    if (ex.group == MuscleGroup.abs) return 'abs';
-    if (ex.group == MuscleGroup.legs) return 'lower';
+    final g = p.effectiveGroup;
+    if (g == MuscleGroup.abs) return 'abs';
+    if (g == MuscleGroup.legs) return 'lower';
     return 'upper';
   }
 
@@ -208,7 +209,7 @@ class SessionGenerator {
   static List<PlannedExercise> orderWeights(List<PlannedExercise> list, UserProfile p) {
     if (list.length < 2) return list;
     bool isCompound(PlannedExercise e) => exerciseById(e.exerciseId)?.compound ?? false;
-    MuscleGroup groupOf(PlannedExercise e) => exerciseById(e.exerciseId)?.group ?? MuscleGroup.chest;
+    MuscleGroup groupOf(PlannedExercise e) => e.effectiveGroup;
     final base = [...list.where(isCompound), ...list.where((e) => !isCompound(e))];
     // 학습한 순위가 하나도 없으면 기본 효율 순서(복합 → 고립) 그대로.
     final learned = list.any((e) => p.exerciseRank.containsKey(e.exerciseId) || p.groupRank.containsKey(groupOf(e).name));
@@ -337,6 +338,9 @@ class SessionGenerator {
     }
     return best;
   }
+
+  /// 특정 운동 하나를 현재 프로필·기록 기준으로 처방(세트·횟수·무게). 추가/교체에 쓴다.
+  PlannedExercise planExercise(Exercise ex) => _plan(ex);
 
   PlannedExercise _plan(Exercise ex) {
     final level = req.profile.level;

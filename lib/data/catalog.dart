@@ -26,6 +26,7 @@ class Exercise {
     this.repRange = const [8, 12],
     this.priority = 1,
     this.description = '',
+    this.altGroups = const [],
   });
 
   final String id;
@@ -52,6 +53,9 @@ class Exercise {
   /// 1=보조, 2=주요, 3=핵심(세션에서 먼저 뽑힘).
   final int priority;
   final String description;
+
+  /// 자세에 따라 타깃이 바뀌는 운동(덤벨 풀오버: 등 ↔ 가슴). 루틴에서 타깃을 바꿀 수 있다.
+  final List<MuscleGroup> altGroups;
 
   bool canDoWith(Set<EquipmentType> available) =>
       equipment.any(available.contains);
@@ -1287,9 +1291,16 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'pullover_m', name: '풀오버 머신', group: MuscleGroup.back,
-    emphasis: ['광배 고립', '가슴 확장'], equipment: [EquipmentType.pulloverMachine],
+    emphasis: ['광배 고립', '가슴 확장'], equipment: [EquipmentType.pulloverMachine], altGroups: [MuscleGroup.chest],
     loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.6,
     repRange: [10, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'db_pullover', name: '덤벨 풀오버', group: MuscleGroup.back,
+    emphasis: ['광배 고립', '가슴 확장'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.35,
+    repRange: [10, 15], priority: 1, altGroups: [MuscleGroup.chest],
+    description: '벤치에 누워 덤벨을 머리 뒤로 내렸다 올린다. 팔꿈치를 굽히고 가슴을 늘리면 가슴, 팔을 펴고 광배로 당기면 등 운동이 된다.',
   ),
   Exercise(
     id: 'shrug', name: '슈러그', group: MuscleGroup.back,
@@ -1759,3 +1770,8 @@ Exercise? exerciseById(String id) => _byId[id];
 
 List<Exercise> exercisesOf(MuscleGroup g) =>
     exerciseCatalog.where((e) => e.group == g).toList();
+
+/// 기록·구역·밸런스 계산에 쓰는 실제 타깃 부위(사용자가 바꿨으면 그것).
+extension PlannedExerciseTarget on PlannedExercise {
+  MuscleGroup get effectiveGroup => groupOverride ?? exerciseById(exerciseId)?.group ?? MuscleGroup.chest;
+}

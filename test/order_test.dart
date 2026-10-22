@@ -1,3 +1,4 @@
+import 'package:fit_routine/data/catalog.dart';
 import 'package:fit_routine/engine/session_generator.dart';
 import 'package:fit_routine/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,5 +52,21 @@ void main() {
     // 예전 startWith 값은 구역 순서로 옮겨진다.
     final old = UserProfile.fromJson({...p.toJson()}..remove('sectionOrder')..['startWith'] = 'cardio');
     expect(old.sectionOrder.first, 'cardio');
+  });
+
+  test('planExercise prescribes exactly the requested exercise (add/swap bug)', () {
+    final p = UserProfile(id: 'u', name: 'x');
+    final gen = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back],
+      available: {EquipmentType.barbell, EquipmentType.squatRack, EquipmentType.highRow, EquipmentType.cableMachine},
+      progress: {},
+      profile: p,
+      minutesBudget: 60,
+    ));
+    for (final id in ['rack_pull', 'face_pull', 'bb_row']) {
+      final planned = gen.planExercise(exerciseById(id)!);
+      expect(planned.exerciseId, id);
+      expect(planned.sets, isNotEmpty);
+    }
   });
 }

@@ -651,6 +651,7 @@ class PlannedExercise {
     required this.sets,
     this.note,
     this.personal = false,
+    this.groupOverride,
   });
 
   final String exerciseId;
@@ -665,6 +666,9 @@ class PlannedExercise {
   /// 루틴을 바꿔도 유지된다.
   final bool personal;
 
+  /// 사용자가 바꾼 타깃 부위(덤벨 풀오버를 가슴으로 등). null이면 운동 기본 부위.
+  MuscleGroup? groupOverride;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -675,6 +679,7 @@ class PlannedExercise {
         'sets': sets.map((s) => s.toJson()).toList(),
         'note': note,
         if (personal) 'personal': true,
+        if (groupOverride != null) 'group': groupOverride!.name,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -686,6 +691,7 @@ class PlannedExercise {
             .toList(),
         note: j['note'] as String?,
         personal: (j['personal'] as bool?) ?? false,
+        groupOverride: j['group'] == null ? null : MuscleGroup.parse(j['group'] as String),
       );
 }
 

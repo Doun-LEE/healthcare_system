@@ -130,18 +130,19 @@ class Stats {
         if (ex == null) continue;
         final doneSets = pe.sets.where((s) => s.completed).toList();
         if (doneSets.isEmpty) continue;
-        sess.putIfAbsent(ex.group, () => {}).add(p.id);
+        final g = pe.effectiveGroup;
+        sess.putIfAbsent(g, () => {}).add(p.id);
         if (ex.loadType == LoadType.cardio) {
           final mins = doneSets.fold<int>(0, (a, s) => a + s.effectiveReps);
           cardioMin += mins;
-          ton[ex.group] = (ton[ex.group] ?? 0) + mins;
-          sets[ex.group] = (sets[ex.group] ?? 0) + doneSets.length;
+          ton[g] = (ton[g] ?? 0) + mins;
+          sets[g] = (sets[g] ?? 0) + doneSets.length;
           continue;
         }
-        sets[ex.group] = (sets[ex.group] ?? 0) + doneSets.length;
+        sets[g] = (sets[g] ?? 0) + doneSets.length;
         totalSets += doneSets.length;
         final t = doneSets.fold<double>(0, (a, s) => a + s.effectiveWeight * s.effectiveReps);
-        ton[ex.group] = (ton[ex.group] ?? 0) + t;
+        ton[g] = (ton[g] ?? 0) + t;
         totalTon += t;
         if (ex.loadType != LoadType.bodyweight) {
           final best = doneSets.map((s) => s.effectiveWeight).fold<double>(0, max);

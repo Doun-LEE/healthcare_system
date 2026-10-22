@@ -718,7 +718,7 @@ class _ExerciseCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Icon(Icons.view_in_ar, size: 16, color: cs.primary),
                         ]),
-                        Text('${pe.equipmentType.label} · ${ex.group.label}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}',
+                        Text('${pe.equipmentType.label} · ${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}',
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (pe.note != null && pe.note!.isNotEmpty)
                           Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
@@ -764,11 +764,22 @@ class _ExerciseCard extends StatelessWidget {
                           await state.moveExercise(plan, pe, -1);
                         case 'down':
                           await state.moveExercise(plan, pe, 1);
+                        default:
+                          if (v.startsWith('target:')) {
+                            final g = v.substring(7);
+                            await state.setExerciseTarget(plan, pe, g == ex.group.name ? null : MuscleGroup.parse(g));
+                          }
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'up', child: Text('↑ 위로')),
-                      PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
+                    itemBuilder: (_) => [
+                      if (ex.altGroups.isNotEmpty)
+                        for (final g in [ex.group, ...ex.altGroups])
+                          PopupMenuItem(
+                            value: 'target:${g.name}',
+                            child: Text('${pe.effectiveGroup == g ? '✓ ' : ''}타깃: ${g.label}'),
+                          ),
+                      const PopupMenuItem(value: 'up', child: Text('↑ 위로')),
+                      const PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
                       PopupMenuItem(value: 'swap', child: Text('다른 운동으로 교체')),
                       PopupMenuItem(value: 'remove', child: Text('이 운동 제외')),
                     ],
