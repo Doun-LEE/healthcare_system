@@ -12,6 +12,7 @@ import '../engine/planner.dart';
 import '../engine/progression.dart';
 import '../engine/session_generator.dart';
 import '../models/models.dart';
+import '../engine/level_assessor.dart';
 import '../engine/load_estimator.dart';
 import '../engine/stats.dart';
 import '../services/ai_coach.dart';
@@ -309,6 +310,10 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     if (u == null) return;
     edit(u);
+    if (u.levelAuto) {
+      final a = LevelAssessor.assess(u);
+      if (a.hasData) u.level = a.level;
+    }
     await _save();
   }
 

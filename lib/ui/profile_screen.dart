@@ -6,6 +6,7 @@ import '../engine/load_estimator.dart';
 import '../engine/splits.dart';
 import '../engine/session_generator.dart';
 import '../models/models.dart';
+import 'widgets/level_card.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/partner_widgets.dart';
@@ -58,16 +59,9 @@ class ProfileScreen extends StatelessWidget {
             _NumField(label: '나이', value: u.age.toDouble(), integer: true, onChanged: (v) => _edit(state, (p) => p.age = v.round())),
             _NumField(label: '골격근량 (kg, 인바디)', value: u.skeletalMuscleKg, onChanged: (v) => _edit(state, (p) => p.skeletalMuscleKg = v)),
             _NumField(label: '체지방률 (%, 인바디)', value: u.bodyFatPct, onChanged: (v) => _edit(state, (p) => p.bodyFatPct = v)),
-            const SizedBox(height: 8),
-            Text('숙련도', style: text.labelLarge),
-            SegmentedButton<TrainingLevel>(
-              segments: TrainingLevel.values.map((l) => ButtonSegment(value: l, label: Text(l.label))).toList(),
-              selected: {u.level},
-              onSelectionChanged: (s) => _edit(state, (p) => p.level = s.first),
-            ),
             const SizedBox(height: 14),
             Text('3대 기록 (kg, 1RM 또는 최고 중량 · 선택)', style: text.labelLarge),
-            Text('입력하면 추정 대신 이 값으로 무게를 계산합니다. 비우면 신체 스펙으로 추정.',
+            Text('입력하면 추정 대신 이 값으로 무게를 계산하고, 레벨 판정에도 쓰입니다. 비우면 신체 스펙으로 추정.',
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
             Row(children: [
@@ -83,6 +77,25 @@ class ProfileScreen extends StatelessWidget {
             if (u.squat1rm != null || u.bench1rm != null || u.deadlift1rm != null)
               Text('3대 합계: ${((u.squat1rm ?? 0) + (u.bench1rm ?? 0) + (u.deadlift1rm ?? 0)).round()}kg',
                   style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+            Text('레벨 판정', style: text.labelLarge),
+            Text('키·체중·나이·성별·골격근·체지방·3대 기록으로 리프트별·체성분별 등급을 매기고 종합 레벨을 정합니다.',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            LevelCard(profile: u),
+            SwitchListTile(
+              value: u.levelAuto,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('숙련도 자동 판정'),
+              subtitle: Text(u.levelAuto ? '판정 결과에 따라 루틴 강도(세트·횟수·무게)를 적용합니다.' : '아래에서 직접 고른 숙련도를 씁니다.'),
+              onChanged: (v) => _edit(state, (p) => p.levelAuto = v),
+            ),
+            if (!u.levelAuto)
+              SegmentedButton<TrainingLevel>(
+                segments: TrainingLevel.values.map((l) => ButtonSegment(value: l, label: Text(l.label))).toList(),
+                selected: {u.level},
+                onSelectionChanged: (s) => _edit(state, (p) => p.level = s.first),
+              ),
             const SizedBox(height: 14),
             Text('운동 목표', style: text.labelLarge),
             SegmentedButton<TrainingGoal>(

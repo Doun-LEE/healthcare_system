@@ -9,6 +9,7 @@ import '../state/app_state.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'chat_screen.dart';
+import 'widgets/level_card.dart';
 import 'widgets/partner_widgets.dart';
 
 /// 홈: 오늘 운동 요약, 이번 주 현황, 파트너, 바로가기.
@@ -47,7 +48,9 @@ class HomeScreen extends StatelessWidget {
           QuoteBanner(quote: quoteFor(now)),
           const SizedBox(height: 4),
           const InboxBanner(),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          LevelCard(profile: user, compact: true, onTap: () => onGoToTab(5)),
+          const SizedBox(height: 6),
 
           // 오늘 운동 카드
           Card(

@@ -258,6 +258,7 @@ class UserProfile {
     this.skeletalMuscleKg,
     this.bodyFatPct,
     this.level = TrainingLevel.beginner,
+    this.levelAuto = true,
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
@@ -288,6 +289,9 @@ class UserProfile {
   double? skeletalMuscleKg;
   double? bodyFatPct;
   TrainingLevel level;
+
+  /// 숙련도를 스펙·3대 기록으로 자동 판정할지. 끄면 직접 고른 값을 쓴다.
+  bool levelAuto;
 
   /// n분할. 1(무분할)~6.
   int splitDays;
@@ -331,6 +335,7 @@ class UserProfile {
         'skeletalMuscleKg': skeletalMuscleKg,
         'bodyFatPct': bodyFatPct,
         'level': level.name,
+        'levelAuto': levelAuto,
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
@@ -359,6 +364,7 @@ class UserProfile {
         skeletalMuscleKg: (j['skeletalMuscleKg'] as num?)?.toDouble(),
         bodyFatPct: (j['bodyFatPct'] as num?)?.toDouble(),
         level: TrainingLevel.parse(j['level'] as String),
+        levelAuto: (j['levelAuto'] as bool?) ?? true,
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
