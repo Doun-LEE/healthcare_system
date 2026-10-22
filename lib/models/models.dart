@@ -757,10 +757,16 @@ class DayPlan {
     this.startedAt,
     this.endedAt,
     this.gymId,
+    this.jointAt,
+    this.venueOwner,
+    this.venueGymId,
+    this.venueName,
+    List<EquipmentType>? venueTypes,
     this.partnerName,
     Map<String, double>? partnerWeights,
   })  : exercises = exercises ?? [],
-        partnerWeights = partnerWeights ?? {};
+        partnerWeights = partnerWeights ?? {},
+        venueTypes = venueTypes ?? [];
 
   /// 파트너 운동이면 파트너 이름과 운동별 파트너 무게(kg).
   String? partnerName;
@@ -801,6 +807,19 @@ class DayPlan {
   /// 이 날 가는 헬스장. null이면 프로필의 기본 헬스장.
   String? gymId;
 
+  /// 파트너 운동 장소(누구의 어떤 헬스장인지). 내 헬스장이면 [gymId]와 같고,
+  /// 파트너 헬스장이면 그 이름과 기구 목록([venueTypes])으로 운동을 짠다.
+  String? venueOwner;
+  String? venueGymId;
+  String? venueName;
+  List<EquipmentType> venueTypes;
+
+  /// 파트너 루틴의 마지막 변경 시각(나든 파트너든). 서로 보낸 루틴이 엇갈리면 더 최근 것만 남긴다.
+  DateTime? jointAt;
+
+  /// 내 헬스장이 아닌 곳(파트너 헬스장)에서 하는 날.
+  bool get atOtherGym => venueTypes.isNotEmpty && venueName != null;
+
   /// 실제 운동 시간(분). 시작하지 않았으면 null, 진행 중이면 지금까지.
   int? get actualMinutes {
     final s = startedAt;
@@ -837,6 +856,11 @@ class DayPlan {
         'startedAt': startedAt?.toIso8601String(),
         'endedAt': endedAt?.toIso8601String(),
         'gymId': gymId,
+        if (jointAt != null) 'jointAt': jointAt!.toUtc().toIso8601String(),
+        if (venueOwner != null) 'venueOwner': venueOwner,
+        if (venueGymId != null) 'venueGymId': venueGymId,
+        if (venueName != null) 'venueName': venueName,
+        if (venueTypes.isNotEmpty) 'venueTypes': venueTypes.map((t) => t.name).toList(),
         'partnerName': partnerName,
         'partnerWeights': partnerWeights,
       };
@@ -868,6 +892,14 @@ class DayPlan {
         startedAt: j['startedAt'] == null ? null : DateTime.parse(j['startedAt'] as String),
         endedAt: j['endedAt'] == null ? null : DateTime.parse(j['endedAt'] as String),
         gymId: j['gymId'] as String?,
+        jointAt: j['jointAt'] == null ? null : DateTime.tryParse(j['jointAt'] as String),
+        venueOwner: j['venueOwner'] as String?,
+        venueGymId: j['venueGymId'] as String?,
+        venueName: j['venueName'] as String?,
+        venueTypes: [
+          for (final n in ((j['venueTypes'] as List?) ?? const []))
+            if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+        ],
       );
 }
 

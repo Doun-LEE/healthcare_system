@@ -55,7 +55,11 @@ class PartnerProfile {
     this.dayCondition = const {},
     this.dayLoad = const {},
     this.plans = const {},
+    this.gyms = const [],
   });
+
+  /// 파트너의 헬스장 목록(이름·기구). 파트너 운동 장소 고르기에 쓴다.
+  final List<PartnerGym> gyms;
 
   /// 'yyyy-MM-dd' → 루틴 상세(운동·세트·완료). 파트너가 수락한 친구의 기록/예정 루틴 보기용.
   final Map<String, PartnerPlan> plans;
@@ -92,6 +96,7 @@ class PartnerProfile {
     required Map<String, ExerciseProgress> progress,
     required List<DayPlan> plans,
     String? handle,
+    List<Gym> gyms = const [],
   }) {
     final today = dateOnly(DateTime.now());
     final from = today.subtract(const Duration(days: 7));
@@ -119,6 +124,9 @@ class PartnerProfile {
         'injuries': me.injuries.map((i) => i.name).toList(),
       },
       'available': available.map((e) => e.name).toList(),
+      'gyms': [
+        for (final g in gyms) {'id': g.id, 'name': g.name, 'types': g.availableTypes.map((t) => t.name).toList()},
+      ],
       'weights': {for (final p in progress.entries) if (p.value.workingWeight > 0) p.key: p.value.workingWeight},
       'plans': {
         for (final p in plans)
@@ -219,8 +227,26 @@ class PartnerProfile {
       dayCondition: dayCondition,
       dayLoad: dayLoad,
       plans: plans,
+      gyms: [
+        for (final g in ((j['gyms'] as List?) ?? const []).cast<Map>())
+          PartnerGym(
+            id: g['id'] as String,
+            name: (g['name'] as String?) ?? '헬스장',
+            types: {
+              for (final n in ((g['types'] as List?) ?? const []))
+                if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+            },
+          ),
+      ],
     );
   }
+}
+
+class PartnerGym {
+  const PartnerGym({required this.id, required this.name, required this.types});
+  final String id;
+  final String name;
+  final Set<EquipmentType> types;
 }
 
 /// 파트너의 하루 루틴 요약(공개 프로필에서 읽음).

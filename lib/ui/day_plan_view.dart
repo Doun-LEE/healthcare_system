@@ -379,8 +379,8 @@ class _PartnerConditionLine extends StatelessWidget {
 Future<void> switchGymDialog(BuildContext context, DayPlan plan) async {
   final state = context.read<AppState>();
   final current = state.gymOf(plan);
-  if (state.gyms.length < 2) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('헬스장이 하나뿐이에요. 헬스장 탭에서 다른 헬스장을 추가하세요.')));
+  if (state.gyms.length < 2 && !plan.atOtherGym) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('헬스장이 하나뿐이에요. 헬스장 탭에서 다른 헬스장을 추가하면 날짜마다 고를 수 있어요.')));
     return;
   }
   final picked = await showDialog<String>(
@@ -469,10 +469,10 @@ class _Header extends StatelessWidget {
               children: [
                 for (final g in plan.focus)
                   Chip(label: Text(g.label), visualDensity: VisualDensity.compact),
-                if (gym != null && (state.gyms.length > 1 || plan.gymId != null))
+                if (plan.atOtherGym || gym != null)
                   ActionChip(
-                    avatar: Icon(Icons.store_outlined, size: 16, color: cs.primary),
-                    label: Text(gym.name),
+                    avatar: Icon(Icons.place_outlined, size: 16, color: cs.primary),
+                    label: Text(plan.atOtherGym ? '${plan.venueName} (파트너 헬스장)' : gym!.name),
                     visualDensity: VisualDensity.compact,
                     onPressed: plan.isFinished ? null : () => switchGymDialog(context, plan),
                   ),
@@ -597,10 +597,24 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+/// 운동에 쓸 수 있는 기구가 여러 종류일 때 어떤 기구를 헬스장에 추가할지 고른다.
+Future<EquipmentType?> _pickEquipmentType(BuildContext context, Exercise e) => showDialog<EquipmentType>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: Text('${e.name} · 어떤 기구를 추가할까요?'),
+        children: [
+          for (final t in e.equipment)
+            SimpleDialogOption(onPressed: () => Navigator.pop(c, t), child: Text(t.label)),
+        ],
+      ),
+    );
+
 /// 운동 추가: 보유 기구로 가능한 운동을 부위별로 검색해서 고른다.
 Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
   final state = context.read<AppState>();
-  final available = state.availableEquipment;
+  // 이 다이얼로그에서 '기구 추가'로 넣은 기구(운동 id → 기구 id). 다시 누르면 취소.
+  final addedEquip = <String, String>{};
+  final dayGym = plan.atOtherGym ? null : state.gymOf(plan);
   var query = '';
   MuscleGroup? group;
   var personal = plan.partnerName != null;
@@ -610,6 +624,7 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
     isScrollControlled: true,
     useSafeArea: true,
     builder: (c) => StatefulBuilder(builder: (c, setState) {
+      final available = state.availableFor(plan);
       final list = exerciseCatalog
           .where((e) => group == null || e.group == group)
           .where((e) => query.isEmpty || e.name.toLowerCase().contains(query.toLowerCase()) || e.emphasis.any((m) => m.contains(query)))
@@ -660,12 +675,41 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
               itemBuilder: (c, i) {
                 final e = list[i];
                 final can = e.canDoWith(available);
+                final added = addedEquip.containsKey(e.id);
+                Widget? trailing = e.compound ? const Icon(Icons.fitness_center, size: 16) : null;
+                if ((!can || added) && dayGym != null) {
+                  trailing = added
+                      ? FilledButton.tonalIcon(
+                          onPressed: () async {
+                            await state.removeEquipment(dayGym.id, addedEquip.remove(e.id)!);
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.undo, size: 16),
+                          label: const Text('추가 취소'),
+                          style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+                        )
+                      : OutlinedButton.icon(
+                          onPressed: () async {
+                            final type = e.equipment.length == 1 ? e.equipment.first : await _pickEquipmentType(c, e);
+                            if (type == null) return;
+                            final id = await state.addEquipmentReturningId(dayGym.id, type);
+                            if (id != null) setState(() => addedEquip[e.id] = id);
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('기구 추가'),
+                          style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                        );
+                }
                 return ListTile(
                   dense: true,
                   enabled: can,
-                  title: Text(e.name),
-                  subtitle: Text('${e.group.label} · ${e.emphasis.take(2).join(' · ')}${can ? '' : ' · 보유 기구 없음'}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: e.compound ? const Icon(Icons.fitness_center, size: 16) : null,
+                  title: Text(e.name, style: can ? null : TextStyle(color: Theme.of(c).colorScheme.onSurfaceVariant)),
+                  subtitle: Text(
+                    '${e.group.label} · ${e.emphasis.take(2).join(' · ')}${can ? (added ? ' · ${dayGym?.name ?? ''}에 기구 추가됨' : '') : ' · 보유 기구 없음'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: trailing,
                   onTap: can ? () => Navigator.pop(c, (e, personal)) : null,
                 );
               },

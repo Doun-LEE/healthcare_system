@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
 import '../../services/partner.dart';
+import '../../services/routine_share.dart';
+import '../../services/cloud_sync.dart';
 import '../../state/app_state.dart';
 import '../chat_screen.dart';
 import '../partner_profile_screen.dart';
@@ -283,6 +285,45 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('혼자 하는 루틴으로 되돌렸어요.')));
     return;
   }
+  final partner = chosen as PartnerLink;
+  // 어디서 운동할지: 내 헬스장 / 파트너 헬스장 / 각자 헬스장 공통 기구
+  PartnerProfile? pp;
+  try {
+    pp = await CloudSync.instance.fetchPartner(partner.uid);
+  } catch (_) {}
+  if (!context.mounted) return;
+  final myUid = CloudSync.instance.user!.uid;
+  final options = <(String, SharedVenue?)>[
+    for (final g in state.gyms)
+      ('내 헬스장 · ${g.name}', SharedVenue(owner: myUid, gymId: g.id, name: g.name, types: g.availableTypes.toList())),
+    for (final g in pp?.gyms ?? const <PartnerGym>[])
+      ('${partner.name} 헬스장 · ${g.name}', SharedVenue(owner: partner.uid, gymId: g.id, name: g.name, types: g.types.toList())),
+    ('각자 헬스장 공통 기구로', null),
+  ];
+  final pickedIndex = await showDialog<int>(
+    context: context,
+    builder: (c) => SimpleDialog(
+      title: Text('${partner.display}와 어디서 운동해요?'),
+      children: [
+        for (var i = 0; i < options.length; i++)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(c, i),
+            child: Row(children: [
+              Icon(options[i].$2 == null ? Icons.join_inner : Icons.place_outlined, size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(options[i].$1)),
+            ]),
+          ),
+        if ((pp?.gyms ?? const []).isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+            child: Text('${partner.name} 님 헬스장 목록은 상대가 새 버전으로 앱을 한 번 열면 보여요.', style: const TextStyle(fontSize: 12)),
+          ),
+      ],
+    ),
+  );
+  if (pickedIndex == null || !context.mounted) return;
+  final venue = options[pickedIndex].$2;
   showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -296,7 +337,7 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   );
   String msg;
   try {
-    msg = await state.generateJointSession(date, chosen as PartnerLink);
+    msg = await state.generateJointSession(date, partner, venue: venue);
   } catch (e) {
     msg = '파트너 루틴 생성 실패: $e';
   }

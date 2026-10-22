@@ -12,8 +12,20 @@ import '../models/models.dart';
 
 const _prefix = 'FR1:';
 
+class SharedVenue {
+  const SharedVenue({required this.owner, required this.gymId, required this.name, required this.types});
+  final String owner;
+  final String gymId;
+  final String name;
+  final List<EquipmentType> types;
+}
+
 class SharedRoutine {
-  SharedRoutine({required this.title, required this.focus, required this.items, this.from});
+  SharedRoutine({required this.title, required this.focus, required this.items, this.from, this.venue, this.at});
+  final SharedVenue? venue;
+
+  /// 보낸 쪽에서 이 루틴을 마지막으로 바꾼 시각(UTC).
+  final DateTime? at;
   final String title;
   final List<MuscleGroup> focus;
   final List<SharedItem> items;
@@ -30,11 +42,15 @@ class SharedItem {
   final EquipmentType? equipment;
 }
 
-String encodeRoutine(DayPlan plan, {String? from}) {
+/// [venue]: 파트너 운동 장소(누구의 어떤 헬스장). 받는 쪽이 같은 장소 기준으로 맞춘다.
+String encodeRoutine(DayPlan plan, {String? from, SharedVenue? venue, DateTime? at}) {
   final j = {
+    if (at != null) 'a': at.toUtc().toIso8601String(),
     't': plan.title ?? '',
     'f': plan.focus.map((g) => g.name).toList(),
     'u': from,
+    if (venue != null)
+      'v': {'o': venue.owner, 'g': venue.gymId, 'n': venue.name, 'q': venue.types.map((t) => t.name).toList()},
     'e': [
       for (final pe in plan.exercises)
         if (!pe.personal) {
@@ -87,6 +103,25 @@ SharedRoutine? decodeRoutine(String code) {
           .toList(),
       items: items,
       from: j['u'] as String?,
+      venue: _venue(j['v']),
+      at: j['a'] == null ? null : DateTime.tryParse(j['a'] as String),
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+SharedVenue? _venue(dynamic v) {
+  if (v is! Map) return null;
+  try {
+    return SharedVenue(
+      owner: v['o'] as String,
+      gymId: v['g'] as String,
+      name: (v['n'] as String?) ?? '',
+      types: [
+        for (final n in ((v['q'] as List?) ?? const []))
+          if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+      ],
     );
   } catch (_) {
     return null;

@@ -6,6 +6,7 @@ import '../state/app_state.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
+import 'widgets/place.dart';
 
 /// 하루 루틴 전체 화면. 달력에서 날짜를 열면 여기로 온다.
 class DayPage extends StatelessWidget {
@@ -64,7 +65,7 @@ class DayPage extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: FilledButton.icon(
-                        onPressed: () => state.regenerateDay(d),
+                        onPressed: () => makeDayWithGym(context, d),
                         icon: const Icon(Icons.add),
                         label: const Text('이 날 루틴 만들기'),
                       ),

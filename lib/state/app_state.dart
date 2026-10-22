@@ -61,6 +61,78 @@ class AppState extends ChangeNotifier {
   /// 그 날 가는 헬스장(날짜별로 바꿨으면 그것, 아니면 기본 헬스장).
   Gym? gymOf(DayPlan p) => _data.gyms.where((g) => g.id == p.gymId).firstOrNull ?? activeGym;
 
+  Gym? gymById(String? id) => id == null ? null : _data.gyms.where((g) => g.id == id).firstOrNull;
+
+  /// 그 날 운동할 수 있는 기구: 파트너 헬스장이면 그곳 기구, 아니면 그 날 헬스장 기구.
+  Set<EquipmentType> availableFor(DayPlan? p) {
+    if (p != null && p.atOtherGym) return {EquipmentType.bodyweight, ...p.venueTypes};
+    return (p == null ? activeGym : gymOf(p))?.availableTypes ?? {EquipmentType.bodyweight};
+  }
+
+  Map<EquipmentType, double> maxForGym(Gym? g) {
+    final m = <EquipmentType, double>{};
+    for (final e in g?.equipment ?? const <GymEquipment>[]) {
+      if (e.maxWeightKg != null) {
+        for (final t in e.allTypes) {
+          m[t] = max(m[t] ?? 0, e.maxWeightKg!);
+        }
+      }
+    }
+    return m;
+  }
+
+  Map<EquipmentType, double> stepForGym(Gym? g) {
+    final m = <EquipmentType, double>{};
+    for (final e in g?.equipment ?? const <GymEquipment>[]) {
+      final st = e.effectiveStep;
+      if (st > 0) {
+        for (final t in e.allTypes) {
+          m[t] = st;
+        }
+      }
+    }
+    return m;
+  }
+
+  Map<EquipmentType, double> maxForPlan(DayPlan? p) =>
+      p != null && p.atOtherGym ? const {} : maxForGym(p == null ? activeGym : gymOf(p));
+  Map<EquipmentType, double> stepForPlan(DayPlan? p) =>
+      p != null && p.atOtherGym ? const {} : stepForGym(p == null ? activeGym : gymOf(p));
+
+  /// 계획을 새로 만들 때 이전 계획의 장소(헬스장·파트너 헬스장)를 그대로 옮긴다.
+  void _copyVenue(DayPlan from, DayPlan to) {
+    to.gymId = from.gymId;
+    to.venueOwner = from.venueOwner;
+    to.venueGymId = from.venueGymId;
+    to.venueName = from.venueName;
+    to.venueTypes = List.of(from.venueTypes);
+  }
+
+  /// 파트너에게 보낼 장소 정보.
+  SharedVenue? venueOf(DayPlan p) {
+    if (p.venueOwner == null || p.venueGymId == null) return null;
+    return SharedVenue(
+      owner: p.venueOwner!,
+      gymId: p.venueGymId!,
+      name: p.venueName ?? '',
+      types: p.atOtherGym ? p.venueTypes : (gymById(p.venueGymId)?.availableTypes.toList() ?? const []),
+    );
+  }
+
+  /// 장소를 계획에 적용(내 헬스장이면 gymId, 파트너 헬스장이면 그 기구 목록).
+  void _applyVenue(DayPlan plan, SharedVenue v) {
+    final myUid = cloudSignedIn ? CloudSync.instance.user!.uid : null;
+    plan.venueOwner = v.owner;
+    plan.venueGymId = v.gymId;
+    plan.venueName = v.name;
+    if (v.owner == myUid && gymById(v.gymId) != null) {
+      plan.gymId = v.gymId;
+      plan.venueTypes = [];
+    } else {
+      plan.venueTypes = List.of(v.types);
+    }
+  }
+
   /// 다른 헬스장으로 바꾸고, 거기 없는 기구의 운동을 비슷한 운동으로 대체한다.
   /// 운동 구성(세트 수·횟수 틀)은 최대한 유지. 바뀐 내용을 문장으로 돌려준다.
   Future<List<String>> switchDayGym(DayPlan plan, String gymId) async {
@@ -113,31 +185,26 @@ class AppState extends ChangeNotifier {
       msgs.add('${ex.name} → ${alt.name} (${eq.label})');
     }
     plan.gymId = gymId;
+    if (plan.partnerName != null && cloudSignedIn) {
+      plan.venueOwner = CloudSync.instance.user!.uid;
+      plan.venueGymId = gymId;
+      plan.venueName = gym.name;
+    } else {
+      plan.venueOwner = null;
+      plan.venueGymId = null;
+      plan.venueName = null;
+    }
+    plan.venueTypes = [];
     plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
     await _save();
     await resyncPartnerDay(plan);
     return msgs;
   }
 
-  Map<EquipmentType, double> get equipmentMax {
-    final m = <EquipmentType, double>{};
-    for (final e in activeGym?.equipment ?? const <GymEquipment>[]) {
-      if (e.maxWeightKg != null) {
-        m[e.type] = max(m[e.type] ?? 0, e.maxWeightKg!);
-      }
-    }
-    return m;
-  }
+  Map<EquipmentType, double> get equipmentMax => maxForGym(activeGym);
 
   /// 기구 종류별 무게 한 칸(핀 5 / 원판 2.5 / 사용자 지정).
-  Map<EquipmentType, double> get equipmentStep {
-    final m = <EquipmentType, double>{};
-    for (final e in activeGym?.equipment ?? const <GymEquipment>[]) {
-      final s = e.effectiveStep;
-      if (s > 0) m[e.type] = s;
-    }
-    return m;
-  }
+  Map<EquipmentType, double> get equipmentStep => stepForGym(activeGym);
 
   Map<String, ExerciseProgress> get progress =>
       _data.progress.putIfAbsent(currentUser?.id ?? '_', () => {});
@@ -449,6 +516,16 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 기구를 추가하고 새 기구 id를 돌려준다(운동 추가 화면의 '기구 추가 / 취소' 토글용).
+  Future<String?> addEquipmentReturningId(String gymId, EquipmentType type) async {
+    final g = gymById(gymId);
+    if (g == null) return null;
+    final e = GymEquipment(id: newId(), type: type);
+    g.equipment.add(e);
+    await _save();
+    return e.id;
+  }
+
   /// 기구 실물 사진 저장/삭제(이 기기에만 저장).
   Future<void> setEquipmentPhoto(String gymId, String equipmentId, Uint8List? bytes) async {
     final e = _data.gyms.where((g) => g.id == gymId).firstOrNull?.equipment.where((e) => e.id == equipmentId).firstOrNull;
@@ -559,6 +636,19 @@ class AppState extends ChangeNotifier {
     };
     final keep = fixed.keys.toSet();
 
+    // 날짜별로 다른 헬스장을 지정해 둔 날은 그 헬스장 기구로 다시 짠다.
+    final dayAvailable = <String, Set<EquipmentType>>{};
+    final dayGym = <String, String>{};
+    for (final p in myPlans) {
+      final k = dateKey(p.date);
+      if (p.date.isBefore(f) || p.date.isAfter(t) || keep.contains(k)) continue;
+      final g = gymById(p.gymId);
+      if (g != null) {
+        dayAvailable[k] = g.availableTypes;
+        dayGym[k] = g.id;
+      }
+    }
+
     final generated = Planner(PlannerInput(
       profile: u,
       from: f,
@@ -571,6 +661,8 @@ class AppState extends ChangeNotifier {
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
       fixed: fixed,
+      dayAvailable: dayAvailable,
+      dayGym: dayGym,
     )).build();
 
     _data.plans.removeWhere((p) =>
@@ -622,13 +714,13 @@ class AppState extends ChangeNotifier {
     if (existing != null && existing.isFinished) return;
     final exercises = SessionGenerator(SessionRequest(
       groups: groups,
-      available: availableEquipment,
+      available: availableFor(existing),
       progress: progress,
       profile: u,
       minutesBudget: (u.sessionMinutes * u.volumeBias).round(),
       now: d,
-      equipmentMax: equipmentMax,
-      equipmentStep: equipmentStep,
+      equipmentMax: maxForPlan(existing),
+      equipmentStep: stepForPlan(existing),
       seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
     )).generate();
     final plan = DayPlan(
@@ -642,6 +734,7 @@ class AppState extends ChangeNotifier {
       title: '${title ?? groups.map((g) => g.label).join('·')}${existing?.partnerName != null ? ' · ${existing!.partnerName}와 함께' : ''}',
       partnerName: existing?.partnerName,
     );
+    if (existing != null) _copyVenue(existing, plan);
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
@@ -704,7 +797,7 @@ class AppState extends ChangeNotifier {
       profile: u,
       date: d,
       focus: focus,
-      available: availableEquipment,
+      available: availableFor(existing),
       progress: progress,
       recent: recent.take(8).toList(),
       stats: Stats.summarize(myPlans, days: 28, now: d),
@@ -742,6 +835,7 @@ class AppState extends ChangeNotifier {
             if (ai.exercises.any((x) => x.exerciseId == e.key)) e.key: e.value,
       },
     );
+    if (existing != null) _copyVenue(existing, plan);
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
@@ -750,12 +844,22 @@ class AppState extends ChangeNotifier {
   }
 
   /// 하루만 다시 생성(기구 변경 등 반영).
-  Future<DayPlan?> regenerateDay(DateTime date) async {
+  /// 하루 루틴 다시 짜기. 파트너 운동일이면 파트너와 다시 맞춘 루틴으로(파트너 유지),
+  /// 아니면 그 날 헬스장([gymId] 또는 기존 지정) 기구로 짠다.
+  Future<DayPlan?> regenerateDay(DateTime date, {String? gymId}) async {
     final u = currentUser;
     if (u == null) return null;
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return existing;
+    if (existing != null && existing.partnerName != null && cloudSignedIn) {
+      final link = _data.partners.where((p) => p.name == existing.partnerName && !p.pending).firstOrNull;
+      if (link != null) {
+        await generateJointSession(d, link, venue: venueOf(existing));
+        return planOn(d);
+      }
+    }
+    final gym = gymById(gymId ?? existing?.gymId);
     final rest = manualRestDays..remove(dateKey(d));
     final history = myPlans.where((p) => dateKey(p.date) != dateKey(d)).toList();
     final gen = Planner(PlannerInput(
@@ -767,8 +871,10 @@ class AppState extends ChangeNotifier {
       progress: progress,
       history: history,
       newId: newId,
-      equipmentMax: equipmentMax,
-      equipmentStep: equipmentStep,
+      equipmentMax: maxForGym(gym ?? activeGym),
+      equipmentStep: stepForGym(gym ?? activeGym),
+      dayAvailable: {if (gym != null) dateKey(d): gym.availableTypes},
+      dayGym: {if (gym != null) dateKey(d): gym.id},
     )).build();
     if (existing != null) _data.plans.remove(existing);
     _data.plans.addAll(gen);
@@ -845,7 +951,7 @@ class AppState extends ChangeNotifier {
   Future<PlannedExercise?> addExercise(DayPlan plan, Exercise ex, {bool personal = false}) async {
     final u = currentUser;
     if (u == null || plan.isFinished) return null;
-    final base = _planSingle(ex, u);
+    final base = _planSingle(ex, u, plan);
     final planned = PlannedExercise(
       exerciseId: base.exerciseId,
       equipmentType: base.equipmentType,
@@ -923,12 +1029,12 @@ class AppState extends ChangeNotifier {
     final u = currentUser!;
     final gen = SessionGenerator(SessionRequest(
       groups: [to.group],
-      available: {...availableEquipment, ...to.equipment},
+      available: {...availableFor(plan), ...to.equipment},
       progress: progress,
       profile: u,
       minutesBudget: 30,
-      equipmentMax: equipmentMax,
-      equipmentStep: equipmentStep,
+      equipmentMax: maxForPlan(plan),
+      equipmentStep: stepForPlan(plan),
     ));
     // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
     plan.exercises[i] = gen.planExercise(to);
@@ -936,15 +1042,15 @@ class AppState extends ChangeNotifier {
     await resyncPartnerDay(plan);
   }
 
-  PlannedExercise _planSingle(Exercise ex, UserProfile u) {
+  PlannedExercise _planSingle(Exercise ex, UserProfile u, [DayPlan? plan]) {
     final gen = SessionGenerator(SessionRequest(
       groups: [ex.group],
-      available: {...availableEquipment, ...ex.equipment},
+      available: {...availableFor(plan), ...ex.equipment},
       progress: progress,
       profile: u,
       minutesBudget: 120,
-      equipmentMax: equipmentMax,
-      equipmentStep: equipmentStep,
+      equipmentMax: maxForPlan(plan),
+      equipmentStep: stepForPlan(plan),
     ));
     return gen.planExercise(ex);
   }
@@ -1011,15 +1117,15 @@ class AppState extends ChangeNotifier {
     } else {
       exercises = SessionGenerator(SessionRequest(
         groups: existing.focus,
-        available: availableEquipment,
+        available: availableFor(existing),
         progress: progress,
         profile: u,
         minutesBudget: minutes,
         intensityFactor: existing.intensityFactor,
         loadFactor: loadFactor,
         now: dateOnly(date),
-        equipmentMax: equipmentMax,
-        equipmentStep: equipmentStep,
+        equipmentMax: maxForPlan(existing),
+        equipmentStep: stepForPlan(existing),
         seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
       )).generate();
     }
@@ -1038,6 +1144,7 @@ class AppState extends ChangeNotifier {
       partnerName: existing.partnerName,
       partnerWeights: existing.partnerWeights,
     );
+    _copyVenue(existing, plan);
     _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
@@ -1138,6 +1245,7 @@ class AppState extends ChangeNotifier {
       progress: progress,
       plans: myPlans,
       handle: myHandle,
+      gyms: gyms,
     ));
   }
 
@@ -1179,13 +1287,28 @@ class AppState extends ChangeNotifier {
           } catch (_) {}
           notifyListeners();
         } else if (it.type == InboxType.joint && it.date != null && it.code != null) {
-          // 이미 그 파트너와 잡아둔 날이고 아직 시작 전이면 자동으로 맞춘다(루틴 동기화).
+          // 이미 그 파트너와 잡아둔 날이면 받은편지함에 쌓지 않고 바로 맞춘다.
+          // 두 사람이 엇갈려 보냈으면(서로 공유) 더 최근에 바뀐 루틴 하나만 남긴다.
           final existing = planOn(it.date!);
           final started = existing != null && (existing.isFinished || existing.exercises.any((e) => e.anyCompleted));
-          if (existing != null && existing.partnerName == it.fromName && !started) {
-            await _applyJointSilently(it);
-            lastPartnerNotice = '${it.fromName} 님이 ${it.date!.month}/${it.date!.day} 루틴을 바꿔서 내 것도 맞췄어요.';
-            changed = true;
+          if (existing != null && existing.partnerName == it.fromName) {
+            final incomingAt = decodeRoutine(it.code!)?.at;
+            final newer = existing.jointAt == null || incomingAt == null || incomingAt.isAfter(existing.jointAt!);
+            if (started) {
+              // 이미 운동을 시작한 날은 바꾸지 않는다.
+              try {
+                await CloudSync.instance.deleteInbox(it.id);
+              } catch (_) {}
+            } else if (newer) {
+              await _applyJointSilently(it);
+              lastPartnerNotice = '${it.fromName} 님이 ${it.date!.month}/${it.date!.day} 루틴을 바꿔서 내 것도 맞췄어요.';
+              changed = true;
+            } else {
+              // 내 쪽이 더 최근: 상대 앱이 내 루틴을 받아 맞춘다. 옛 것은 버린다.
+              try {
+                await CloudSync.instance.deleteInbox(it.id);
+              } catch (_) {}
+            }
           } else {
             keep.add(it);
           }
@@ -1290,7 +1413,8 @@ class AppState extends ChangeNotifier {
   /// - 기구: 두 헬스장의 교집합(파트너 기구 정보가 있을 때).
   /// - 무게: 내 것은 내 이력, 파트너 것은 파트너 작업 중량 또는 파트너 스펙으로 추정.
   /// - 파트너 앱의 받은편지함에 같은 루틴을 보낸다(파트너는 자기 무게로 받음).
-  Future<String> generateJointSession(DateTime date, PartnerLink partner) async {
+  /// [venue]: 운동 장소(내 헬스장 또는 파트너 헬스장). null이면 두 사람 헬스장의 공통 기구로.
+  Future<String> generateJointSession(DateTime date, PartnerLink partner, {SharedVenue? venue}) async {
     final u = currentUser;
     if (u == null || !cloudSignedIn) return '계정 로그인이 필요해요.';
     final pp = await CloudSync.instance.fetchPartner(partner.uid);
@@ -1312,9 +1436,18 @@ class AppState extends ChangeNotifier {
     } else {
       note = '공통 부위 ${groups.map((g) => g.label).join('·')}로 맞췄어요.';
     }
-    final available = pp.available.isEmpty
-        ? availableEquipment
-        : availableEquipment.where(pp.available.contains).toSet()..add(EquipmentType.bodyweight);
+    final myUid = CloudSync.instance.user!.uid;
+    final Set<EquipmentType> available;
+    if (venue != null && venue.owner == myUid && gymById(venue.gymId) != null) {
+      available = {EquipmentType.bodyweight, ...gymById(venue.gymId)!.availableTypes};
+    } else if (venue != null) {
+      available = {EquipmentType.bodyweight, ...venue.types};
+    } else {
+      final mineAvail = availableFor(planOn(d));
+      available = pp.available.isEmpty
+          ? mineAvail
+          : (mineAvail.where(pp.available.contains).toSet()..add(EquipmentType.bodyweight));
+    }
 
     final minutes = min(u.sessionMinutes, pp.profile.sessionMinutes);
     final exercises = SessionGenerator(SessionRequest(
@@ -1354,6 +1487,12 @@ class AppState extends ChangeNotifier {
       partnerName: pp.name,
       partnerWeights: pw,
     );
+    if (venue != null) {
+      _applyVenue(plan, venue);
+    } else if (mine != null) {
+      _copyVenue(mine, plan);
+    }
+    plan.jointAt = DateTime.now().toUtc();
     final focusChanged = mine == null || !_sameGroups(mine.focus, groups);
     if (mine != null) _data.plans.remove(mine);
     _data.plans.add(plan);
@@ -1364,14 +1503,15 @@ class AppState extends ChangeNotifier {
       await CloudSync.instance.sendJointRoutine(
         toUid: partner.uid,
         date: d,
-        code: encodeRoutine(plan, from: u.name),
+        code: encodeRoutine(plan, from: u.name, venue: venueOf(plan), at: plan.jointAt),
         title: title,
         fromName: u.name,
       );
     } catch (_) {
       return '$note 파트너에게 보내기는 실패했어요(네트워크).';
     }
-    return '$note ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
+    final where = venue == null ? '' : ' · 장소: ${venue.name}';
+    return '$note$where ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
   }
 
   /// 루틴 가져오기 + 파트너 무게 붙이기 (알림·수락 전송 없음). 자동 동기화에 쓴다.
@@ -1381,6 +1521,7 @@ class AppState extends ChangeNotifier {
     final plan = await importRoutine(item.code!, item.date!);
     if (plan == null) return null;
     plan.partnerName = item.fromName;
+    plan.jointAt = decodeRoutine(item.code!)?.at ?? DateTime.now().toUtc();
     if (!_sameGroups(beforeFocus, plan.focus)) await rebalanceAround(plan.date);
     try {
       final pp = await CloudSync.instance.fetchPartner(item.fromUid);
@@ -1426,11 +1567,13 @@ class AppState extends ChangeNotifier {
     if (plan.partnerName == null || !cloudSignedIn) return;
     final link = _data.partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
     if (link == null) return;
+    plan.jointAt = DateTime.now().toUtc();
+    await _save();
     try {
       await CloudSync.instance.sendJointRoutine(
         toUid: link.uid,
         date: plan.date,
-        code: encodeRoutine(plan, from: currentUser?.name),
+        code: encodeRoutine(plan, from: currentUser?.name, venue: venueOf(plan), at: plan.jointAt),
         title: plan.title ?? '파트너 루틴',
         fromName: currentUser?.name ?? '',
       );
@@ -1480,7 +1623,13 @@ class AppState extends ChangeNotifier {
     if (existing != null && existing.isFinished) return null;
 
     final est = LoadEstimator(u);
-    final available = availableEquipment;
+    final myUid = cloudSignedIn ? CloudSync.instance.user!.uid : null;
+    final v = shared.venue;
+    final available = v == null
+        ? availableFor(existing)
+        : (v.owner == myUid && gymById(v.gymId) != null)
+            ? gymById(v.gymId)!.availableTypes
+            : {EquipmentType.bodyweight, ...v.types};
     final exercises = <PlannedExercise>[];
     for (final item in shared.items) {
       final ex = exerciseById(item.exerciseId)!;
@@ -1514,6 +1663,12 @@ class AppState extends ChangeNotifier {
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
       title: '${shared.title.isEmpty ? '공유 루틴' : shared.title}${shared.from == null ? '' : ' (${shared.from} 공유)'}',
     );
+    if (v != null) {
+      _applyVenue(plan, v);
+    } else if (existing != null) {
+      _copyVenue(existing, plan);
+    }
+    if (shared.at != null) plan.jointAt = shared.at;
     // 파트너 날 동기화: 내가 따로 넣은 개인 운동은 유지한다.
     if (existing != null && existing.partnerName != null) {
       plan.exercises.addAll(existing.exercises.where((e) => e.personal));

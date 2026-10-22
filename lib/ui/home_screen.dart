@@ -10,6 +10,7 @@ import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'partner_profile_screen.dart';
 import 'widgets/level_card.dart';
+import 'widgets/place.dart';
 import 'widgets/partner_widgets.dart';
 
 // 하단 탭 순서: 오늘 · 달력 · 홈 · 기록 · 헬스장 · 내 정보
@@ -84,7 +85,7 @@ class HomeScreen extends StatelessWidget {
                       Text(
                         plan.isFinished
                             ? '완료 · ${(plan.completionRatio * 100).round()}% 수행${plan.rpe != null ? ' · 강도 ${plan.rpe}/10' : ''}'
-                            : '${plan.exercises.length}개 운동 · 약 ${plan.estimatedMinutes}분${plan.partnerName != null ? ' · ${plan.partnerName}와 함께' : ''}',
+                            : '${plan.exercises.length}개 운동 · 약 ${plan.estimatedMinutes}분${placeLabel(context, plan)}${plan.partnerName != null ? ' · ${plan.partnerName}와 함께' : ''}',
                         style: text.bodyMedium?.copyWith(color: cs.onPrimaryContainer),
                       ),
                       const SizedBox(height: 4),

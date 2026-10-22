@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_page.dart';
 import 'day_plan_view.dart';
+import 'widgets/place.dart';
 import 'widgets/partner_widgets.dart';
 
 /// 월간 달력. 탭=상세, 길게 누르기=휴식 토글, 상단 버튼으로 주/월 생성.
@@ -105,7 +106,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     plan: selectedPlan,
                     isPast: _selected!.isBefore(today),
                     onOpen: () => DayPage.open(context, _selected!),
-                    onMake: () => state.regenerateDay(_selected!),
+                    onMake: () => makeDayWithGym(context, _selected!),
                     onImport: () => importRoutineDialog(context, _selected!),
                   ),
           ),
@@ -345,6 +346,7 @@ class _DaySummary extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${p.exercises.length}개 운동 · 약 ${p.estimatedMinutes}분'
+                    '${placeLabel(context, p)}'
                     '${p.partnerName != null ? ' · 👥 ${p.partnerName}' : ''}'
                     '${p.isFinished ? ' · 완료 ${(p.completionRatio * 100).round()}%' : ''}',
                     style: text.bodySmall,

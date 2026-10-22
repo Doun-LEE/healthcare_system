@@ -34,6 +34,8 @@ class PlannerInput {
     this.equipmentStep = const {},
     this.now,
     this.fixed = const {},
+    this.dayAvailable = const {},
+    this.dayGym = const {},
   });
 
   final UserProfile profile;
@@ -55,6 +57,10 @@ class PlannerInput {
   /// 기간 안에서 그대로 두어야 하는 날(dateKey → 계획). 파트너 운동일 등.
   /// 플래너는 이 날을 건드리지 않고, 그 부위를 훈련한 것으로 보고 다음 날을 고른다.
   final Map<String, DayPlan> fixed;
+
+  /// 날짜별로 다른 헬스장에 가는 날: 그 날 쓸 기구(dateKey → 기구)와 헬스장 id.
+  final Map<String, Set<EquipmentType>> dayAvailable;
+  final Map<String, String> dayGym;
 }
 
 class Planner {
@@ -148,7 +154,7 @@ class Planner {
       final intensity = streak >= deloadStreak ? 0.85 : 1.0;
       final exercises = SessionGenerator(SessionRequest(
         groups: groups,
-        available: input.available,
+        available: input.dayAvailable[key] ?? input.available,
         progress: input.progress,
         profile: input.profile,
         minutesBudget: (input.profile.sessionMinutes * input.profile.volumeBias).round(),
@@ -163,6 +169,7 @@ class Planner {
         id: input.newId(),
         userId: input.profile.id,
         date: date,
+        gymId: input.dayGym[key],
         kind: DayKind.workout,
         focus: groups,
         exercises: exercises,
