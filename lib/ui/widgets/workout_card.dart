@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/save_file.dart';
 import '../../data/catalog.dart';
 import '../../models/models.dart';
 
@@ -70,8 +71,14 @@ class WorkoutSummaryCard extends StatelessWidget {
               child: Row(children: [
                 const Icon(Icons.check, color: accent, size: 14),
                 const SizedBox(width: 6),
-                Expanded(child: Text(exerciseById(e.exerciseId)?.name ?? '', style: const TextStyle(color: fg, fontSize: 13), overflow: TextOverflow.ellipsis)),
-                Text(_setsText(e), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Expanded(
+                  flex: 4,
+                  child: Text(exerciseById(e.exerciseId)?.name ?? '', style: const TextStyle(color: fg, fontSize: 13), overflow: TextOverflow.ellipsis),
+                ),
+                Expanded(
+                  flex: 6,
+                  child: Text(_setsText(e), textAlign: TextAlign.right, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                ),
               ]),
             ),
           if (done.length > 8)
@@ -81,14 +88,34 @@ class WorkoutSummaryCard extends StatelessWidget {
     );
   }
 
+  /// 세트별 실제 수행을 그대로. 같은 세트가 이어지면 "50kg×15 ×2"처럼 묶는다.
   String _setsText(PlannedExercise e) {
     final ex = exerciseById(e.exerciseId);
     final doneSets = e.sets.where((s) => s.completed).toList();
     if (doneSets.isEmpty) return '';
-    if (ex?.loadType == LoadType.cardio) return '${doneSets.first.doneReps ?? doneSets.first.targetReps}분';
-    final best = doneSets.map((s) => s.doneWeight ?? s.targetWeight).reduce((a, b) => a > b ? a : b);
-    final reps = doneSets.first.doneReps ?? doneSets.first.targetReps;
-    return best > 0 ? '${doneSets.length}×$reps · ${best % 1 == 0 ? best.toInt() : best}kg' : '${doneSets.length}×$reps';
+    if (ex?.loadType == LoadType.cardio) {
+      final m = doneSets.first.doneReps ?? doneSets.first.targetReps;
+      final lv = doneSets.first.effectiveLevel;
+      final spec = cardioLevels[e.exerciseId];
+      return '$m분${lv != null && spec != null ? ' · ${spec.format(lv)}' : ''}';
+    }
+    final parts = <String>[];
+    for (final s in doneSets) {
+      final w = s.doneWeight ?? s.targetWeight;
+      final r = s.doneReps ?? s.targetReps;
+      parts.add(w > 0 ? '${w % 1 == 0 ? w.toInt() : w}kg×$r' : '$r회');
+    }
+    final out = <String>[];
+    var k = 0;
+    while (k < parts.length) {
+      var n = 1;
+      while (k + n < parts.length && parts[k + n] == parts[k]) {
+        n++;
+      }
+      out.add(n > 1 ? '${parts[k]} ×$n' : parts[k]);
+      k += n;
+    }
+    return out.join(', ');
   }
 }
 
@@ -116,9 +143,18 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           RepaintBoundary(key: key, child: WorkoutSummaryCard(plan: plan, userName: userName)),
           const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기', style: TextStyle(color: Colors.white))),
-            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
+              onPressed: () async {
+                final msg = await _capture(key, plan, save: true);
+                if (c.mounted && msg != null) {
+                  ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(msg)));
+                }
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('이미지 저장'),
+            ),
             FilledButton.icon(
               onPressed: () async {
                 final msg = await _capture(key, plan);
@@ -127,16 +163,19 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
                 }
               },
               icon: const Icon(Icons.ios_share),
-              label: const Text('이미지로 공유'),
+              label: const Text('공유 (카톡·인스타)'),
             ),
           ]),
+          const SizedBox(height: 6),
+          const Text('공유 창에는 이 기기에 설치된 앱이 뜹니다. 폰에서는 카카오톡·인스타그램이 보여요.',
+              style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.center),
         ]),
       ),
     ),
   );
 }
 
-Future<String?> _capture(GlobalKey key, DayPlan plan) async {
+Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false}) async {
   try {
     final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return '카드를 찾지 못했어요.';
@@ -145,6 +184,7 @@ Future<String?> _capture(GlobalKey key, DayPlan plan) async {
     if (bytes == null) return '이미지 변환 실패';
     final d = plan.date;
     final name = 'fitroutine_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.png';
+    if (save) return await saveBytesToDevice(bytes.buffer.asUint8List(), name, 'image/png');
     final file = XFile.fromData(bytes.buffer.asUint8List(), mimeType: 'image/png', name: name);
     final result = await SharePlus.instance.share(ShareParams(
       files: [file],
