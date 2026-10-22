@@ -219,7 +219,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               FilledButton.icon(
                 onPressed: () => Navigator.pop(context, (_reps, widget.showWeight ? _weight : 0.0, _spec == null ? null : _level)),
                 icon: const Icon(Icons.check),
-                label: const Text('저장 + 완료'),
+                label: const Text('저장'),
               ),
             ],
           ),

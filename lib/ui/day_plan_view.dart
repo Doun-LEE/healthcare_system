@@ -766,7 +766,7 @@ class _ExerciseCard extends StatelessWidget {
     );
     if (result != null) {
       await state.updateSet(plan, pe, i,
-          reps: result.$1, weight: showWeight ? result.$2 : null, level: result.$3, completed: true);
+          reps: result.$1, weight: showWeight ? result.$2 : null, level: result.$3); // 완료 체크는 체크박스로만
     }
   }
 
