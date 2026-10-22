@@ -375,6 +375,56 @@ class _PartnerConditionLine extends StatelessWidget {
   }
 }
 
+/// 오늘 갈 헬스장 바꾸기: 없는 기구의 운동은 비슷한 운동으로 대체된다.
+Future<void> switchGymDialog(BuildContext context, DayPlan plan) async {
+  final state = context.read<AppState>();
+  final current = state.gymOf(plan);
+  if (state.gyms.length < 2) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('헬스장이 하나뿐이에요. 헬스장 탭에서 다른 헬스장을 추가하세요.')));
+    return;
+  }
+  final picked = await showDialog<String>(
+    context: context,
+    builder: (c) => SimpleDialog(
+      title: const Text('이 날 갈 헬스장'),
+      children: [
+        for (final g in state.gyms)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(c, g.id),
+            child: Row(children: [
+              Icon(g.id == current?.id ? Icons.radio_button_checked : Icons.radio_button_off, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text('${g.name} · 기구 ${g.equipment.length}개')),
+            ]),
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 8, 24, 4),
+          child: Text('없는 기구의 운동은 같은 부위의 비슷한 운동으로 바뀝니다. 세트·횟수 틀은 유지돼요.', style: TextStyle(fontSize: 12)),
+        ),
+      ],
+    ),
+  );
+  if (picked == null || !context.mounted) return;
+  final msgs = await state.switchDayGym(plan, picked);
+  if (!context.mounted) return;
+  final gymName = state.gyms.firstWhere((g) => g.id == picked).name;
+  if (msgs.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$gymName 기준으로 설정. 바꿀 운동이 없어요.')));
+    return;
+  }
+  await showDialog<void>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('$gymName 기준으로 조정'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: ListView(shrinkWrap: true, children: [for (final m in msgs) Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Text('• $m'))]),
+      ),
+      actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('확인'))],
+    ),
+  );
+}
+
 class _Header extends StatelessWidget {
   const _Header({required this.plan});
   final DayPlan plan;
@@ -383,6 +433,8 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final state = context.watch<AppState>();
+    final gym = state.gymOf(plan);
     return Card(
       color: cs.primaryContainer,
       child: Padding(
@@ -417,6 +469,13 @@ class _Header extends StatelessWidget {
               children: [
                 for (final g in plan.focus)
                   Chip(label: Text(g.label), visualDensity: VisualDensity.compact),
+                if (gym != null && (state.gyms.length > 1 || plan.gymId != null))
+                  ActionChip(
+                    avatar: Icon(Icons.store_outlined, size: 16, color: cs.primary),
+                    label: Text(gym.name),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: plan.isFinished ? null : () => switchGymDialog(context, plan),
+                  ),
               ],
             ),
             const SizedBox(height: 8),

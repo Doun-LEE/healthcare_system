@@ -709,6 +709,7 @@ class DayPlan {
     this.finishedAt,
     this.startedAt,
     this.endedAt,
+    this.gymId,
     this.partnerName,
     Map<String, double>? partnerWeights,
   })  : exercises = exercises ?? [],
@@ -750,6 +751,9 @@ class DayPlan {
   DateTime? endedAt;
   bool get isStarted => startedAt != null;
 
+  /// 이 날 가는 헬스장. null이면 프로필의 기본 헬스장.
+  String? gymId;
+
   /// 실제 운동 시간(분). 시작하지 않았으면 null, 진행 중이면 지금까지.
   int? get actualMinutes {
     final s = startedAt;
@@ -785,6 +789,7 @@ class DayPlan {
         'finishedAt': finishedAt?.toIso8601String(),
         'startedAt': startedAt?.toIso8601String(),
         'endedAt': endedAt?.toIso8601String(),
+        'gymId': gymId,
         'partnerName': partnerName,
         'partnerWeights': partnerWeights,
       };
@@ -815,6 +820,7 @@ class DayPlan {
             : DateTime.parse(j['finishedAt'] as String),
         startedAt: j['startedAt'] == null ? null : DateTime.parse(j['startedAt'] as String),
         endedAt: j['endedAt'] == null ? null : DateTime.parse(j['endedAt'] as String),
+        gymId: j['gymId'] as String?,
       );
 }
 

@@ -11,6 +11,7 @@ import '../data/catalog.dart';
 import '../engine/planner.dart';
 import '../engine/progression.dart';
 import '../engine/session_generator.dart';
+import '../engine/substitute.dart';
 import '../models/models.dart';
 import '../engine/level_assessor.dart';
 import '../engine/load_estimator.dart';
@@ -55,6 +56,67 @@ class AppState extends ChangeNotifier {
 
   Set<EquipmentType> get availableEquipment =>
       activeGym?.availableTypes ?? {EquipmentType.bodyweight};
+
+  /// 그 날 가는 헬스장(날짜별로 바꿨으면 그것, 아니면 기본 헬스장).
+  Gym? gymOf(DayPlan p) => _data.gyms.where((g) => g.id == p.gymId).firstOrNull ?? activeGym;
+
+  /// 다른 헬스장으로 바꾸고, 거기 없는 기구의 운동을 비슷한 운동으로 대체한다.
+  /// 운동 구성(세트 수·횟수 틀)은 최대한 유지. 바뀐 내용을 문장으로 돌려준다.
+  Future<List<String>> switchDayGym(DayPlan plan, String gymId) async {
+    final u = currentUser;
+    final gym = _data.gyms.where((g) => g.id == gymId).firstOrNull;
+    if (u == null || gym == null || plan.isFinished) return const [];
+    final avail = gym.availableTypes;
+    final msgs = <String>[];
+    final used = plan.exercises.map((e) => e.exerciseId).toSet();
+    for (var i = 0; i < plan.exercises.length; i++) {
+      final pe = plan.exercises[i];
+      final ex = exerciseById(pe.exerciseId);
+      if (ex == null) continue;
+      if (ex.canDoWith(avail)) {
+        if (!avail.contains(pe.equipmentType)) {
+          final eq = ex.pickEquipment(avail);
+          plan.exercises[i] = PlannedExercise(
+            exerciseId: pe.exerciseId,
+            equipmentType: eq,
+            restSeconds: pe.restSeconds,
+            sets: pe.sets,
+            note: '${gym.name}: ${pe.equipmentType.label} 대신 ${eq.label}',
+            personal: pe.personal,
+          );
+          msgs.add('${ex.name}: ${pe.equipmentType.label} → ${eq.label}');
+        }
+        continue;
+      }
+      final alt = substituteFor(ex, avail, exclude: used);
+      if (alt == null) {
+        msgs.add('${ex.name}: ${gym.name}에 할 수 있는 기구가 없어 제외');
+        plan.exercises.removeAt(i);
+        i--;
+        continue;
+      }
+      used.add(alt.id);
+      final base = _planSingle(alt, u);
+      final eq = alt.pickEquipment(avail);
+      plan.exercises[i] = PlannedExercise(
+        exerciseId: alt.id,
+        equipmentType: eq,
+        restSeconds: pe.restSeconds,
+        sets: List.generate(
+          pe.sets.length,
+          (_) => SetEntry(targetReps: base.sets.first.targetReps, targetWeight: base.sets.first.targetWeight, level: base.sets.first.level),
+        ),
+        note: '${gym.name}에 ${pe.equipmentType.label} 없음 → ${ex.name} 대체',
+        personal: pe.personal,
+      );
+      msgs.add('${ex.name} → ${alt.name} (${eq.label})');
+    }
+    plan.gymId = gymId;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+    await resyncPartnerDay(plan);
+    return msgs;
+  }
 
   Map<EquipmentType, double> get equipmentMax {
     final m = <EquipmentType, double>{};
