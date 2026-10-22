@@ -5,7 +5,10 @@
 /// 없는 모델은 기구 선택의 "직접 추가"로 이름 그대로 넣을 수 있다.
 library;
 
+import 'package:flutter/material.dart';
+
 import '../models/models.dart';
+import 'equipment_models.dart';
 
 class BrandModel {
   const BrandModel(this.name, this.type, this.mechanism);
@@ -15,11 +18,22 @@ class BrandModel {
 }
 
 class EquipmentBrand {
-  const EquipmentBrand({required this.name, required this.aliases, required this.models, this.note = ''});
+  const EquipmentBrand({
+    required this.key,
+    required this.name,
+    required this.aliases,
+    required this.models,
+    this.note = '',
+    this.style = ModelStyle.standard,
+  });
+  final String key;
   final String name;
   final List<String> aliases;
   final List<BrandModel> models;
   final String note;
+
+  /// 대표 색상·프레임 스타일(헬스장마다 색 옵션이 다를 수 있어 기구별로 바꿀 수 있다).
+  final ModelStyle style;
 
   bool matches(String q) {
     final s = q.trim().toLowerCase();
@@ -80,7 +94,9 @@ List<BrandModel> _plateLoaded(String prefix) => [
 
 final equipmentBrands = <EquipmentBrand>[
   EquipmentBrand(
+    key: 'drax',
     name: '디랙스 (DRAX)',
+    style: const ModelStyle(frame: Color(0xFF1E1F22), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF8E959C)),
     aliases: ['drax', '디렉스', '디랙스', '드랙스'],
     note: '국내 헬스장에 많은 국산 브랜드. 핀·원판 머신과 복합 머신이 많다.',
     models: [
@@ -93,7 +109,9 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'hammer',
     name: '해머스트렝스 (Hammer Strength)',
+    style: const ModelStyle(frame: Color(0xFF1E1F22), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFFB4BAC1)),
     aliases: ['hammer', 'hammer strength', '해머', '해머스트렝스', '아이소래터럴', 'iso-lateral', 'mts'],
     note: '아이소래터럴(좌우 독립) 원판 머신과 MTS 라인이 대표적.',
     models: const [
@@ -125,7 +143,9 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'lifefitness',
     name: '라이프피트니스 (Life Fitness)',
+    style: const ModelStyle(frame: Color(0xFFB4BAC1), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF6E7378), shroud: true, shroudColor: Color(0xFF3A3F47)),
     aliases: ['life fitness', 'lifefitness', '라이프', '라이프피트니스', 'insignia', 'signature'],
     note: '인시그니아·시그니처 핀 머신 라인과 유산소 기구.',
     models: [
@@ -138,7 +158,9 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'technogym',
     name: '테크노짐 (Technogym)',
+    style: const ModelStyle(frame: Color(0xFFD5D9DE), pad: Color(0xFF3A3A3A), padDark: Color(0xFF262626), accent: Color(0xFF8E959C), shroud: true, shroudColor: Color(0xFFE6E8EA)),
     aliases: ['technogym', '테크노짐', '테크노', 'selection', 'pure'],
     note: '셀렉션(핀)·퓨어(원판) 라인과 유산소 기구.',
     models: [
@@ -150,7 +172,9 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'cybex',
     name: '사이벡스 (Cybex)',
+    style: const ModelStyle(frame: Color(0xFFA9AFB6), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF5F656C), shroud: true, shroudColor: Color(0xFF2B2F36)),
     aliases: ['cybex', '사이벡스', 'eagle'],
     models: [
       ..._selectorized('사이벡스'),
@@ -158,7 +182,9 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'matrix',
     name: '매트릭스 (Matrix)',
+    style: const ModelStyle(frame: Color(0xFF2B2E33), pad: Color(0xFF242424), padDark: Color(0xFF161616), accent: Color(0xFFB4BAC1), shroud: true, shroudColor: Color(0xFF1E1F22)),
     aliases: ['matrix', '매트릭스', 'ultra', 'magnum'],
     models: [
       ..._selectorized('매트릭스'),
@@ -167,18 +193,24 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'panatta',
     name: '파나타 (Panatta)',
+    style: const ModelStyle(frame: Color(0xFF151515), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF9AA3AD)),
     aliases: ['panatta', '파나타'],
     note: '원판·핀 머신 모두 많고 스쿼트 계열 머신이 다양하다.',
     models: [..._selectorized('파나타'), ..._plateLoaded('파나타')],
   ),
   EquipmentBrand(
+    key: 'gym80',
     name: '짐80 (gym80)',
+    style: const ModelStyle(frame: Color(0xFF2D2D2D), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFFB4BAC1)),
     aliases: ['gym80', '짐80', '짐 80'],
     models: [..._selectorized('짐80'), ..._plateLoaded('짐80')],
   ),
   EquipmentBrand(
+    key: 'lexco',
     name: '렉스코 (LEXCO)',
+    style: const ModelStyle(frame: Color(0xFF1E1F22), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF9AA3AD)),
     aliases: ['lexco', '렉스코', '렉스', '렉스코피트니스'],
     note: '국산 브랜드. 핀·원판 머신과 유산소 기구.',
     models: [
@@ -191,13 +223,17 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
   EquipmentBrand(
+    key: 'newtech',
     name: '뉴텍 (Newtech)',
+    style: const ModelStyle(frame: Color(0xFF2B2E33), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF9AA3AD)),
     aliases: ['newtech', '뉴텍'],
     note: '국산 브랜드.',
     models: [..._selectorized('뉴텍'), ..._plateLoaded('뉴텍')],
   ),
   EquipmentBrand(
+    key: 'cable',
     name: '프리모션 / 기타 케이블',
+    style: ModelStyle.standard,
     aliases: ['freemotion', '프리모션', '케이블'],
     models: const [
       BrandModel('듀얼 케이블(펑셔널 트레이너)', EquipmentType.functionalTrainer, _pin),
@@ -206,3 +242,17 @@ final equipmentBrands = <EquipmentBrand>[
     ],
   ),
 ];
+
+
+EquipmentBrand? brandByKey(String? key) => key == null ? null : equipmentBrands.where((b) => b.key == key).firstOrNull;
+
+/// 기구 하나의 3D 스타일: 브랜드 기본 → 사용자가 고른 색·커버로 덮어쓰기.
+ModelStyle styleForEquipment(GymEquipment e) {
+  final base = brandByKey(e.brand)?.style ?? ModelStyle.standard;
+  if (e.frameColor == null && e.padColor == null && e.shroud == null) return base;
+  return base.copyWith(
+    frame: e.frameColor == null ? null : Color(e.frameColor!),
+    pad: e.padColor == null ? null : Color(e.padColor!),
+    shroud: e.shroud,
+  );
+}

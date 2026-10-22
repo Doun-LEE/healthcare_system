@@ -15,6 +15,84 @@ const _rubber = Color(0xFF17191C);
 const _chrome = Color(0xFFCFD6DD);
 const _screen = Color(0xFF2E7DFF);
 
+/// 3D 색상·프레임 스타일. 브랜드별 기본값이 있고 기구마다 바꿀 수 있다.
+class ModelStyle {
+  const ModelStyle({
+    this.frame = _dark,
+    this.pad = _pad,
+    this.padDark = _padDark,
+    this.accent = _steel,
+    this.shroud = false,
+    this.shroudColor = const Color(0xFF4A4F55),
+  });
+
+  /// 프레임(철골) 색.
+  final Color frame;
+
+  /// 시트·패드 색(밝은 면 / 어두운 면).
+  final Color pad;
+  final Color padDark;
+
+  /// 보조 철판·레버 색.
+  final Color accent;
+
+  /// 웨이트 스택을 덮는 커버(슈라우드)가 있는 브랜드.
+  final bool shroud;
+  final Color shroudColor;
+
+  static const standard = ModelStyle();
+
+  ModelStyle copyWith({Color? frame, Color? pad, bool? shroud}) => ModelStyle(
+        frame: frame ?? this.frame,
+        pad: pad ?? this.pad,
+        padDark: pad == null ? padDark : Color.lerp(pad, const Color(0xFF000000), 0.3)!,
+        accent: accent,
+        shroud: shroud ?? this.shroud,
+        shroudColor: shroudColor,
+      );
+}
+
+/// 색상 선택지(프레임/패드).
+const frameColorChoices = <String, Color>{
+  '블랙': Color(0xFF1E1F22),
+  '다크그레이': Color(0xFF3A3F47),
+  '실버': Color(0xFFB4BAC1),
+  '화이트': Color(0xFFE6E8EA),
+  '레드': Color(0xFFB71C1C),
+  '블루': Color(0xFF1E4E8C),
+  '옐로': Color(0xFFE0A800),
+};
+const padColorChoices = <String, Color>{
+  '블랙': Color(0xFF2A2A2A),
+  '레드': Color(0xFFC62828),
+  '그레이': Color(0xFF6B7078),
+  '브라운': Color(0xFF6D4C41),
+  '네이비': Color(0xFF1F2A44),
+  '블루': Color(0xFF1565C0),
+  '오렌지': Color(0xFFEF6C00),
+};
+
+ModelStyle _cur = ModelStyle.standard;
+
+/// 스타일을 적용한 면 목록.
+List<Face> styledFaces(EquipmentType t, ModelStyle style) {
+  _cur = style;
+  try {
+    final faces = [for (final p in equipmentModel(t)) ...p.faces()];
+    if (identical(style, ModelStyle.standard)) return faces;
+    Color map(Color c) {
+      if (c == _dark) return style.frame;
+      if (c == _pad) return style.pad;
+      if (c == _padDark) return style.padDark;
+      if (c == _steel) return style.accent;
+      return c;
+    }
+    return [for (final f in faces) Face(f.pts, map(f.color))];
+  } finally {
+    _cur = ModelStyle.standard;
+  }
+}
+
 List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       // 프리웨이트
       EquipmentType.barbell => _barbell(),
@@ -132,11 +210,17 @@ List<Prim> _legs(double x, double z, double h, {double w = 0.05}) => [
       Box(V3(x, h / 2, z), V3(w, h, w), _dark),
     ];
 
-List<Prim> _weightStack(V3 at, {double h = 0.9}) => [
-      Box(at + V3(0, h / 2, 0), V3(0.26, h, 0.18), _plate),
-      Box(at + V3(0, h + 0.3, 0), V3(0.3, 0.6, 0.04), _steel), // 가이드 프레임
-      Cyl(at + V3(0, h + 0.05, 0), 0.012, h + 0.1, 'y', _chrome),
-    ];
+List<Prim> _weightStack(V3 at, {double h = 0.9}) => _cur.shroud
+    ? [
+        // 스택 커버(슈라우드)가 있는 브랜드: 스택을 덮개로 감싸고 앞쪽에 세로 창
+        Box(at + V3(0, (h + 0.6) / 2, 0), V3(0.36, h + 0.6, 0.26), _cur.shroudColor),
+        Box(at + V3(0, h / 2 + 0.1, 0.135), V3(0.08, h * 0.8, 0.01), _plate),
+      ]
+    : [
+        Box(at + V3(0, h / 2, 0), V3(0.26, h, 0.18), _plate),
+        Box(at + V3(0, h + 0.3, 0), V3(0.3, 0.6, 0.04), _steel), // 가이드 프레임
+        Cyl(at + V3(0, h + 0.05, 0), 0.012, h + 0.1, 'y', _chrome),
+      ];
 
 List<Prim> _seatBase({double seatH = 0.45, double z = 0}) => [
       Box(V3(0, 0.03, z), V3(0.5, 0.06, 0.6), _dark),

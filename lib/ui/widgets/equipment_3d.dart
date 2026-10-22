@@ -170,11 +170,15 @@ class Equipment3DView extends StatelessWidget {
     required this.type,
     this.height = 220,
     this.autoRotate = true,
+    this.style = ModelStyle.standard,
   });
 
   final EquipmentType type;
   final double height;
   final bool autoRotate;
+
+  /// 브랜드/사용자 색상·프레임 스타일.
+  final ModelStyle style;
 
   /// 기구 모델을 면 리스트로 전개. 테스트에서도 사용한다.
   static List<Face> buildFaces(EquipmentType t) =>
@@ -182,7 +186,7 @@ class Equipment3DView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scene3DView(
-        faces: buildFaces(type),
+        faces: styledFaces(type, style),
         height: height,
         autoRotate: autoRotate,
       );

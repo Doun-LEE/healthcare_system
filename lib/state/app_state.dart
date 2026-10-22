@@ -13,6 +13,7 @@ import '../engine/progression.dart';
 import '../engine/session_generator.dart';
 import '../engine/substitute.dart';
 import '../models/models.dart';
+import '../core/photo_store.dart' as photos;
 import '../engine/level_assessor.dart';
 import '../engine/load_estimator.dart';
 import '../engine/stats.dart';
@@ -376,8 +377,13 @@ class AppState extends ChangeNotifier {
       final a = LevelAssessor.assess(u);
       if (a.hasData) u.level = a.level;
     }
-    await _save();
+    // 슬라이더 드래그처럼 연속 입력은 화면만 바로 갱신하고 저장은 잠깐 모아서 한 번에.
+    _data.updatedAt = DateTime.now();
+    notifyListeners();
+    _profileSaveDebounce(() => _save());
   }
+
+  final _profileSaveDebounce = Debouncer(const Duration(milliseconds: 400));
 
   Future<void> deleteProfile(String id) async {
     _data.profiles.removeWhere((p) => p.id == id);
@@ -426,12 +432,12 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
     g.equipment.add(GymEquipment(
         id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg,
-        extraTypes: extraTypes));
+        extraTypes: extraTypes, brand: brand));
     await _save();
   }
 
@@ -440,6 +446,36 @@ class AppState extends ChangeNotifier {
     if (g == null) return;
     final i = g.equipment.indexWhere((e) => e.id == eq.id);
     if (i >= 0) g.equipment[i] = eq;
+    await _save();
+  }
+
+  /// 기구 실물 사진 저장/삭제(이 기기에만 저장).
+  Future<void> setEquipmentPhoto(String gymId, String equipmentId, Uint8List? bytes) async {
+    final e = _data.gyms.where((g) => g.id == gymId).firstOrNull?.equipment.where((e) => e.id == equipmentId).firstOrNull;
+    if (e == null) return;
+    if (bytes == null) {
+      await photos.deletePhoto(equipmentId);
+      e.hasPhoto = false;
+    } else {
+      await photos.savePhoto(equipmentId, bytes);
+      e.hasPhoto = true;
+    }
+    await _save();
+  }
+
+  /// 기구 3D 색상·커버 변경.
+  Future<void> setEquipmentLook(String gymId, String equipmentId, {int? frame, int? pad, bool? shroud, bool reset = false}) async {
+    final e = _data.gyms.where((g) => g.id == gymId).firstOrNull?.equipment.where((e) => e.id == equipmentId).firstOrNull;
+    if (e == null) return;
+    if (reset) {
+      e.frameColor = null;
+      e.padColor = null;
+      e.shroud = null;
+    } else {
+      if (frame != null) e.frameColor = frame;
+      if (pad != null) e.padColor = pad;
+      if (shroud != null) e.shroud = shroud;
+    }
     await _save();
   }
 

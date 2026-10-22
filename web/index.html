@@ -28,6 +28,20 @@
     /* 모바일 브라우저에서 페이지가 살짝 스크롤/확대되면 터치 좌표가 아래로 밀리는 현상 방지 */
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; position: fixed; width: 100%; overscroll-behavior: none; touch-action: manipulation; }
   </style>
+  <script>
+    // 안드로이드/iOS 브라우저에서 키보드가 올라왔다 내려가면 페이지가 살짝 스크롤된 채 남아
+    // 터치 좌표가 한 줄 아래로 밀리는 문제가 있다. 페이지 스크롤을 항상 0으로 되돌린다.
+    (function () {
+      function reset() { if (window.scrollY || window.scrollX || document.documentElement.scrollTop) window.scrollTo(0, 0); }
+      window.addEventListener('scroll', reset, { passive: true });
+      document.addEventListener('focusout', function () { setTimeout(reset, 60); setTimeout(reset, 300); });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () { setTimeout(reset, 60); });
+        window.visualViewport.addEventListener('scroll', reset);
+      }
+      window.addEventListener('orientationchange', function () { setTimeout(reset, 300); });
+    })();
+  </script>
   <meta name="apple-mobile-web-app-title" content="FitRoutine">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 

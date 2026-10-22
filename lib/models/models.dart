@@ -489,6 +489,11 @@ class GymEquipment {
     LoadMechanism? mechanism,
     this.stepKg,
     List<EquipmentType>? extraTypes,
+    this.brand,
+    this.frameColor,
+    this.padColor,
+    this.shroud,
+    this.hasPhoto = false,
   })  : mechanism = mechanism ?? LoadMechanism.defaultFor(type),
         extraTypes = extraTypes ?? [];
 
@@ -516,6 +521,19 @@ class GymEquipment {
 
   List<EquipmentType> get allTypes => [type, ...extraTypes];
 
+  /// 브랜드 키(브랜드별 탭에서 추가한 경우). 3D 색상·프레임 스타일에 쓴다.
+  String? brand;
+
+  /// 사용자가 고른 3D 색상(ARGB). null이면 브랜드/기본 색.
+  int? frameColor;
+  int? padColor;
+
+  /// 웨이트 스택 커버(슈라우드) 표시. null이면 브랜드 기본.
+  bool? shroud;
+
+  /// 이 기기에 실물 사진이 저장돼 있는지(사진 자체는 동기화하지 않는다).
+  bool hasPhoto;
+
   String get displayName =>
       (customName == null || customName!.isEmpty) ? type.label : customName!;
 
@@ -528,6 +546,11 @@ class GymEquipment {
         'mechanism': mechanism.name,
         'stepKg': stepKg,
         if (extraTypes.isNotEmpty) 'extraTypes': extraTypes.map((t) => t.name).toList(),
+        if (brand != null) 'brand': brand,
+        if (frameColor != null) 'frameColor': frameColor,
+        if (padColor != null) 'padColor': padColor,
+        if (shroud != null) 'shroud': shroud,
+        if (hasPhoto) 'hasPhoto': true,
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -542,6 +565,11 @@ class GymEquipment {
           for (final n in ((j['extraTypes'] as List?) ?? const []))
             if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
         ],
+        brand: j['brand'] as String?,
+        frameColor: (j['frameColor'] as num?)?.toInt(),
+        padColor: (j['padColor'] as num?)?.toInt(),
+        shroud: j['shroud'] as bool?,
+        hasPhoto: (j['hasPhoto'] as bool?) ?? false,
       );
 }
 

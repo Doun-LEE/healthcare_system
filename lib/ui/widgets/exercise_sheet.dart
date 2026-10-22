@@ -4,7 +4,13 @@ import '../../data/body_model.dart';
 import '../../data/catalog.dart';
 import '../../data/how_to.dart';
 import '../../models/models.dart';
+import 'package:provider/provider.dart';
+
+import '../../data/brands.dart';
+import '../../data/equipment_models.dart';
+import '../../state/app_state.dart';
 import 'body_view.dart';
+import 'equipment_look.dart';
 import 'equipment_3d.dart';
 import 'app_sheet.dart';
 
@@ -84,7 +90,23 @@ class ExerciseSheet extends StatelessWidget {
           const SizedBox(height: 20),
           Text('사용 기구 · ${equipment.label}', style: text.titleMedium),
           const SizedBox(height: 8),
-          Equipment3DView(type: equipment, height: 230),
+          Builder(builder: (c) {
+            final mine = c.read<AppState>().activeGym?.equipment.where((e) => e.allTypes.contains(equipment)).toList() ?? const [];
+            final withPhoto = mine.where((e) => e.hasPhoto).firstOrNull;
+            final styled = mine.firstOrNull;
+            if (withPhoto != null) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('내 헬스장 · ${withPhoto.displayName}', style: Theme.of(c).textTheme.labelMedium),
+                const SizedBox(height: 4),
+                Row(children: [
+                  EquipmentThumb(eq: withPhoto, size: 150),
+                  const SizedBox(width: 8),
+                  Expanded(child: Equipment3DView(type: equipment, height: 150, style: styleForEquipment(withPhoto))),
+                ]),
+              ]);
+            }
+            return Equipment3DView(type: equipment, height: 230, style: styled == null ? ModelStyle.standard : styleForEquipment(styled));
+          }),
           const SizedBox(height: 12),
           Text(info.summary, style: text.bodyMedium),
           const SizedBox(height: 8),

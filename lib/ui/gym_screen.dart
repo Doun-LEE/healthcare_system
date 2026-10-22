@@ -7,7 +7,7 @@ import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/body_view.dart';
-import 'widgets/equipment_3d.dart';
+import 'widgets/equipment_look.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/app_sheet.dart';
 
@@ -143,8 +143,8 @@ class GymScreen extends StatelessWidget {
       }
       return;
     }
-    for (final m in result.named) {
-      await state.addEquipment(gym.id, m.type, name: m.name, mechanism: m.mechanism);
+    for (final p in result.named) {
+      await state.addEquipment(gym.id, p.model.type, name: p.model.name, mechanism: p.model.mechanism, brand: p.brandKey);
     }
     if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty) {
       if (context.mounted) {
@@ -190,11 +190,17 @@ class PickerResult {
   final List<EquipmentType> add;
   final List<EquipmentType> remove;
 
-  /// 브랜드 탭에서 고른 모델(이름·종류·방식 그대로 등록).
-  final List<BrandModel> named;
+  /// 브랜드 탭에서 고른 모델(이름·종류·방식·브랜드 그대로 등록).
+  final List<BrandPick> named;
 
   /// 직접 추가(목록에 없는 기구·복합 머신).
   final CustomEquipment? custom;
+}
+
+class BrandPick {
+  const BrandPick(this.model, this.brandKey);
+  final BrandModel model;
+  final String brandKey;
 }
 
 class CustomEquipment {
@@ -316,7 +322,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
 
   /// 브랜드 탭
   bool _byBrand = false;
-  final _brandPicked = <BrandModel>{};
+  final _brandPicked = <BrandModel, String>{};
 
   Future<void> _custom() async {
     final custom = await customEquipmentDialog(context, initialName: _query.trim());
@@ -327,23 +333,27 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
 
   Widget _brandList(ScrollController ctrl, ColorScheme cs, TextTheme text) {
     final q = _query.trim().toLowerCase();
-    final brands = equipmentBrands.where((b) => q.isEmpty || b.matches(q) || b.models.any((m) => m.name.toLowerCase().contains(q) || m.type.matches(q))).toList();
+    final tokens = q.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+    // 여러 단어 검색: 단어마다 브랜드 이름/별칭 또는 모델 이름/종류 중 어딘가에 있으면 통과.
+    bool hit(EquipmentBrand b, BrandModel m) => tokens.every((t) => b.matches(t) || m.name.toLowerCase().contains(t) || m.type.matches(t));
+    final brands = equipmentBrands.where((b) => q.isEmpty || b.models.any((m) => hit(b, m))).toList();
     return ListView(
       controller: ctrl,
       children: [
         for (final b in brands)
           ExpansionTile(
+            key: ValueKey('${b.key}-${q.isNotEmpty}'),
             initiallyExpanded: q.isNotEmpty,
             title: Text(b.name),
             subtitle: Text(b.note.isEmpty ? '${b.models.length}개 모델' : '${b.models.length}개 모델 · ${b.note}', maxLines: 2, overflow: TextOverflow.ellipsis),
             children: [
-              for (final m in b.models.where((m) => q.isEmpty || b.matches(q) || m.name.toLowerCase().contains(q) || m.type.matches(q)))
+              for (final m in b.models.where((m) => q.isEmpty || hit(b, m)))
                 CheckboxListTile(
                   dense: true,
-                  value: _brandPicked.contains(m),
+                  value: _brandPicked.containsKey(m),
                   title: Text(m.name),
                   subtitle: Text('${m.type.label} · ${m.mechanism.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onChanged: (_) => setState(() => _brandPicked.contains(m) ? _brandPicked.remove(m) : _brandPicked.add(m)),
+                  onChanged: (_) => setState(() => _brandPicked.containsKey(m) ? _brandPicked.remove(m) : _brandPicked[m] = b.key),
                 ),
             ],
           ),
@@ -511,7 +521,11 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                       ? null
                       : () => Navigator.pop(
                           context,
-                          PickerResult(add: _selected.toList(), remove: _removed.toList(), named: _brandPicked.toList()),
+                          PickerResult(
+                            add: _selected.toList(),
+                            remove: _removed.toList(),
+                            named: [for (final e in _brandPicked.entries) BrandPick(e.key, e.value)],
+                          ),
                         ),
                   icon: Icon(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
                   label: Text(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
@@ -588,11 +602,7 @@ class _EquipmentList extends StatelessWidget {
                 ),
                 onDismissed: (_) => state.removeEquipment(gym.id, e.id),
                 child: ListTile(
-                  leading: SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: Equipment3DView(type: e.type, height: 56, autoRotate: false),
-                  ),
+                  leading: EquipmentThumb(eq: e),
                   title: Text(e.displayName),
                   subtitle: Text(
                     [
@@ -604,7 +614,7 @@ class _EquipmentList extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  onTap: () => _EquipmentDetail.show(context, e),
+                  onTap: () => _EquipmentDetail.show(context, e, gym.id),
                   onLongPress: () async {
                     final edited = await _EquipmentEditor.show(context, e.type, existing: e);
                     if (edited != null) await state.updateEquipment(gym.id, edited);
@@ -618,14 +628,15 @@ class _EquipmentList extends StatelessWidget {
 }
 
 class _EquipmentDetail extends StatelessWidget {
-  const _EquipmentDetail({required this.eq});
+  const _EquipmentDetail({required this.eq, required this.gymId});
   final GymEquipment eq;
+  final String gymId;
 
-  static Future<void> show(BuildContext context, GymEquipment eq) => showAppSheet(
+  static Future<void> show(BuildContext context, GymEquipment eq, String gymId) => showAppSheet(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
-        builder: (_) => _EquipmentDetail(eq: eq),
+        builder: (_) => _EquipmentDetail(eq: eq, gymId: gymId),
       );
 
   @override
@@ -646,7 +657,7 @@ class _EquipmentDetail extends StatelessWidget {
           if (eq.displayName != eq.type.label)
             Text(eq.type.label, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
           const SizedBox(height: 12),
-          Equipment3DView(type: eq.type, height: 240),
+          EquipmentLookSection(gymId: gymId, equipmentId: eq.id),
           const SizedBox(height: 12),
           Text(info.summary, style: text.bodyLarge),
           const SizedBox(height: 8),
