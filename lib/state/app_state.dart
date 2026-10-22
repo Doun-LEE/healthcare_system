@@ -707,8 +707,50 @@ class AppState extends ChangeNotifier {
     await resyncPartnerDay(plan);
   }
 
+  /// 마지막 세트를 뺀다(최소 1세트).
+  Future<void> removeSet(DayPlan plan, PlannedExercise ex) async {
+    if (ex.sets.length <= 1) return;
+    ex.sets.removeLast();
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
   Future<void> removeExercise(DayPlan plan, PlannedExercise ex) async {
     plan.exercises.remove(ex);
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
+  /// 운동을 하루 계획에 추가. 파트너 날에 [personal]이면 나만 하고 파트너에게 보내지 않는다.
+  Future<PlannedExercise?> addExercise(DayPlan plan, Exercise ex, {bool personal = false}) async {
+    final u = currentUser;
+    if (u == null || plan.isFinished) return null;
+    final base = _planSingle(ex, u);
+    final planned = PlannedExercise(
+      exerciseId: base.exerciseId,
+      equipmentType: base.equipmentType,
+      restSeconds: base.restSeconds,
+      sets: base.sets,
+      note: personal ? '개인 추가 · 파트너에게 안 보냄' : '직접 추가',
+      personal: personal,
+    );
+    // 같은 구역(웨이트/복근/유산소)의 마지막 뒤에 넣는다.
+    final sec = SessionGenerator.sectionOf(planned);
+    var idx = plan.exercises.lastIndexWhere((p) => SessionGenerator.sectionOf(p) <= sec);
+    plan.exercises.insert(idx + 1, planned);
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+    if (!personal) await resyncPartnerDay(plan);
+    return planned;
+  }
+
+  /// 운동 순서를 [delta]만큼 이동(-1 위로, +1 아래로).
+  Future<void> moveExercise(DayPlan plan, PlannedExercise ex, int delta) async {
+    final i = plan.exercises.indexOf(ex);
+    final j = i + delta;
+    if (i < 0 || j < 0 || j >= plan.exercises.length) return;
+    plan.exercises.removeAt(i);
+    plan.exercises.insert(j, ex);
     await _save();
     await resyncPartnerDay(plan);
   }
@@ -1274,6 +1316,10 @@ class AppState extends ChangeNotifier {
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
       title: '${shared.title.isEmpty ? '공유 루틴' : shared.title}${shared.from == null ? '' : ' (${shared.from} 공유)'}',
     );
+    // 파트너 날 동기화: 내가 따로 넣은 개인 운동은 유지한다.
+    if (existing != null && existing.partnerName != null) {
+      plan.exercises.addAll(existing.exercises.where((e) => e.personal));
+    }
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
@@ -1304,7 +1350,7 @@ class AppState extends ChangeNotifier {
     var weeks = 0;
     var cursor = dateOnly(DateTime.now());
     while (true) {
-      final start = cursor.subtract(Duration(days: cursor.weekday - 1));
+      final start = cursor.subtract(Duration(days: cursor.weekday % 7)); // 일요일 시작
       final any = myPlans.any((p) =>
           p.isFinished &&
           !p.date.isBefore(start) &&

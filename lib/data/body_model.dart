@@ -201,11 +201,11 @@ MuscleMap musclesForEquipment(EquipmentType t) {
 }
 
 // ---------------------------------------------------------------------------
-// 인체 모델
+// 인체 모델 (타원체·테이퍼 원기둥으로 둥글게)
 
-const _skin = Color(0xFFD8B597);
-const _skinDark = Color(0xFFC49B7C);
-const _muscleIdle = Color(0xFFC7A287);
+const _skin = Color(0xFFD9B79A);
+const _skinDark = Color(0xFFC79E80);
+const _muscleIdle = Color(0xFFCFA98B);
 const _primaryColor = Color(0xFFE53935);
 const _secondaryColor = Color(0xFFFFA726);
 const _short = Color(0xFF3E4A5C);
@@ -221,26 +221,27 @@ List<Prim> bodyModel(MuscleMap map) {
 
   final prims = <Prim>[
     // 머리·목
-    const Cyl(V3(0, 1.66, 0), 0.1, 0.22, 'y', _skin, segments: 12),
-    const Box(V3(0, 1.74, -0.02), V3(0.2, 0.1, 0.2), _hair),
-    const Cyl(V3(0, 1.52, 0), 0.055, 0.08, 'y', _skin, segments: 10),
-    // 몸통·골반
-    const Box(V3(0, 1.21, 0), V3(0.38, 0.56, 0.22), _skin),
-    const Box(V3(0, 0.86, 0), V3(0.36, 0.16, 0.23), _short),
+    const Ellipsoid(V3(0, 1.64, 0), V3(0.1, 0.12, 0.11), _skin),
+    const Ellipsoid(V3(0, 1.69, -0.015), V3(0.105, 0.085, 0.115), _hair, segments: 14, rings: 6),
+    const Taper(V3(0, 1.51, 0), 0.055, 0.05, 0.08, _skin, segments: 12),
+    // 몸통(어깨→가슴→허리→골반)
+    const Taper(V3(0, 1.36, 0), 0.165, 0.21, 0.24, _skin, segments: 20, scaleZ: 0.55),
+    const Taper(V3(0, 1.13, 0), 0.15, 0.165, 0.22, _skin, segments: 20, scaleZ: 0.6),
+    const Taper(V3(0, 0.93, 0), 0.17, 0.15, 0.18, _short, segments: 20, scaleZ: 0.65),
     // 팔
-    const Cyl(V3(-0.25, 1.31, 0), 0.055, 0.3, 'y', _skin, segments: 10),
-    const Cyl(V3(0.25, 1.31, 0), 0.055, 0.3, 'y', _skin, segments: 10),
-    const Cyl(V3(-0.27, 0.99, 0.02), 0.045, 0.3, 'y', _skin, segments: 10),
-    const Cyl(V3(0.27, 0.99, 0.02), 0.045, 0.3, 'y', _skin, segments: 10),
-    const Box(V3(-0.27, 0.79, 0.03), V3(0.07, 0.1, 0.05), _skinDark),
-    const Box(V3(0.27, 0.79, 0.03), V3(0.07, 0.1, 0.05), _skinDark),
+    const Taper(V3(-0.26, 1.3, 0), 0.045, 0.055, 0.28, _skin, segments: 12),
+    const Taper(V3(0.26, 1.3, 0), 0.045, 0.055, 0.28, _skin, segments: 12),
+    const Taper(V3(-0.275, 0.99, 0.02), 0.035, 0.047, 0.28, _skin, segments: 12),
+    const Taper(V3(0.275, 0.99, 0.02), 0.035, 0.047, 0.28, _skin, segments: 12),
+    const Ellipsoid(V3(-0.28, 0.8, 0.03), V3(0.035, 0.05, 0.025), _skinDark, segments: 10, rings: 6),
+    const Ellipsoid(V3(0.28, 0.8, 0.03), V3(0.035, 0.05, 0.025), _skinDark, segments: 10, rings: 6),
     // 다리
-    const Cyl(V3(-0.1, 0.58, 0), 0.085, 0.42, 'y', _skin, segments: 12),
-    const Cyl(V3(0.1, 0.58, 0), 0.085, 0.42, 'y', _skin, segments: 12),
-    const Cyl(V3(-0.1, 0.2, 0), 0.06, 0.38, 'y', _skin, segments: 10),
-    const Cyl(V3(0.1, 0.2, 0), 0.06, 0.38, 'y', _skin, segments: 10),
-    const Box(V3(-0.1, 0.03, 0.05), V3(0.11, 0.06, 0.24), _short),
-    const Box(V3(0.1, 0.03, 0.05), V3(0.11, 0.06, 0.24), _short),
+    const Taper(V3(-0.1, 0.6, 0), 0.065, 0.09, 0.42, _skin, segments: 14),
+    const Taper(V3(0.1, 0.6, 0), 0.065, 0.09, 0.42, _skin, segments: 14),
+    const Taper(V3(-0.1, 0.2, 0), 0.04, 0.06, 0.38, _skin, segments: 12),
+    const Taper(V3(0.1, 0.2, 0), 0.04, 0.06, 0.38, _skin, segments: 12),
+    const Ellipsoid(V3(-0.1, 0.03, 0.05), V3(0.05, 0.03, 0.12), _short, segments: 10, rings: 5),
+    const Ellipsoid(V3(0.1, 0.03, 0.05), V3(0.05, 0.03, 0.12), _short, segments: 10, rings: 5),
   ];
 
   void both(Prim Function(double side) f) {
@@ -248,34 +249,36 @@ List<Prim> bodyModel(MuscleMap map) {
     prims.add(f(1));
   }
 
-  // --- 앞면 근육 (z = +0.12 근처)
-  both((s) => Box(V3(s * 0.09, 1.405, 0.115), const V3(0.16, 0.06, 0.02), c(Muscle.chestUpper)));
-  both((s) => Box(V3(s * 0.09, 1.335, 0.12), const V3(0.17, 0.07, 0.03), c(Muscle.chestMid)));
-  both((s) => Box(V3(s * 0.08, 1.27, 0.115), const V3(0.15, 0.05, 0.02), c(Muscle.chestLower)));
-  prims.add(Box(const V3(0, 1.18, 0.115), const V3(0.15, 0.1, 0.02), c(Muscle.absUpper)));
-  prims.add(Box(const V3(0, 1.06, 0.115), const V3(0.13, 0.1, 0.02), c(Muscle.absLower)));
-  both((s) => Box(V3(s * 0.14, 1.11, 0.1), const V3(0.05, 0.22, 0.05), c(Muscle.obliques)));
-  both((s) => Box(V3(s * 0.07, 0.905, 0.115), const V3(0.07, 0.07, 0.02), c(Muscle.hipFlexors)));
-  // 어깨 (앞/옆/뒤 삼각근)
-  both((s) => Box(V3(s * 0.235, 1.45, 0.07), const V3(0.1, 0.09, 0.07), c(Muscle.deltFront)));
-  both((s) => Box(V3(s * 0.27, 1.45, 0), const V3(0.08, 0.1, 0.1), c(Muscle.deltSide)));
-  both((s) => Box(V3(s * 0.235, 1.45, -0.07), const V3(0.1, 0.09, 0.07), c(Muscle.deltRear)));
+  Ellipsoid m(Muscle mu, double x, double y, double z, double rx, double ry, double rz) =>
+      Ellipsoid(V3(x, y, z), V3(rx, ry, rz), c(mu), segments: 12, rings: 7);
+
+  // --- 앞면
+  both((s) => m(Muscle.chestUpper, s * 0.085, 1.41, 0.105, 0.08, 0.035, 0.03));
+  both((s) => m(Muscle.chestMid, s * 0.09, 1.345, 0.11, 0.085, 0.04, 0.035));
+  both((s) => m(Muscle.chestLower, s * 0.075, 1.285, 0.105, 0.07, 0.03, 0.03));
+  prims.add(m(Muscle.absUpper, 0, 1.19, 0.1, 0.07, 0.055, 0.03));
+  prims.add(m(Muscle.absLower, 0, 1.07, 0.1, 0.06, 0.055, 0.03));
+  both((s) => m(Muscle.obliques, s * 0.13, 1.12, 0.07, 0.03, 0.11, 0.05));
+  both((s) => m(Muscle.hipFlexors, s * 0.07, 0.92, 0.1, 0.04, 0.045, 0.025));
+  // 어깨
+  both((s) => m(Muscle.deltFront, s * 0.23, 1.455, 0.055, 0.05, 0.045, 0.04));
+  both((s) => m(Muscle.deltSide, s * 0.255, 1.455, 0, 0.045, 0.055, 0.06));
+  both((s) => m(Muscle.deltRear, s * 0.23, 1.455, -0.055, 0.05, 0.045, 0.04));
   // 팔
-  both((s) => Cyl(V3(s * 0.25, 1.3, 0.045), 0.04, 0.2, 'y', c(Muscle.biceps), segments: 8));
-  both((s) => Cyl(V3(s * 0.25, 1.3, -0.045), 0.04, 0.2, 'y', c(Muscle.triceps), segments: 8));
-  both((s) => Cyl(V3(s * 0.27, 1.0, 0.02), 0.05, 0.2, 'y', c(Muscle.forearm), segments: 8));
-  // --- 뒷면 근육 (z = -0.12 근처)
-  prims.add(Box(const V3(0, 1.49, -0.06), const V3(0.3, 0.06, 0.13), c(Muscle.trapsUpper)));
-  both((s) => Box(V3(s * 0.08, 1.37, -0.115), const V3(0.15, 0.14, 0.02), c(Muscle.upperBack)));
-  both((s) => Box(V3(s * 0.13, 1.2, -0.115), const V3(0.1, 0.22, 0.02), c(Muscle.lats)));
-  both((s) => Box(V3(s * 0.195, 1.2, -0.04), const V3(0.02, 0.22, 0.13), c(Muscle.lats)));
-  both((s) => Box(V3(s * 0.04, 1.03, -0.115), const V3(0.07, 0.16, 0.02), c(Muscle.lowerBack)));
-  both((s) => Box(V3(s * 0.09, 0.85, -0.125), const V3(0.16, 0.15, 0.03), c(Muscle.glutes)));
+  both((s) => m(Muscle.biceps, s * 0.258, 1.3, 0.04, 0.038, 0.1, 0.03));
+  both((s) => m(Muscle.triceps, s * 0.258, 1.3, -0.04, 0.038, 0.11, 0.03));
+  both((s) => m(Muscle.forearm, s * 0.275, 1.0, 0.02, 0.046, 0.12, 0.04));
+  // --- 뒷면
+  prims.add(m(Muscle.trapsUpper, 0, 1.5, -0.04, 0.16, 0.035, 0.06));
+  both((s) => m(Muscle.upperBack, s * 0.085, 1.38, -0.095, 0.08, 0.07, 0.03));
+  both((s) => m(Muscle.lats, s * 0.12, 1.22, -0.08, 0.065, 0.12, 0.045));
+  both((s) => m(Muscle.lowerBack, s * 0.035, 1.05, -0.09, 0.035, 0.08, 0.025));
+  both((s) => m(Muscle.glutes, s * 0.085, 0.86, -0.1, 0.08, 0.075, 0.04));
   // 다리
-  both((s) => Cyl(V3(s * 0.1, 0.6, 0.05), 0.06, 0.36, 'y', c(Muscle.quads), segments: 8));
-  both((s) => Cyl(V3(s * 0.1, 0.6, -0.05), 0.06, 0.34, 'y', c(Muscle.hamstrings), segments: 8));
-  prims.add(Box(const V3(0, 0.62, 0.02), const V3(0.05, 0.3, 0.12), c(Muscle.adductors)));
-  both((s) => Cyl(V3(s * 0.1, 0.22, -0.035), 0.045, 0.28, 'y', c(Muscle.calves), segments: 8));
+  both((s) => m(Muscle.quads, s * 0.1, 0.6, 0.045, 0.06, 0.19, 0.045));
+  both((s) => m(Muscle.hamstrings, s * 0.1, 0.6, -0.045, 0.058, 0.18, 0.045));
+  prims.add(m(Muscle.adductors, 0, 0.63, 0.02, 0.03, 0.15, 0.06));
+  both((s) => m(Muscle.calves, s * 0.1, 0.22, -0.03, 0.045, 0.14, 0.04));
   return prims;
 }
 

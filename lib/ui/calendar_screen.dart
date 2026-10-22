@@ -163,7 +163,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 class _WeekdayHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    const wd = ['월', '화', '수', '목', '금', '토', '일'];
+    const wd = ['일', '월', '화', '수', '목', '금', '토'];
     final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
@@ -175,7 +175,7 @@ class _WeekdayHeader extends StatelessWidget {
                 child: Text(wd[i],
                     style: TextStyle(
                       fontSize: 12,
-                      color: i == 6 ? cs.error : (i == 5 ? cs.primary : cs.onSurfaceVariant),
+                      color: i == 0 ? cs.error : (i == 6 ? cs.primary : cs.onSurfaceVariant),
                     )),
               ),
             ),
@@ -207,7 +207,7 @@ class _MonthGrid extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final first = DateTime(month.year, month.month, 1);
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final leading = first.weekday - 1; // 월요일 시작
+    final leading = first.weekday % 7; // 일요일 시작
     final cells = leading + daysInMonth;
     final rows = (cells / 7).ceil();
 

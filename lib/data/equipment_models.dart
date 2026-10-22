@@ -48,6 +48,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.functionalTrainer => _cable(),
       // 등
       EquipmentType.latPulldown => _latPulldown(),
+      EquipmentType.latPulldownPlateLoaded => _latPulldown(),
       EquipmentType.seatedRow => _seatedRow(),
       EquipmentType.chestSupportedRow => _seatedRow(),
       EquipmentType.highRow => _pressMachine(arms: true, tall: true, plateLoaded: true),
@@ -78,6 +79,8 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.legExtension => _legMachine(curl: false),
       EquipmentType.legCurl => _legMachine(curl: true),
       EquipmentType.lyingLegCurl => _lyingLegCurl(),
+      EquipmentType.standingLegCurl => _calfRaise(),
+      EquipmentType.multiHip => _calfRaise(),
       EquipmentType.hipAbductor => _legMachine(curl: false),
       EquipmentType.hipAdductor => _legMachine(curl: false),
       EquipmentType.hipThrust => _hipThrust(),
@@ -92,6 +95,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.captainsChair => _captainsChair(),
       EquipmentType.declineAbBench => _bench(incline: -1),
       EquipmentType.abWheel => _abWheel(),
+      EquipmentType.abCoaster => _legMachine(curl: true),
       // 유산소
       EquipmentType.treadmill => _treadmill(),
       EquipmentType.curvedTreadmill => _treadmill(),

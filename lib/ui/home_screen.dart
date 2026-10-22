@@ -132,7 +132,7 @@ class HomeScreen extends StatelessWidget {
                         child: _DayDot(
                           date: wFrom.add(Duration(days: i)),
                           plan: state.planOn(wFrom.add(Duration(days: i))),
-                          isToday: i == today.weekday - 1,
+                          isToday: i == today.weekday % 7,
                         ),
                       ),
                   ]),
@@ -244,7 +244,7 @@ class _DayDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    const wd = ['월', '화', '수', '목', '금', '토', '일'];
+    const wd = ['일', '월', '화', '수', '목', '금', '토'];
     Color c;
     IconData? icon;
     if (plan == null) {
@@ -260,7 +260,7 @@ class _DayDot extends StatelessWidget {
       icon = Icons.fitness_center;
     }
     return Column(children: [
-      Text(wd[date.weekday - 1], style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: isToday ? FontWeight.bold : null)),
+      Text(wd[date.weekday % 7], style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: isToday ? FontWeight.bold : null)),
       const SizedBox(height: 4),
       Container(
         width: 30,

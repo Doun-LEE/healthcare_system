@@ -48,6 +48,8 @@ class SetEditorSheet extends StatefulWidget {
       showModalBottomSheet<(int, double, int?)>(
         context: context,
         showDragHandle: true,
+        isScrollControlled: true,
+        useSafeArea: true,
         builder: (_) => SetEditorSheet(
           title: title,
           targetReps: targetReps,
@@ -112,19 +114,30 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final upW = _weight > widget.targetWeight;
     final upR = _reps > widget.targetReps;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(widget.title, style: text.titleMedium),
-          Text(
-            '처방: ${widget.showWeight ? '${_fmt(widget.targetWeight)}kg × ' : ''}${widget.targetReps}${widget.unit}',
-            style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(widget.title, style: text.titleMedium),
+                Text(
+                  '처방: ${widget.showWeight ? '${_fmt(widget.targetWeight)}kg × ' : ''}${widget.targetReps}${widget.unit}',
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ]),
+            ),
+            IconButton(
+              tooltip: '숫자 직접 입력',
+              icon: const Icon(Icons.keyboard_alt_outlined),
+              onPressed: _directInput,
+            ),
+          ]),
+          const SizedBox(height: 4),
           SizedBox(
-            height: 180,
+            height: 150,
             child: Row(
               children: [
                 if (widget.showWeight)
@@ -224,6 +237,59 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final v = i.clamp(0, _maxReps);
     _repsCtrl.animateToItem(v, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
     setState(() => _reps = v);
+  }
+
+  void _jumpL(int level) {
+    final sp = _spec;
+    if (sp == null) return;
+    final v = level.clamp(sp.min, sp.max);
+    _levelCtrl.animateToItem(v - sp.min, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
+    setState(() => _level = v);
+  }
+
+  /// 휠 대신 키보드로 입력. 입력한 값은 휠에도 반영된다.
+  Future<void> _directInput() async {
+    final wCtrl = TextEditingController(text: widget.showWeight ? _fmt(_weight) : '');
+    final rCtrl = TextEditingController(text: '$_reps');
+    final lCtrl = TextEditingController(text: _spec == null ? '' : '$_level');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('직접 입력'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          if (widget.showWeight)
+            TextField(
+              controller: wCtrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: '무게 (kg)'),
+            ),
+          TextField(
+            controller: rCtrl,
+            autofocus: !widget.showWeight,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: widget.unit == '분' ? '시간 (분)' : '횟수 (${widget.unit})'),
+          ),
+          if (_spec != null)
+            TextField(
+              controller: lCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: '${_spec!.label} (${_spec!.min}~${_spec!.max})'),
+            ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('적용')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final w = double.tryParse(wCtrl.text.trim());
+    if (widget.showWeight && w != null) _jumpW((w / _step).round());
+    final r = int.tryParse(rCtrl.text.trim());
+    if (r != null) _jumpR(r);
+    final l = int.tryParse(lCtrl.text.trim());
+    if (l != null) _jumpL(l);
   }
 }
 

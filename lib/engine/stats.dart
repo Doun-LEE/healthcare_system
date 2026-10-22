@@ -94,7 +94,7 @@ class Stats {
     final today = dateOnly(now);
     switch (period) {
       case 'week':
-        return (today.subtract(Duration(days: today.weekday - 1)), today);
+        return (today.subtract(Duration(days: today.weekday % 7)), today); // 일요일 시작
       case 'month':
         return (DateTime(today.year, today.month, 1), today);
       case 'year':
@@ -152,7 +152,7 @@ class Stats {
 
     // 주간 집계 (월요일 시작)
     final weeks = <WeekCount>[];
-    var ws = start.subtract(Duration(days: start.weekday - 1));
+    var ws = start.subtract(Duration(days: start.weekday % 7)); // 일요일 시작
     while (!ws.isAfter(today)) {
       final we = ws.add(const Duration(days: 7));
       final inWeek = done.where((p) => !p.date.isBefore(ws) && p.date.isBefore(we)).toList();

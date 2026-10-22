@@ -37,7 +37,7 @@ String encodeRoutine(DayPlan plan, {String? from}) {
     'u': from,
     'e': [
       for (final pe in plan.exercises)
-        {
+        if (!pe.personal) {
           'i': pe.exerciseId,
           's': pe.sets.length,
           'r': pe.sets.isEmpty ? 10 : pe.sets.first.targetReps,

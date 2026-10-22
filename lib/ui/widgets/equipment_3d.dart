@@ -101,6 +101,69 @@ class Cyl implements Prim {
   }
 }
 
+/// 타원체(구를 축별로 늘린 것). 머리·근육 덩어리용.
+class Ellipsoid implements Prim {
+  const Ellipsoid(this.center, this.radii, this.color, {this.segments = 14, this.rings = 8});
+  final V3 center, radii;
+  final Color color;
+  final int segments, rings;
+
+  V3 _pt(int i, int j) {
+    final phi = pi * j / rings; // 0(위) → pi(아래)
+    final th = 2 * pi * i / segments;
+    return V3(
+      center.x + radii.x * sin(phi) * cos(th),
+      center.y + radii.y * cos(phi),
+      center.z + radii.z * sin(phi) * sin(th),
+    );
+  }
+
+  @override
+  List<Face> faces() {
+    final out = <Face>[];
+    for (var j = 0; j < rings; j++) {
+      for (var i = 0; i < segments; i++) {
+        final a = _pt(i, j), b = _pt(i + 1, j), c = _pt(i + 1, j + 1), d = _pt(i, j + 1);
+        if (j == 0) {
+          out.add(Face([a, c, d], color));
+        } else if (j == rings - 1) {
+          out.add(Face([a, b, c], color));
+        } else {
+          out.add(Face([a, b, c, d], color));
+        }
+      }
+    }
+    return out;
+  }
+}
+
+/// 위아래 반지름이 다른 원기둥(y축). [scaleZ]로 앞뒤를 눌러 타원 단면을 만든다. 팔다리·몸통용.
+class Taper implements Prim {
+  const Taper(this.center, this.r0, this.r1, this.height, this.color, {this.segments = 16, this.scaleZ = 1.0});
+  final V3 center;
+  final double r0, r1, height, scaleZ;
+  final Color color;
+  final int segments;
+
+  V3 _pt(double a, double h, double r) => V3(center.x + r * cos(a), center.y + h, center.z + r * scaleZ * sin(a));
+
+  @override
+  List<Face> faces() {
+    final out = <Face>[];
+    final hh = height / 2;
+    final top = <V3>[], bottom = <V3>[];
+    for (var i = 0; i < segments; i++) {
+      final a0 = 2 * pi * i / segments, a1 = 2 * pi * (i + 1) / segments;
+      out.add(Face([_pt(a0, -hh, r0), _pt(a1, -hh, r0), _pt(a1, hh, r1), _pt(a0, hh, r1)], color));
+      top.add(_pt(a0, hh, r1));
+      bottom.add(_pt(a0, -hh, r0));
+    }
+    out.add(Face(top, color));
+    out.add(Face(bottom.reversed.toList(), color));
+    return out;
+  }
+}
+
 class Equipment3DView extends StatelessWidget {
   const Equipment3DView({
     super.key,
@@ -136,6 +199,7 @@ class Scene3DView extends StatefulWidget {
     this.initialPitch = 0.35,
     this.hint = '드래그해서 회전',
     this.overlay,
+    this.edges = true,
   });
 
   final List<Face> faces;
@@ -147,6 +211,9 @@ class Scene3DView extends StatefulWidget {
 
   /// 범례 등 장면 위에 얹을 위젯(왼쪽 아래).
   final Widget? overlay;
+
+  /// 면 테두리를 그릴지. 부드러운 모델(인체)은 끄는 편이 낫다.
+  final bool edges;
 
   @override
   State<Scene3DView> createState() => _Scene3DViewState();
@@ -208,7 +275,7 @@ class _Scene3DViewState extends State<Scene3DView>
           children: [
             Positioned.fill(
               child: CustomPaint(
-                painter: _ScenePainter(widget.faces, _yaw, _pitch, cs.outlineVariant),
+                painter: _ScenePainter(widget.faces, _yaw, _pitch, cs.outlineVariant, edges: widget.edges),
               ),
             ),
             if (widget.overlay != null)
@@ -228,10 +295,11 @@ class _Scene3DViewState extends State<Scene3DView>
 }
 
 class _ScenePainter extends CustomPainter {
-  _ScenePainter(this.faces, this.yaw, this.pitch, this.floorColor);
+  _ScenePainter(this.faces, this.yaw, this.pitch, this.floorColor, {this.edges = true});
   final List<Face> faces;
   final double yaw, pitch;
   final Color floorColor;
+  final bool edges;
 
   static const _light = V3(0.4, 0.8, 0.6);
 
@@ -293,7 +361,13 @@ class _ScenePainter extends CustomPainter {
     for (final (_, path, color) in projected) {
       fill.color = color;
       canvas.drawPath(path, fill);
-      canvas.drawPath(path, edge);
+      if (edges) {
+        canvas.drawPath(path, edge);
+      } else {
+        // 테두리 없이: 면 사이 안티앨리어싱 틈을 같은 색 얇은 선으로 메운다.
+        edge.color = color;
+        canvas.drawPath(path, edge);
+      }
     }
   }
 
@@ -322,5 +396,5 @@ class _ScenePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ScenePainter old) =>
-      old.yaw != yaw || old.pitch != pitch || old.faces != faces;
+      old.yaw != yaw || old.pitch != pitch || old.faces != faces || old.edges != edges;
 }

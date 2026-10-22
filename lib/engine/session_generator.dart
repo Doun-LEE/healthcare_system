@@ -157,6 +157,7 @@ class SessionGenerator {
 
     if (cardioSec > 0) {
       final cardio = _best(MuscleGroup.cardio, picked, usedEmphasis, null, strengthGroups);
+      final cardioFirst = req.profile.startWith == 'cardio';
       if (cardio != null) {
         final minutes = (cardioSec / 60).round().clamp(10, 30);
         final level = cardioLevelFor(cardio, req.profile, req.progress[cardio.id]);
@@ -166,11 +167,37 @@ class SessionGenerator {
           equipmentType: cardio.pickEquipment(req.available),
           restSeconds: 0,
           sets: [SetEntry(targetReps: minutes, targetWeight: 0, level: level)],
-          note: '마무리 유산소 $minutes분${level != null && spec != null ? ' · ${spec.format(level)}' : ''}',
+          note: '${cardioFirst ? '워밍업' : '마무리'} 유산소 $minutes분${level != null && spec != null ? ' · ${spec.format(level)}' : ''}',
         ));
       }
     }
-    return picked;
+    return orderForSession(picked, req.profile.startWith);
+  }
+
+  /// 운동 구역: 0 웨이트, 1 복근, 2 유산소.
+  static int sectionOf(PlannedExercise p) {
+    final ex = exerciseById(p.exerciseId);
+    if (ex == null) return 0;
+    if (ex.loadType == LoadType.cardio) return 2;
+    if (ex.group == MuscleGroup.abs) return 1;
+    return 0;
+  }
+
+  static const sectionLabels = ['웨이트', '복근', '유산소'];
+
+  /// 덜 힘든 순서로 정렬: 복합(고중량) → 고립 → 복근 → 유산소. [startWith]가
+  /// 'cardio'/'abs'면 그 구역을 앞으로(워밍업). 구역 안의 상대 순서는 유지한다.
+  static List<PlannedExercise> orderForSession(List<PlannedExercise> picked, String startWith) {
+    final weights = picked.where((p) => sectionOf(p) == 0).toList();
+    final compound = weights.where((p) => exerciseById(p.exerciseId)?.compound ?? false).toList();
+    final isolation = weights.where((p) => !(exerciseById(p.exerciseId)?.compound ?? false)).toList();
+    final abs = picked.where((p) => sectionOf(p) == 1).toList();
+    final cardio = picked.where((p) => sectionOf(p) == 2).toList();
+    return switch (startWith) {
+      'cardio' => [...cardio, ...compound, ...isolation, ...abs],
+      'abs' => [...abs, ...compound, ...isolation, ...cardio],
+      _ => [...compound, ...isolation, ...abs, ...cardio],
+    };
   }
 
   bool _shouldAppendCardio(List<MuscleGroup> groups) =>

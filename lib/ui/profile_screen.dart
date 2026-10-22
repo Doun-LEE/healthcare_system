@@ -172,8 +172,32 @@ class ProfileScreen extends StatelessWidget {
               value: u.includeCardio,
               contentPadding: EdgeInsets.zero,
               title: const Text('유산소 포함'),
-              subtitle: const Text('하체 날을 제외하고 세션 끝에 10~20분 추가'),
+              subtitle: const Text('하체 날을 제외하고 세션에 10~20분 추가'),
               onChanged: (v) => _edit(state, (p) => p.includeCardio = v),
+            ),
+            const SizedBox(height: 8),
+            Text('운동 시작 순서', style: text.labelLarge),
+            const SizedBox(height: 4),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'auto', label: Text('자동')),
+                ButtonSegment(value: 'weights', label: Text('웨이트')),
+                ButtonSegment(value: 'cardio', label: Text('유산소')),
+                ButtonSegment(value: 'abs', label: Text('복근')),
+              ],
+              selected: {u.startWith},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => _edit(state, (p) => p.startWith = s.first),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              switch (u.startWith) {
+                'cardio' => '유산소로 몸을 데운 뒤 복합 → 고립 → 복근 순서. 유산소가 워밍업이 됩니다.',
+                'abs' => '복근 먼저, 그다음 복합 → 고립 → 유산소.',
+                'weights' => '웨이트 먼저(복합 → 고립), 그다음 복근 → 유산소.',
+                _ => '힘이 가장 많이 드는 복합운동 → 고립운동 → 복근 → 유산소 순으로 배치합니다(덜 힘든 순서).',
+              },
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
           ]),
 

@@ -131,6 +131,14 @@ class GymScreen extends StatelessWidget {
       builder: (c) => _EquipmentPicker(have: gym.equipment.map((e) => e.type).toSet()),
     );
     if (result == null || !context.mounted) return;
+    if (result.customBase != null && result.customName != null) {
+      await state.addEquipment(gym.id, result.customBase!, name: result.customName);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('"${result.customName}" 추가 (운동은 ${result.customBase!.label} 기준으로 짭니다)')));
+      }
+      return;
+    }
     // 보유 해제한 기구 삭제
     for (final t in result.remove) {
       for (final e in gym.equipment.where((e) => e.type == t).toList()) {
@@ -165,10 +173,25 @@ class GymScreen extends StatelessWidget {
 
 /// 기구 선택기 결과: 새로 추가할 기구와 보유 해제한 기구.
 class PickerResult {
-  const PickerResult({required this.add, required this.remove});
+  const PickerResult({required this.add, required this.remove, this.customName, this.customBase});
   final List<EquipmentType> add;
   final List<EquipmentType> remove;
+
+  /// 목록에 없는 기구를 이름 그대로 추가할 때: 표시 이름과 운동 매핑에 쓸 비슷한 기구.
+  final String? customName;
+  final EquipmentType? customBase;
 }
+
+/// 기구 종류별로 할 수 있는 운동 이름(검색용).
+final Map<EquipmentType, List<String>> _exerciseNamesByType = () {
+  final m = <EquipmentType, List<String>>{};
+  for (final ex in exerciseCatalog) {
+    for (final t in ex.equipment) {
+      (m[t] ??= []).add(ex.name);
+    }
+  }
+  return m;
+}();
 
 /// 카탈로그 전체(80여 종)에서 검색·분류로 골라 여러 개를 한 번에 추가하는 선택기.
 class _EquipmentPicker extends StatefulWidget {
@@ -177,6 +200,46 @@ class _EquipmentPicker extends StatefulWidget {
 
   @override
   State<_EquipmentPicker> createState() => _EquipmentPickerState();
+}
+
+/// 직접 추가할 기구와 가장 비슷한 기구 고르기.
+Future<EquipmentType?> _pickBaseType(BuildContext context) {
+  return showDialog<EquipmentType>(
+    context: context,
+    builder: (c) {
+      var query = '';
+      return StatefulBuilder(builder: (c, setState) {
+        final list = equipmentCatalog.where((i) => i.type.matches(query)).toList();
+        return AlertDialog(
+          title: const Text('가장 비슷한 기구는?'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 380,
+            child: Column(children: [
+              TextField(
+                autofocus: true,
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '예: 로우, 프레스, 케이블'),
+                onChanged: (v) => setState(() => query = v),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView(children: [
+                  for (final i in list)
+                    ListTile(
+                      dense: true,
+                      title: Text(i.type.label),
+                      subtitle: Text(i.strengths.take(2).join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      onTap: () => Navigator.pop(c, i.type),
+                    ),
+                ]),
+              ),
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소'))],
+        );
+      });
+    },
+  );
 }
 
 class _EquipmentPickerState extends State<_EquipmentPicker> {
@@ -192,8 +255,12 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
     final items = equipmentCatalog
         .where((i) => i.type != EquipmentType.bodyweight)
         .where((i) => _category == null || i.type.category == _category)
-        .where((i) => i.type.matches(_query) || i.strengths.any((s) => s.toLowerCase().contains(_query.toLowerCase())))
+        .where((i) =>
+            i.type.matches(_query) ||
+            i.strengths.any((s) => s.toLowerCase().contains(_query.toLowerCase())) ||
+            (_exerciseNamesByType[i.type] ?? const []).any((n) => n.toLowerCase().contains(_query.toLowerCase())))
         .toList();
+    final q = _query.trim();
 
     return DraggableScrollableSheet(
       expand: false,
@@ -248,8 +315,21 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
           Expanded(
             child: ListView.builder(
               controller: ctrl,
-              itemCount: items.length,
+              itemCount: items.length + (q.isEmpty ? 0 : 1),
               itemBuilder: (c, i) {
+                if (i == items.length) {
+                  return ListTile(
+                    leading: Icon(Icons.add_circle_outline, color: cs.tertiary),
+                    title: Text('"$q" 이름 그대로 추가'),
+                    subtitle: Text(items.isEmpty ? '목록에 없는 기구예요. 비슷한 기구를 골라주면 그 기준으로 운동을 짭니다.' : '위에 없으면 비슷한 기구를 골라 직접 추가'),
+                    onTap: () async {
+                      final base = await _pickBaseType(context);
+                      if (base != null && context.mounted) {
+                        Navigator.pop(context, PickerResult(add: const [], remove: const [], customName: q, customBase: base));
+                      }
+                    },
+                  );
+                }
                 final info = items[i];
                 final has = widget.have.contains(info.type);
                 final rem = _removed.contains(info.type);

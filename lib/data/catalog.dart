@@ -272,6 +272,30 @@ const List<EquipmentInfo> equipmentCatalog = [
     groups: [MuscleGroup.arms],
   ),
   EquipmentInfo(
+    type: EquipmentType.latPulldownPlateLoaded,
+    summary: '원판을 끼우는 풀다운. 한쪽씩 당겨 좌우 균형을 맞추기 좋다.',
+    strengths: ['광배(넓이)', '좌우 독립', '안전한 고중량'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.standingLegCurl,
+    summary: '서서 한 다리씩 하는 레그 컬. 햄스트링 고립.',
+    strengths: ['햄스트링 고립', '좌우 독립'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.multiHip,
+    summary: '킥백·어브덕션·어덕션·힙 플렉션을 한 기구에서. 둔근·중둔근.',
+    strengths: ['대둔근 고립', '중둔근(힙 라인)', '좌우 독립'],
+    groups: [MuscleGroup.legs],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.abCoaster,
+    summary: '무릎을 당겨 올리는 복근 기구. 하복부에 집중.',
+    strengths: ['하복부', '허리 부담 ↓'],
+    groups: [MuscleGroup.abs],
+  ),
+  EquipmentInfo(
     type: EquipmentType.abCrunchMachine,
     summary: '상복부 고립 머신. 중량 조절이 쉬움.',
     strengths: ['상복부', '점진적 과부하'],
@@ -802,7 +826,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'lat_pulldown', name: '랫풀다운', group: MuscleGroup.back,
-    emphasis: ['광배(넓이)'], equipment: [EquipmentType.latPulldown, EquipmentType.cableMachine],
+    emphasis: ['광배(넓이)'], equipment: [EquipmentType.latPulldown, EquipmentType.latPulldownPlateLoaded, EquipmentType.cableMachine],
     loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
     compound: true, repRange: [8, 12], priority: 3,
     description: '가슴을 열고 팔꿈치를 옆구리로. 넓은 등의 기본.',
@@ -904,7 +928,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'leg_curl', name: '레그 컬', group: MuscleGroup.legs,
-    emphasis: ['햄스트링 고립'], equipment: [EquipmentType.legCurl],
+    emphasis: ['햄스트링 고립'], equipment: [EquipmentType.legCurl, EquipmentType.standingLegCurl],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.4,
     repRange: [12, 15], priority: 2,
   ),
@@ -1073,6 +1097,12 @@ const List<Exercise> exerciseCatalog = [
     emphasis: ['상복부', '점진적 과부하'], equipment: [EquipmentType.cableMachine],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.5,
     repRange: [12, 15], priority: 2,
+  ),
+  Exercise(
+    id: 'ab_coaster', name: '앱 코스터', group: MuscleGroup.abs,
+    emphasis: ['하복부', '허리 부담 ↓'], equipment: [EquipmentType.abCoaster],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.3,
+    repRange: [12, 20], priority: 2,
   ),
   Exercise(
     id: 'ab_machine', name: '복근 머신 크런치', group: MuscleGroup.abs,
@@ -1338,7 +1368,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'glute_kickback_m', name: '글루트 킥백 머신', group: MuscleGroup.legs,
-    emphasis: ['대둔근 고립', '좌우 균형'], equipment: [EquipmentType.gluteKickback],
+    emphasis: ['대둔근 고립', '좌우 균형'], equipment: [EquipmentType.gluteKickback, EquipmentType.multiHip],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.35,
     unilateral: true, repRange: [12, 15], priority: 1,
   ),

@@ -72,15 +72,16 @@ enum EquipmentType {
   declineChestPress('디클라인 체스트 프레스 머신', EquipmentCategory.chest, ['decline chest press']),
   chestPressPlateLoaded('플레이트 로디드 체스트 프레스(해머)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소']),
   pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
-  cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신']),
+  cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신', '케이블', '암풀다운', '케이블 크런치', '페이스풀']),
   functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
 
   // ── 등 ──
-  latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀']),
+  latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀', '암풀다운', 'arm pulldown', '풀다운']),
+  latPulldownPlateLoaded('플레이트 로디드 랫풀다운(아이소 풀다운)', EquipmentCategory.back, ['iso lateral pulldown', 'hammer pulldown', '해머 풀다운', '아이소 풀다운', '아이소 래터럴 풀다운']),
   seatedRow('시티드 로우(케이블)', EquipmentCategory.back, ['seated row', 'cable row', '로우']),
   chestSupportedRow('체스트 서포티드 로우 머신', EquipmentCategory.back, ['chest supported row', 'seated row machine']),
   highRow('하이 로우(플레이트 로디드)', EquipmentCategory.back, ['high row', 'hammer high row', '해머 하이로우']),
-  lowRow('로우 로우(플레이트 로디드)', EquipmentCategory.back, ['low row', 'hammer row', '해머 로우', 'iso row']),
+  lowRow('로우 로우(플레이트 로디드·아이소 래터럴 로우)', EquipmentCategory.back, ['low row', 'hammer row', '해머 로우', 'iso row', 'iso lateral row', '아이소 래터럴 로우', '래터럴 로우', '레터럴 로우', '아이소 로우']),
   tBarRow('티바 로우 머신', EquipmentCategory.back, ['t bar row', '티바']),
   pulloverMachine('풀오버 머신', EquipmentCategory.back, ['pullover machine']),
   shrugMachine('슈러그 머신', EquipmentCategory.back, ['shrug machine', '승모']),
@@ -110,10 +111,12 @@ enum EquipmentType {
   legExtension('레그 익스텐션', EquipmentCategory.legs, ['leg extension', '레그익스텐션']),
   legCurl('시티드 레그 컬', EquipmentCategory.legs, ['seated leg curl', 'leg curl', '레그컬']),
   lyingLegCurl('라잉 레그 컬', EquipmentCategory.legs, ['lying leg curl', 'prone leg curl']),
+  standingLegCurl('스탠딩 레그 컬', EquipmentCategory.legs, ['standing leg curl', '스탠딩 컬']),
   hipAbductor('힙 어브덕터(바깥)', EquipmentCategory.legs, ['hip abductor', 'abduction', '어브덕션']),
   hipAdductor('힙 어덕터(안쪽)', EquipmentCategory.legs, ['hip adductor', 'adduction', '어덕션', '이너타이']),
   hipThrust('힙 쓰러스트 머신', EquipmentCategory.legs, ['hip thrust', '글루트 드라이브']),
   gluteKickback('글루트 킥백 머신', EquipmentCategory.legs, ['glute kickback', 'glute machine']),
+  multiHip('멀티 힙 머신', EquipmentCategory.legs, ['multi hip', '멀티힙', 'hip machine']),
   calfRaise('스탠딩 카프 레이즈', EquipmentCategory.legs, ['standing calf', 'calf raise', '종아리']),
   seatedCalfRaise('시티드 카프 레이즈', EquipmentCategory.legs, ['seated calf']),
   sissySquat('시시 스쿼트 머신', EquipmentCategory.legs, ['sissy squat']),
@@ -125,6 +128,7 @@ enum EquipmentType {
   captainsChair('캡틴스 체어(레그레이즈 스테이션)', EquipmentCategory.core, ['captains chair', 'leg raise station', 'vkr']),
   declineAbBench('디클라인 싯업 벤치', EquipmentCategory.core, ['sit up bench', 'ab bench', '싯업']),
   abWheel('AB 휠(복근 롤러)', EquipmentCategory.core, ['ab wheel', 'ab roller']),
+  abCoaster('앱 코스터', EquipmentCategory.core, ['ab coaster', '앱코스터', '복근 코스터']),
 
   // ── 유산소 ──
   treadmill('트레드밀(러닝머신)', EquipmentCategory.cardio, ['treadmill', '러닝머신']),
@@ -256,6 +260,7 @@ class UserProfile {
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
+    this.startWith = 'auto',
     this.activeGymId,
     this.inbodyScannedAt,
     this.squat1rm,
@@ -282,6 +287,9 @@ class UserProfile {
   /// 하루 운동 시간 예산(분).
   int sessionMinutes;
   bool includeCardio;
+
+  /// 운동 시작 순서: 'auto'(복합→고립→복근→유산소) | 'weights' | 'cardio' | 'abs'.
+  String startWith;
   String? activeGymId;
   DateTime? inbodyScannedAt;
 
@@ -306,6 +314,7 @@ class UserProfile {
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
+        'startWith': startWith,
         'activeGymId': activeGymId,
         'inbodyScannedAt': inbodyScannedAt?.toIso8601String(),
         'squat1rm': squat1rm,
@@ -329,6 +338,7 @@ class UserProfile {
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
+        startWith: (j['startWith'] as String?) ?? 'auto',
         activeGymId: j['activeGymId'] as String?,
         inbodyScannedAt: j['inbodyScannedAt'] == null
             ? null
@@ -378,6 +388,7 @@ enum LoadMechanism {
       case EquipmentType.beltSquat:
         return LoadMechanism.free;
       case EquipmentType.chestPressPlateLoaded:
+      case EquipmentType.latPulldownPlateLoaded:
       case EquipmentType.shoulderPressPlateLoaded:
       case EquipmentType.highRow:
       case EquipmentType.lowRow:
@@ -593,6 +604,7 @@ class PlannedExercise {
     required this.restSeconds,
     required this.sets,
     this.note,
+    this.personal = false,
   });
 
   final String exerciseId;
@@ -603,6 +615,10 @@ class PlannedExercise {
   /// 생성 근거(예: "지난 루틴에서 미사용", "등 하부 보강").
   final String? note;
 
+  /// 파트너 운동일에 나만 추가한 운동(팔·복근 등). 파트너에게 보내지 않고, 파트너가
+  /// 루틴을 바꿔도 유지된다.
+  final bool personal;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -612,6 +628,7 @@ class PlannedExercise {
         'restSeconds': restSeconds,
         'sets': sets.map((s) => s.toJson()).toList(),
         'note': note,
+        if (personal) 'personal': true,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -622,6 +639,7 @@ class PlannedExercise {
             .map((s) => SetEntry.fromJson(s as Map<String, dynamic>))
             .toList(),
         note: j['note'] as String?,
+        personal: (j['personal'] as bool?) ?? false,
       );
 }
 
@@ -660,7 +678,7 @@ class DayPlan {
   final DayKind kind;
   final List<MuscleGroup> focus;
   final List<PlannedExercise> exercises;
-  final int estimatedMinutes;
+  int estimatedMinutes;
 
   /// 1.0 기본. 연속 운동일이 길면 0.85 등으로 볼륨(세트 수)을 낮춘다.
   final double intensityFactor;

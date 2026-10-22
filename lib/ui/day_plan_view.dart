@@ -1,19 +1,21 @@
 import 'dart:math';
-import '../engine/load_estimator.dart';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/catalog.dart';
+import '../engine/load_estimator.dart';
+import '../engine/session_generator.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
-import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
-
 import 'widgets/condition_card.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
+import 'widgets/workout_card.dart';
 
 /// 공유 코드 붙여넣기 → 해당 날짜로 가져오기. 오늘/달력 화면에서 공용.
 Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
@@ -187,8 +189,20 @@ class DayPlanView extends StatelessWidget {
           ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
         if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
         const SizedBox(height: 8),
-        for (final pe in plan.exercises)
-          _ExerciseCard(plan: plan, pe: pe, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
+        for (var i = 0; i < plan.exercises.length; i++) ...[
+          if (i == 0 || SessionGenerator.sectionOf(plan.exercises[i]) != SessionGenerator.sectionOf(plan.exercises[i - 1]))
+            _SectionLabel(SessionGenerator.sectionLabels[SessionGenerator.sectionOf(plan.exercises[i])]),
+          _ExerciseCard(plan: plan, pe: plan.exercises[i], editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
+        ],
+        if (editable && !plan.isFinished)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => addExerciseDialog(context, plan),
+              icon: const Icon(Icons.add),
+              label: Text(plan.partnerName != null ? '운동 추가 (나만 또는 같이)' : '운동 추가'),
+            ),
+          ),
         if (plan.exercises.isEmpty)
           Padding(
             padding: const EdgeInsets.all(24),
@@ -216,11 +230,19 @@ class DayPlanView extends StatelessWidget {
             if (plan.rpe != null)
               Text('체감 강도 ${plan.rpe}/10 · ${rpeLabel(plan.rpe!)}',
                   style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-            if (logging)
-              TextButton(
-                onPressed: () => state.reopenDay(plan),
-                child: const Text('다시 열기'),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+              FilledButton.tonalIcon(
+                onPressed: () => shareWorkoutImage(context, plan, state.currentUser?.name ?? ''),
+                icon: const Icon(Icons.image_outlined),
+                label: const Text('완료 카드 이미지 공유'),
               ),
+              if (logging)
+                TextButton(
+                  onPressed: () => state.reopenDay(plan),
+                  child: const Text('다시 열기'),
+                ),
+            ]),
           ]),
       ],
     );
@@ -265,7 +287,17 @@ class DayPlanView extends StatelessWidget {
                       .toList(),
                 ),
         ),
-        actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('확인'))],
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(c);
+              shareWorkoutImage(context, plan, state.currentUser?.name ?? '');
+            },
+            icon: const Icon(Icons.image_outlined),
+            label: const Text('완료 카드 공유'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(c), child: const Text('확인')),
+        ],
       ),
     );
   }
@@ -381,6 +413,105 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 10, 4, 2),
+      child: Row(children: [
+        Text(label, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 8),
+        Expanded(child: Divider(color: cs.outlineVariant)),
+      ]),
+    );
+  }
+}
+
+/// 운동 추가: 보유 기구로 가능한 운동을 부위별로 검색해서 고른다.
+Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
+  final state = context.read<AppState>();
+  final available = state.availableEquipment;
+  var query = '';
+  MuscleGroup? group;
+  var personal = plan.partnerName != null;
+  final picked = await showModalBottomSheet<(Exercise, bool)>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (c) => StatefulBuilder(builder: (c, setState) {
+      final list = exerciseCatalog
+          .where((e) => group == null || e.group == group)
+          .where((e) => query.isEmpty || e.name.toLowerCase().contains(query.toLowerCase()) || e.emphasis.any((m) => m.contains(query)))
+          .toList()
+        ..sort((a, b) {
+          final ca = a.canDoWith(available) ? 0 : 1, cb = b.canDoWith(available) ? 0 : 1;
+          return ca != cb ? ca - cb : b.priority - a.priority;
+        });
+      return DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.9,
+        maxChildSize: 0.95,
+        builder: (c, ctrl) => Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '운동 이름·부위 검색'),
+              onChanged: (v) => setState(() => query = v),
+            ),
+          ),
+          SizedBox(
+            height: 44,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(label: const Text('전체'), selected: group == null, onSelected: (_) => setState(() => group = null)),
+              ),
+              for (final g in MuscleGroup.values)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(label: Text(g.label), selected: group == g, onSelected: (_) => setState(() => group = g)),
+                ),
+            ]),
+          ),
+          if (plan.partnerName != null)
+            SwitchListTile(
+              dense: true,
+              value: personal,
+              title: const Text('나만 하는 운동'),
+              subtitle: Text(personal ? '${plan.partnerName}에게 보내지 않고 내 루틴에만 추가' : '${plan.partnerName}의 루틴에도 같이 추가'),
+              onChanged: (v) => setState(() => personal = v),
+            ),
+          Expanded(
+            child: ListView.builder(
+              controller: ctrl,
+              itemCount: list.length,
+              itemBuilder: (c, i) {
+                final e = list[i];
+                final can = e.canDoWith(available);
+                return ListTile(
+                  dense: true,
+                  enabled: can,
+                  title: Text(e.name),
+                  subtitle: Text('${e.group.label} · ${e.emphasis.take(2).join(' · ')}${can ? '' : ' · 보유 기구 없음'}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: e.compound ? const Icon(Icons.fitness_center, size: 16) : null,
+                  onTap: can ? () => Navigator.pop(c, (e, personal)) : null,
+                );
+              },
+            ),
+          ),
+        ]),
+      );
+    }),
+  );
+  if (picked == null || !context.mounted) return;
+  await state.addExercise(plan, picked.$1, personal: picked.$2);
+}
+
 class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({required this.plan, required this.pe, required this.editable, required this.logging});
   final DayPlan plan;
@@ -422,7 +553,7 @@ class _ExerciseCard extends StatelessWidget {
                         Text('${pe.equipmentType.label} · ${ex.group.label}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}',
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (pe.note != null && pe.note!.isNotEmpty)
-                          Text(pe.note!, style: text.bodySmall?.copyWith(color: cs.tertiary)),
+                          Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
                         if (plan.partnerName != null && plan.partnerWeights.containsKey(pe.exerciseId) && !isCardio)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
@@ -449,13 +580,22 @@ class _ExerciseCard extends StatelessWidget {
                           await _swap(context, state, ex);
                         case 'add':
                           await state.addSet(plan, pe);
+                        case 'removeSet':
+                          await state.removeSet(plan, pe);
                         case 'remove':
                           await state.removeExercise(plan, pe);
+                        case 'up':
+                          await state.moveExercise(plan, pe, -1);
+                        case 'down':
+                          await state.moveExercise(plan, pe, 1);
                       }
                     },
                     itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'up', child: Text('↑ 위로')),
+                      PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
                       PopupMenuItem(value: 'swap', child: Text('다른 운동으로 교체')),
                       PopupMenuItem(value: 'add', child: Text('세트 추가')),
+                      PopupMenuItem(value: 'removeSet', child: Text('세트 빼기')),
                       PopupMenuItem(value: 'remove', child: Text('이 운동 제외')),
                     ],
                   ),

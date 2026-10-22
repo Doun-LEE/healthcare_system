@@ -19,6 +19,7 @@ class BodyMuscleView extends StatelessWidget {
           faces: bodyFaces(map),
           height: height,
           autoRotate: false,
+          edges: false,
           initialYaw: bodyInitialYaw(map),
           initialPitch: 0.12,
           hint: '드래그해서 앞·뒤 보기',
