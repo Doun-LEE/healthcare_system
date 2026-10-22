@@ -8,7 +8,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
-import 'chat_screen.dart';
+import 'partner_profile_screen.dart';
 import 'widgets/level_card.dart';
 import 'widgets/partner_widgets.dart';
 
@@ -49,7 +49,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(height: 4),
           const InboxBanner(),
           const SizedBox(height: 6),
-          LevelCard(profile: user, compact: true, onTap: () => onGoToTab(5)),
+          LevelCard(profile: user, compact: true, onTap: () => PartnerProfileScreen.openMine(context, onEdit: () => onGoToTab(5))),
           const SizedBox(height: 6),
 
           // 오늘 운동 카드
@@ -197,10 +197,10 @@ class HomeScreen extends StatelessWidget {
                       children: [
                         for (final p in state.partners)
                           ActionChip(
-                            avatar: p.pending ? CircleAvatar(child: Text(p.display.characters.first)) : const Icon(Icons.chat_bubble_outline, size: 18),
-                            label: Text(p.pending ? '${p.display} (대기)' : '${p.display} 채팅'),
+                            avatar: CircleAvatar(child: Text(p.display.characters.first)),
+                            label: Text(p.pending ? '${p.display} (대기)' : p.display),
                             backgroundColor: p.pending ? cs.surfaceContainerHighest : null,
-                            onPressed: p.pending ? null : () => PartnerChatScreen.open(context, p),
+                            onPressed: p.pending ? null : () => PartnerProfileScreen.open(context, p),
                           ),
                       ],
                     ),

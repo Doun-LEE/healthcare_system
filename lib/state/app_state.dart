@@ -712,6 +712,14 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 잘못 눌렀을 때: 시작 취소(세트 체크 전) 또는 시작 시각을 지금으로 재설정.
+  Future<void> cancelWorkoutStart(DayPlan plan, {bool resetToNow = false}) async {
+    if (plan.isFinished) return;
+    plan.startedAt = resetToNow ? DateTime.now() : null;
+    plan.endedAt = null;
+    await _save();
+  }
+
   Future<void> addSet(DayPlan plan, PlannedExercise ex) async {
     final last = ex.sets.last;
     ex.sets.add(SetEntry(

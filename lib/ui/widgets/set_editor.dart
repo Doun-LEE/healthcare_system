@@ -73,6 +73,8 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   static const int _maxReps = 60;
   late int _reps;
   late int _weightIdx; // weight = idx * step
+  /// 키보드로 직접 넣은 무게(휠 단위와 안 맞아도 그대로 저장).
+  double? _exactWeight;
   late final int _maxWeightIdx;
   late final FixedExtentScrollController _repsCtrl;
   late final FixedExtentScrollController _weightCtrl;
@@ -103,7 +105,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     super.dispose();
   }
 
-  double get _weight => _weightIdx * _step;
+  double get _weight => _exactWeight ?? _weightIdx * _step;
 
   String _fmt(double w) =>
       w == w.roundToDouble() ? w.toInt().toString() : w.toStringAsFixed(1);
@@ -150,7 +152,10 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                       selected: _weightIdx,
                       highlight: upW ? cs.primary : null,
                       itemText: (i) => _fmt(i * _step),
-                      onChanged: (i) => setState(() => _weightIdx = i),
+                      onChanged: (i) => setState(() {
+                        _weightIdx = i;
+                        _exactWeight = null;
+                      }),
                     ),
                   ),
                 if (widget.showWeight)
@@ -189,6 +194,12 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               ],
             ),
           ),
+          if (_exactWeight != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('직접 입력 ${_fmt(_exactWeight!)}kg 로 저장돼요 (휠은 가장 가까운 칸 표시)',
+                  style: text.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
+            ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -228,10 +239,13 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     );
   }
 
-  void _jumpW(int i) {
+  void _jumpW(int i, {double? exact}) {
     final v = i.clamp(0, _maxWeightIdx);
     _weightCtrl.animateToItem(v, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
-    setState(() => _weightIdx = v);
+    setState(() {
+      _weightIdx = v;
+      _exactWeight = exact != null && (exact - v * _step).abs() > 0.001 ? exact : null;
+    });
   }
 
   void _jumpR(int i) {
@@ -286,7 +300,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     );
     if (ok != true || !mounted) return;
     final w = double.tryParse(wCtrl.text.trim());
-    if (widget.showWeight && w != null) _jumpW((w / _step).round());
+    if (widget.showWeight && w != null) _jumpW((w / _step).round(), exact: w);
     final r = int.tryParse(rCtrl.text.trim());
     if (r != null) _jumpR(r);
     final l = int.tryParse(lCtrl.text.trim());

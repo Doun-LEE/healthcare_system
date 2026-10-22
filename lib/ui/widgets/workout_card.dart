@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
@@ -145,6 +146,17 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
           const SizedBox(height: 12),
           Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기', style: TextStyle(color: Colors.white))),
+            if (kIsWeb)
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  final msg = await _capture(key, plan, copy: true);
+                  if (c.mounted && msg != null) {
+                    ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(msg)));
+                  }
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('복사 (카톡에 붙여넣기)'),
+              ),
             FilledButton.tonalIcon(
               onPressed: () async {
                 final msg = await _capture(key, plan, save: true);
@@ -167,7 +179,7 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
             ),
           ]),
           const SizedBox(height: 6),
-          const Text('공유 창에는 이 기기에 설치된 앱이 뜹니다. 폰에서는 카카오톡·인스타그램이 보여요.',
+          Text(kIsWeb ? 'PC 공유 창에는 카카오톡이 안 뜹니다(윈도우 제한). "복사" 후 카톡 대화창에 Ctrl+V 하세요. 폰에서는 공유 창에 카카오톡·인스타그램이 보여요.' : '공유 창에서 카카오톡·인스타그램·갤러리를 고르세요.',
               style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.center),
         ]),
       ),
@@ -175,7 +187,7 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
   );
 }
 
-Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false}) async {
+Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false, bool copy = false}) async {
   try {
     final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return '카드를 찾지 못했어요.';
@@ -184,6 +196,10 @@ Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false}) async
     if (bytes == null) return '이미지 변환 실패';
     final d = plan.date;
     final name = 'fitroutine_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.png';
+    if (copy) {
+      final ok = await copyImageToClipboard(bytes.buffer.asUint8List(), 'image/png');
+      return ok ? '이미지를 복사했어요. 카톡 대화창에서 Ctrl+V 하세요.' : '이 브라우저는 이미지 복사를 지원하지 않아요. "이미지 저장"을 쓰세요.';
+    }
     if (save) return await saveBytesToDevice(bytes.buffer.asUint8List(), name, 'image/png');
     final file = XFile.fromData(bytes.buffer.asUint8List(), mimeType: 'image/png', name: name);
     final result = await SharePlus.instance.share(ShareParams(

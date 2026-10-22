@@ -54,7 +54,17 @@ class PartnerProfile {
     required this.planTitles,
     this.dayCondition = const {},
     this.dayLoad = const {},
+    this.plans = const {},
   });
+
+  /// 'yyyy-MM-dd' → 루틴 상세(운동·세트·완료). 파트너가 수락한 친구의 기록/예정 루틴 보기용.
+  final Map<String, PartnerPlan> plans;
+
+  List<PartnerPlan> get finishedPlans => (plans.values.where((p) => p.finished).toList()..sort((a, b) => b.date.compareTo(a.date)));
+  List<PartnerPlan> get upcomingPlans {
+    final today = dateOnly(DateTime.now());
+    return plans.values.where((p) => !p.finished && !p.date.isBefore(today)).toList()..sort((a, b) => a.date.compareTo(b.date));
+  }
 
   final String uid;
   final String name;
@@ -118,6 +128,21 @@ class PartnerProfile {
               'title': p.title ?? '',
               if (p.condition != null) 'condition': p.condition,
               if (p.condition != null) 'load': p.loadFactor,
+              'done': p.isFinished,
+              if (p.rpe != null) 'rpe': p.rpe,
+              if (p.actualMinutes != null) 'min': p.actualMinutes,
+              'est': p.estimatedMinutes,
+              'ex': [
+                for (final e in p.exercises)
+                  {
+                    'i': e.exerciseId,
+                    'q': e.equipmentType.name,
+                    's': [
+                      for (final s in e.sets)
+                        {'r': s.effectiveReps, 'w': s.effectiveWeight, if (s.completed) 'd': true, if (s.effectiveLevel != null) 'l': s.effectiveLevel},
+                    ],
+                  },
+              ],
             },
       },
     };
@@ -158,8 +183,12 @@ class PartnerProfile {
     final planTitles = <String, String>{};
     final dayCondition = <String, int>{};
     final dayLoad = <String, double>{};
+    final plans = <String, PartnerPlan>{};
     for (final e in ((j['plans'] as Map?) ?? const {}).entries) {
       final m = (e.value as Map).cast<String, dynamic>();
+      try {
+        plans[e.key as String] = PartnerPlan.fromJson(e.key as String, m);
+      } catch (_) {}
       planFocus[e.key as String] = ((m['focus'] as List?) ?? const [])
           .map((f) {
             try {
@@ -189,8 +218,86 @@ class PartnerProfile {
       planTitles: planTitles,
       dayCondition: dayCondition,
       dayLoad: dayLoad,
+      plans: plans,
     );
   }
+}
+
+/// 파트너의 하루 루틴 요약(공개 프로필에서 읽음).
+class PartnerPlan {
+  const PartnerPlan({
+    required this.date,
+    required this.title,
+    required this.focus,
+    required this.finished,
+    required this.exercises,
+    this.rpe,
+    this.actualMinutes,
+    this.estimatedMinutes = 0,
+  });
+  final DateTime date;
+  final String title;
+  final List<MuscleGroup> focus;
+  final bool finished;
+  final int? rpe;
+  final int? actualMinutes;
+  final int estimatedMinutes;
+  final List<PartnerExercise> exercises;
+
+  int get totalSets => exercises.fold(0, (a, e) => a + e.sets.length);
+  int get doneSets => exercises.fold(0, (a, e) => a + e.sets.where((s) => s.done).length);
+  double get volume => exercises.fold(0.0, (a, e) => a + e.sets.where((s) => s.done).fold(0.0, (b, s) => b + s.weight * s.reps));
+  double get completion => totalSets == 0 ? 0 : doneSets / totalSets;
+
+  factory PartnerPlan.fromJson(String key, Map<String, dynamic> m) => PartnerPlan(
+        date: parseDateKey(key),
+        title: (m['title'] as String?) ?? '',
+        focus: ((m['focus'] as List?) ?? const [])
+            .map((f) {
+              try {
+                return MuscleGroup.parse(f as String);
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<MuscleGroup>()
+            .toList(),
+        finished: (m['done'] as bool?) ?? false,
+        rpe: (m['rpe'] as num?)?.toInt(),
+        actualMinutes: (m['min'] as num?)?.toInt(),
+        estimatedMinutes: (m['est'] as num?)?.toInt() ?? 0,
+        exercises: [
+          for (final e in ((m['ex'] as List?) ?? const []).cast<Map>())
+            PartnerExercise(
+              exerciseId: e['i'] as String,
+              equipment: e['q'] as String?,
+              sets: [
+                for (final s in ((e['s'] as List?) ?? const []).cast<Map>())
+                  PartnerSet(
+                    reps: (s['r'] as num?)?.toInt() ?? 0,
+                    weight: (s['w'] as num?)?.toDouble() ?? 0,
+                    done: (s['d'] as bool?) ?? false,
+                    level: (s['l'] as num?)?.toInt(),
+                  ),
+              ],
+            ),
+        ],
+      );
+}
+
+class PartnerExercise {
+  const PartnerExercise({required this.exerciseId, required this.sets, this.equipment});
+  final String exerciseId;
+  final String? equipment;
+  final List<PartnerSet> sets;
+}
+
+class PartnerSet {
+  const PartnerSet({required this.reps, required this.weight, required this.done, this.level});
+  final int reps;
+  final double weight;
+  final bool done;
+  final int? level;
 }
 
 /// 파트너가 그날 입력한 컨디션. 파트너 운동일 화면에 보여주고 파트너 무게에 배율을 곱한다.

@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../services/partner.dart';
 import '../../state/app_state.dart';
 import '../chat_screen.dart';
+import '../partner_profile_screen.dart';
 import 'app_sheet.dart';
 
 /// 내 정보 화면의 파트너 섹션: 이메일로 요청, 목록(대기중 표시), 삭제.
@@ -59,7 +60,7 @@ class PartnerSection extends StatelessWidget {
             title: Text(p.display),
             subtitle: Text(p.pending ? '${p.handle} · 수락 대기 중' : p.handle,
                 style: TextStyle(color: p.pending ? cs.tertiary : null)),
-            onTap: p.pending ? null : () => PartnerChatScreen.open(context, p),
+            onTap: p.pending ? null : () => PartnerProfileScreen.open(context, p),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               if (!p.pending)
                 IconButton(

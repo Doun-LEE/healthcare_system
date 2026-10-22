@@ -10,3 +10,6 @@ Future<String?> saveBytesToDevice(Uint8List bytes, String name, String mimeType)
   await f.writeAsBytes(bytes, flush: true);
   return '저장했어요: ${f.path}\n갤러리에 넣으려면 "공유"에서 사진 앱/갤러리를 고르세요.';
 }
+
+/// 모바일: 이미지 클립보드 복사는 지원하지 않는다(공유 창을 쓴다).
+Future<bool> copyImageToClipboard(Uint8List bytes, String mimeType) async => false;

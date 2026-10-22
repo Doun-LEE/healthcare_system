@@ -507,6 +507,15 @@ class _WorkoutClockState extends State<_WorkoutClock> {
             style: text.bodyMedium?.copyWith(color: over ? cs.error : cs.onSurfaceVariant, fontWeight: FontWeight.w600),
           ),
         ),
+        PopupMenuButton<String>(
+          tooltip: '시작 시각',
+          icon: Icon(Icons.more_horiz, size: 18, color: cs.onSurfaceVariant),
+          onSelected: (v) => context.read<AppState>().cancelWorkoutStart(p, resetToNow: v == 'now'),
+          itemBuilder: (_) => [
+            if (!p.exercises.any((e) => e.anyCompleted)) const PopupMenuItem(value: 'cancel', child: Text('시작 취소 (잘못 눌렀어요)')),
+            const PopupMenuItem(value: 'now', child: Text('시작 시각을 지금으로')),
+          ],
+        ),
       ]),
     );
   }
