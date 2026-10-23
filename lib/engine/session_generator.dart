@@ -171,11 +171,67 @@ class SessionGenerator {
         ));
       }
     }
-    return orderForSession(picked, req.profile);
+    return [..._warmups(strengthGroups, picked), ...orderForSession(picked, req.profile)];
+  }
+
+  /// 본 운동 전 워밍업: 동적 스트레칭 + 그 날 주요 부위 활성화 운동(가볍게 2세트).
+  /// 직접 고른 목록이 있으면 그것, 끄면 없음. 본 루틴과 겹치는 운동은 뺀다.
+  List<PlannedExercise> _warmups(List<MuscleGroup> groups, List<PlannedExercise> main) {
+    final p = req.profile;
+    if (p.warmupMode == 'off' || groups.isEmpty) return const [];
+    final mainIds = main.map((e) => e.exerciseId).toSet();
+    final ids = <String>[];
+    if (p.warmupMode == 'custom' && p.warmupIds.isNotEmpty) {
+      ids.addAll(p.warmupIds);
+    } else {
+      ids.add('dyn_stretch');
+      for (final g in groups.take(2)) {
+        var n = 0;
+        for (final id in warmupByGroup[g] ?? const <String>[]) {
+          if (n >= 2 || ids.length >= 5) break;
+          final ex = exerciseById(id);
+          if (ex == null || ids.contains(id) || mainIds.contains(id) || !ex.canDoWith(req.available)) continue;
+          if (excludedByInjury(ex, req.injuries)) continue;
+          ids.add(id);
+          n++;
+        }
+      }
+    }
+    final out = <PlannedExercise>[];
+    for (final id in ids) {
+      final ex = exerciseById(id);
+      if (ex == null || !ex.canDoWith(req.available)) continue;
+      final eq = ex.pickEquipment(req.available);
+      if (ex.loadType == LoadType.cardio) {
+        out.add(PlannedExercise(
+          exerciseId: id,
+          equipmentType: eq,
+          restSeconds: 0,
+          sets: [SetEntry(targetReps: ex.repRange[0], targetWeight: 0)],
+          note: '워밍업',
+          warmup: true,
+        ));
+        continue;
+      }
+      final base = _plan(ex);
+      final w = base.sets.first.targetWeight;
+      final step = req.stepFor(ex, eq);
+      final light = w > 0 ? max(step, LoadEstimator.roundTo(w * 0.5, step)) : 0.0;
+      out.add(PlannedExercise(
+        exerciseId: id,
+        equipmentType: eq,
+        restSeconds: 30,
+        sets: List.generate(2, (_) => SetEntry(targetReps: ex.repRange[1], targetWeight: light)),
+        note: '워밍업 · 가볍게',
+        warmup: true,
+      ));
+    }
+    return out;
   }
 
   /// 운동 구역: 'upper'(웨이트 상체) · 'lower'(웨이트 하체) · 'abs' · 'cardio'.
   static String sectionOf(PlannedExercise p) {
+    if (p.warmup) return 'warmup';
     final ex = exerciseById(p.exerciseId);
     if (ex == null) return 'upper';
     if (ex.loadType == LoadType.cardio) return 'cardio';
@@ -186,7 +242,7 @@ class SessionGenerator {
   }
 
   static const sectionKeys = ['upper', 'lower', 'abs', 'cardio'];
-  static const sectionLabels = {'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
+  static const sectionLabels = {'warmup': '워밍업 · 스트레칭', 'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
   static String sectionLabel(String key) => sectionLabels[key] ?? key;
 
   /// 세션 정렬. 구역은 프로필의 [UserProfile.sectionOrder] 순서, 웨이트 구역 안은
@@ -197,7 +253,7 @@ class SessionGenerator {
     for (final e in picked) {
       (bySec[sectionOf(e)] ??= []).add(e);
     }
-    final order = [...p.sectionOrder, for (final k in sectionKeys) if (!p.sectionOrder.contains(k)) k];
+    final order = ['warmup', ...p.sectionOrder, for (final k in sectionKeys) if (!p.sectionOrder.contains(k)) k];
     final out = <PlannedExercise>[];
     for (final k in order) {
       final list = bySec[k] ?? const [];
@@ -285,6 +341,7 @@ class SessionGenerator {
     Exercise? best;
     var bestScore = double.negativeInfinity;
     for (final ex in exercisesOf(g)) {
+      if (ex.warmupOnly) continue;
       if (pickedIds.contains(ex.id)) continue;
       if (!ex.canDoWith(req.available)) continue;
       if (excludedByInjury(ex, req.injuries)) continue;
@@ -406,6 +463,8 @@ class SessionGenerator {
   static int estimateMinutes(List<PlannedExercise> plan) {
     var sec = _overheadMin * 60;
     for (final p in plan) {
+      // 워밍업은 고정 준비 시간(_overheadMin)에 포함.
+      if (p.warmup) continue;
       final ex = exerciseById(p.exerciseId);
       if (ex == null) continue;
       if (ex.loadType == LoadType.cardio) {

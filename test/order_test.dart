@@ -69,4 +69,28 @@ void main() {
       expect(planned.sets, isNotEmpty);
     }
   });
+
+  test('warm-ups come first, are light, and never become main lifts', () {
+    final p = UserProfile(id: 'u', name: 'x', includeCardio: false);
+    final gen = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back, MuscleGroup.arms],
+      available: {EquipmentType.bodyweight, EquipmentType.cableMachine, EquipmentType.latPulldown, EquipmentType.dumbbell, EquipmentType.barbell},
+      progress: {},
+      profile: p,
+      minutesBudget: 60,
+    ));
+    final out = gen.generate();
+    expect(out.first.exerciseId, 'dyn_stretch');
+    final warm = out.where((e) => e.warmup).toList();
+    expect(warm.length, greaterThanOrEqualTo(2));
+    expect(out.indexWhere((e) => !e.warmup), warm.length); // 워밍업 뒤에 본 운동
+    for (final e in out.where((e) => !e.warmup)) {
+      expect(exerciseById(e.exerciseId)!.warmupOnly, isFalse);
+    }
+    final off = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back], available: {EquipmentType.bodyweight, EquipmentType.cableMachine},
+      progress: {}, profile: UserProfile(id: 'u', name: 'x', warmupMode: 'off'), minutesBudget: 60,
+    )).generate();
+    expect(off.any((e) => e.warmup), isFalse);
+  });
 }

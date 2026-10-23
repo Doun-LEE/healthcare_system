@@ -126,6 +126,7 @@ class Stats {
     for (final p in done) {
       if (p.rpe != null) rpes.add(p.rpe!);
       for (final pe in p.exercises) {
+        if (pe.warmup) continue;
         final ex = exerciseById(pe.exerciseId);
         if (ex == null) continue;
         final doneSets = pe.sets.where((s) => s.completed).toList();

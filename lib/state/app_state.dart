@@ -1275,7 +1275,7 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
     plan.rpe = rpe;
     for (final pe in plan.exercises) {
-      if (!pe.anyCompleted) continue;
+      if (!pe.anyCompleted || pe.warmup) continue;
       final ex = exerciseById(pe.exerciseId);
       if (ex == null) continue;
       // 처음 하는 운동의 기준 무게. 컨디션으로 낮춘 날이면 배율을 되돌려 평소 무게로 잡는다.

@@ -262,6 +262,8 @@ class UserProfile {
     this.onboarded = true,
     this.dayStartHour = 4,
     this.restMode = 'shift',
+    this.warmupMode = 'auto',
+    List<String>? warmupIds,
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
@@ -281,7 +283,8 @@ class UserProfile {
   })  : injuries = injuries ?? {},
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
         exerciseRank = exerciseRank ?? {},
-        groupRank = groupRank ?? {};
+        groupRank = groupRank ?? {},
+        warmupIds = warmupIds ?? [];
 
   final String id;
   String name;
@@ -305,6 +308,10 @@ class UserProfile {
   /// 갑자기 쉬게 된 날(또는 운동을 못 한 날) 처리: 'shift' 이후 루틴을 뒤로 밀어 다시 맞춤,
   /// 'keep' 정해진 날짜별 루틴을 그대로 유지(그 날만 '휴식' 표시).
   String restMode;
+
+  /// 운동 전 워밍업: 'auto'(그 날 부위에 맞춰), 'custom'(직접 고른 것), 'off'.
+  String warmupMode;
+  List<String> warmupIds;
 
   /// n분할. 1(무분할)~6.
   int splitDays;
@@ -352,6 +359,8 @@ class UserProfile {
         'onboarded': onboarded,
         'dayStartHour': dayStartHour,
         'restMode': restMode,
+        'warmupMode': warmupMode,
+        'warmupIds': warmupIds,
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
@@ -384,6 +393,8 @@ class UserProfile {
         onboarded: (j['onboarded'] as bool?) ?? true,
         dayStartHour: (j['dayStartHour'] as num?)?.toInt() ?? 4,
         restMode: (j['restMode'] as String?) ?? 'shift',
+        warmupMode: (j['warmupMode'] as String?) ?? 'auto',
+        warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
@@ -712,6 +723,7 @@ class PlannedExercise {
     this.note,
     this.personal = false,
     this.groupOverride,
+    this.warmup = false,
   });
 
   final String exerciseId;
@@ -729,6 +741,9 @@ class PlannedExercise {
   /// 사용자가 바꾼 타깃 부위(덤벨 풀오버를 가슴으로 등). null이면 운동 기본 부위.
   MuscleGroup? groupOverride;
 
+  /// 본 운동 전 워밍업·스트레칭. 기록(무게 진행·밸런스)에 넣지 않는다.
+  final bool warmup;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -740,6 +755,7 @@ class PlannedExercise {
         'note': note,
         if (personal) 'personal': true,
         if (groupOverride != null) 'group': groupOverride!.name,
+        if (warmup) 'warmup': true,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -752,6 +768,7 @@ class PlannedExercise {
         note: j['note'] as String?,
         personal: (j['personal'] as bool?) ?? false,
         groupOverride: j['group'] == null ? null : MuscleGroup.parse(j['group'] as String),
+        warmup: (j['warmup'] as bool?) ?? false,
       );
 }
 

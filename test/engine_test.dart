@@ -410,7 +410,7 @@ void main() {
         minutesBudget: 150,
         seed: 9,
       )).generate();
-      final strength = plan.where((p) => exerciseById(p.exerciseId)!.group != MuscleGroup.cardio);
+      final strength = plan.where((p) => !p.warmup && exerciseById(p.exerciseId)!.group != MuscleGroup.cardio);
       expect(strength.length, lessThanOrEqualTo(9));
     });
 

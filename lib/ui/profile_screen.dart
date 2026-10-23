@@ -237,6 +237,45 @@ class ProfileScreen extends StatelessWidget {
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             const SizedBox(height: 12),
+            Text('운동 전 워밍업·스트레칭', style: text.labelLarge),
+            const SizedBox(height: 4),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'auto', label: Text('자동')),
+                ButtonSegment(value: 'custom', label: Text('직접 정하기')),
+                ButtonSegment(value: 'off', label: Text('안 함')),
+              ],
+              selected: {u.warmupMode},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => _edit(state, (p) => p.warmupMode = s.first),
+            ),
+            Text(
+              switch (u.warmupMode) {
+                'custom' => '아래에서 고른 운동을 매번 웨이트 전에 넣어요(가볍게 2세트).',
+                'off' => '워밍업 없이 바로 본 운동부터.',
+                _ => '동적 스트레칭 5분 + 그 날 부위에 맞는 활성화 운동(예: 등 날엔 암풀다운·덤벨 풀오버·풀업)을 가볍게 2세트.',
+              },
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            if (u.warmupMode == 'custom')
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final id in u.warmupIds)
+                    if (exerciseById(id) != null)
+                      InputChip(
+                        label: Text(exerciseById(id)!.name),
+                        onDeleted: () => _edit(state, (p) => p.warmupIds.remove(id)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18),
+                    label: const Text('워밍업 고르기'),
+                    onPressed: () => _pickWarmups(context, state),
+                  ),
+                ]),
+              ),
+            const SizedBox(height: 12),
             Text('운동 구역 순서', style: text.labelLarge),
             Text('손잡이를 끌어 하루 루틴에서 어떤 구역을 먼저 할지 정합니다.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
@@ -322,6 +361,41 @@ class ProfileScreen extends StatelessWidget {
   }
 
   void _edit(AppState state, void Function(UserProfile) f) => state.updateProfile(f);
+
+  Future<void> _pickWarmups(BuildContext context, AppState state) async {
+    final chosen = {...state.currentUser!.warmupIds};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setState) => AlertDialog(
+          title: const Text('워밍업 고르기'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 420,
+            child: ListView(children: [
+              for (final e in warmupChoices)
+                CheckboxListTile(
+                  dense: true,
+                  value: chosen.contains(e.id),
+                  title: Text(e.name),
+                  subtitle: Text('${e.group.label} · ${e.emphasis.take(2).join(' · ')}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onChanged: (v) => setState(() => v == true ? chosen.add(e.id) : chosen.remove(e.id)),
+                ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('저장')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      _edit(state, (p) => p
+        ..warmupIds.clear()
+        ..warmupIds.addAll([for (final e in warmupChoices) if (chosen.contains(e.id)) e.id]));
+    }
+  }
 }
 
 Future<String?> _promptText(BuildContext context, String title, String hint, {bool obscure = false}) {

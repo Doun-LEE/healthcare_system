@@ -27,6 +27,7 @@ class Exercise {
     this.priority = 1,
     this.description = '',
     this.altGroups = const [],
+    this.warmupOnly = false,
   });
 
   final String id;
@@ -56,6 +57,9 @@ class Exercise {
 
   /// 자세에 따라 타깃이 바뀌는 운동(덤벨 풀오버: 등 ↔ 가슴). 루틴에서 타깃을 바꿀 수 있다.
   final List<MuscleGroup> altGroups;
+
+  /// 워밍업·스트레칭 전용(본 운동으로는 뽑지 않는다).
+  final bool warmupOnly;
 
   bool canDoWith(Set<EquipmentType> available) =>
       equipment.any(available.contains);
@@ -745,6 +749,57 @@ EquipmentInfo equipmentInfo(EquipmentType t) =>
     equipmentCatalog.firstWhere((e) => e.type == t);
 
 const List<Exercise> exerciseCatalog = [
+  // ── 워밍업·스트레칭(본 운동 전 준비용) ──
+  Exercise(
+    id: 'dyn_stretch', name: '동적 스트레칭(전신)', group: MuscleGroup.cardio,
+    emphasis: ['워밍업', '가동범위 ↑'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [5, 5], priority: 1, warmupOnly: true,
+    description: '팔·어깨 돌리기, 다리 스윙, 런지 트위스트 등 관절을 움직이며 체온을 올린다.',
+  ),
+  Exercise(
+    id: 'arm_circles', name: '암 서클·어깨 돌리기', group: MuscleGroup.shoulder,
+    emphasis: ['측면 어깨', '어깨 안전'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [15, 20], priority: 1, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'band_dislocate', name: '밴드 숄더 디스로케이트', group: MuscleGroup.shoulder,
+    emphasis: ['후면 어깨', '회전근개'], equipment: [EquipmentType.resistanceBand],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'scap_pushup', name: '스캐퓰러 푸시업', group: MuscleGroup.chest,
+    emphasis: ['가슴 중앙부', '회전근개'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'cat_cow', name: '캣카우', group: MuscleGroup.back,
+    emphasis: ['등 하부', '부상 예방'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 12], priority: 1, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'worlds_greatest', name: '월드 그레이티스트 스트레치', group: MuscleGroup.legs,
+    emphasis: ['둔근', '햄스트링', '가동범위 ↑'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [6, 8], priority: 1, unilateral: true, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'hip_9090', name: '고관절 90/90 스트레칭', group: MuscleGroup.legs,
+    emphasis: ['둔근', '내전근'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [8, 10], priority: 1, warmupOnly: true,
+  ),
+  Exercise(
+    id: 'glute_bridge', name: '글루트 브릿지', group: MuscleGroup.legs,
+    emphasis: ['둔근'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [12, 15], priority: 1, warmupOnly: true,
+  ),
+
   // ───────────── 가슴 ─────────────
   Exercise(
     id: 'bb_bench', name: '바벨 벤치프레스', group: MuscleGroup.chest,
@@ -1774,4 +1829,21 @@ List<Exercise> exercisesOf(MuscleGroup g) =>
 /// 기록·구역·밸런스 계산에 쓰는 실제 타깃 부위(사용자가 바꿨으면 그것).
 extension PlannedExerciseTarget on PlannedExercise {
   MuscleGroup get effectiveGroup => groupOverride ?? exerciseById(exerciseId)?.group ?? MuscleGroup.chest;
+}
+
+
+/// 부위별 워밍업 후보(앞에 있는 것부터). 본 운동 기구를 미리 가볍게 쓰는 활성화 운동 포함.
+const warmupByGroup = <MuscleGroup, List<String>>{
+  MuscleGroup.chest: ['scap_pushup', 'band_pull_apart', 'pushup', 'arm_circles'],
+  MuscleGroup.back: ['straight_arm_pd', 'db_pullover', 'assisted_pullup', 'pullup', 'cat_cow'],
+  MuscleGroup.shoulder: ['band_dislocate', 'face_pull', 'arm_circles', 'band_pull_apart'],
+  MuscleGroup.legs: ['worlds_greatest', 'glute_bridge', 'hip_9090', 'bw_squat'],
+  MuscleGroup.arms: ['arm_circles', 'band_pull_apart'],
+  MuscleGroup.abs: ['cat_cow'],
+};
+
+/// 직접 고를 수 있는 워밍업 운동 목록.
+List<Exercise> get warmupChoices {
+  final ids = <String>{'dyn_stretch', for (final l in warmupByGroup.values) ...l};
+  return [for (final id in ids) if (exerciseById(id) != null) exerciseById(id)!];
 }
