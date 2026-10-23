@@ -28,7 +28,7 @@ class HomeScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final user = state.currentUser!;
     final now = DateTime.now();
-    final today = dateOnly(now);
+    final today = state.today;
     final plan = state.todayPlan;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;

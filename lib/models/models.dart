@@ -260,6 +260,8 @@ class UserProfile {
     this.level = TrainingLevel.beginner,
     this.levelAuto = true,
     this.onboarded = true,
+    this.dayStartHour = 4,
+    this.restMode = 'shift',
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
@@ -296,6 +298,13 @@ class UserProfile {
 
   /// 처음 만든 프로필이면 false: 홈 전에 초기 설정(신체 정보 등)을 보여준다.
   bool onboarded;
+
+  /// 하루가 시작되는 시각(0~12시). 이 시각 전까지는 전날로 본다. 밤늦게·새벽에 운동하는 사람용.
+  int dayStartHour;
+
+  /// 갑자기 쉬게 된 날(또는 운동을 못 한 날) 처리: 'shift' 이후 루틴을 뒤로 밀어 다시 맞춤,
+  /// 'keep' 정해진 날짜별 루틴을 그대로 유지(그 날만 '휴식' 표시).
+  String restMode;
 
   /// n분할. 1(무분할)~6.
   int splitDays;
@@ -341,6 +350,8 @@ class UserProfile {
         'level': level.name,
         'levelAuto': levelAuto,
         'onboarded': onboarded,
+        'dayStartHour': dayStartHour,
+        'restMode': restMode,
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
@@ -371,6 +382,8 @@ class UserProfile {
         level: TrainingLevel.parse(j['level'] as String),
         levelAuto: (j['levelAuto'] as bool?) ?? true,
         onboarded: (j['onboarded'] as bool?) ?? true,
+        dayStartHour: (j['dayStartHour'] as num?)?.toInt() ?? 4,
+        restMode: (j['restMode'] as String?) ?? 'shift',
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
@@ -765,6 +778,7 @@ class DayPlan {
     this.gymId,
     this.jointAt,
     this.custom = false,
+    this.skipped = false,
     this.venueOwner,
     this.venueGymId,
     this.venueName,
@@ -825,6 +839,9 @@ class DayPlan {
   /// 이후 날짜를 자동으로 다시 맞출 때 이 날은 그대로 두고 기준으로 삼는다.
   bool custom;
 
+  /// 운동일이었지만 쉬기로 한 날(또는 안 하고 지나간 날). 계획한 부위는 남겨두고 '휴식'으로 표시한다.
+  bool skipped;
+
   /// 파트너 루틴의 마지막 변경 시각(나든 파트너든). 서로 보낸 루틴이 엇갈리면 더 최근 것만 남긴다.
   DateTime? jointAt;
 
@@ -869,6 +886,7 @@ class DayPlan {
         'gymId': gymId,
         if (jointAt != null) 'jointAt': jointAt!.toUtc().toIso8601String(),
         if (custom) 'custom': true,
+        if (skipped) 'skipped': true,
         if (venueOwner != null) 'venueOwner': venueOwner,
         if (venueGymId != null) 'venueGymId': venueGymId,
         if (venueName != null) 'venueName': venueName,
@@ -906,6 +924,7 @@ class DayPlan {
         gymId: j['gymId'] as String?,
         jointAt: j['jointAt'] == null ? null : DateTime.tryParse(j['jointAt'] as String),
         custom: (j['custom'] as bool?) ?? false,
+        skipped: (j['skipped'] as bool?) ?? false,
         venueOwner: j['venueOwner'] as String?,
         venueGymId: j['venueGymId'] as String?,
         venueName: j['venueName'] as String?,

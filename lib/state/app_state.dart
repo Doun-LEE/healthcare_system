@@ -647,7 +647,23 @@ class AppState extends ChangeNotifier {
     return myPlans.where((p) => dateKey(p.date) == k).firstOrNull;
   }
 
-  DayPlan? get todayPlan => planOn(DateTime.now());
+  /// '오늘'로 볼 날짜.
+  /// 1) 시작했지만 아직 끝내지 않은 운동이 있으면(시작 후 8시간 안) 그 운동의 날짜.
+  ///    밤 11시에 시작해 새벽 1시까지 해도 시작한 날의 운동으로 남는다.
+  /// 2) 아니면 하루 시작 시각(기본 새벽 4시) 전은 전날로 본다. 낮밤이 바뀐 사람은 내 정보에서 바꿀 수 있다.
+  DateTime get today {
+    final now = DateTime.now();
+    DayPlan? active;
+    for (final p in myPlans) {
+      final s = p.startedAt;
+      if (s == null || p.isFinished || now.difference(s).inHours >= 8) continue;
+      if (active == null || s.isAfter(active.startedAt!)) active = p;
+    }
+    if (active != null) return dateOnly(active.date);
+    return dateOnly(now.subtract(Duration(hours: (currentUser?.dayStartHour ?? 4).clamp(0, 12))));
+  }
+
+  DayPlan? get todayPlan => planOn(today);
 
   /// 사용자가 달력에서 체크한 휴식일(계획이 있는 날 중 '직접 설정' 휴식).
   Set<String> get manualRestDays => myPlans
@@ -672,7 +688,7 @@ class AppState extends ChangeNotifier {
     // 완료한 날과 파트너 운동일은 그대로 둔다(파트너와 같은 루틴이어야 하므로).
     final fixed = <String, DayPlan>{
       for (final p in myPlans)
-        if ((p.isFinished || p.partnerName != null || p.custom) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
+        if ((p.isFinished || p.partnerName != null || p.custom || p.skipped) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
     };
     final keep = fixed.keys.toSet();
 
@@ -721,6 +737,20 @@ class AppState extends ChangeNotifier {
     if (u == null) return;
     final existing = planOn(date);
     if (existing != null && existing.isFinished) return;
+    // 쉬기로 했던 운동일 → 다시 운동하기
+    if (existing != null && existing.skipped) {
+      existing.skipped = false;
+      await _save();
+      if (u.restMode == 'shift') await rebalanceAround(dateOnly(date));
+      return;
+    }
+    // 운동일을 쉬는 날로: 설정에 따라 루틴 유지(그 날만 휴식 표시) 또는 뒤로 밀기
+    if (existing != null && !existing.isRest) {
+      existing.skipped = true;
+      await _save();
+      if (u.restMode == 'shift') await rebalanceAround(dateOnly(date));
+      return;
+    }
     if (existing != null && existing.isRest) {
       // 휴식 → 그날 하루만 운동으로 재생성하고 앞뒤를 다시 맞춘다
       _data.plans.remove(existing);
@@ -793,7 +823,7 @@ class AppState extends ChangeNotifier {
   /// 파트너 운동일처럼 중간에 고정된 날이 생겼을 때, 그 앞뒤의 아직 하지 않은 날짜를
   /// 모두 다시 짠다. 오늘 이미 시작한 운동과 완료한 날, 파트너 날은 그대로 둔다.
   Future<void> rebalanceAround(DateTime d) async {
-    final today = dateOnly(DateTime.now());
+    final today = this.today;
     final todayPlan = planOn(today);
     final todayStarted = todayPlan != null && (todayPlan.isFinished || todayPlan.exercises.any((e) => e.anyCompleted));
     final from = todayStarted ? today.add(const Duration(days: 1)) : today;
@@ -1063,6 +1093,24 @@ class AppState extends ChangeNotifier {
         u.groupRank[e.key] = e.value.reduce((a, b) => a + b) / e.value.length;
       }
     }
+  }
+
+  /// 오늘 이전인데 손도 안 댄 운동일은 '휴식'(쉬기로 한 날)로 표시한다.
+  /// 설정이 '뒤로 밀기'면 그만큼 이후 루틴을 다시 맞춘다. 앱을 열 때·돌아올 때 확인.
+  Future<void> catchUpMissed() async {
+    final u = currentUser;
+    if (u == null) return;
+    final t = today;
+    var changed = false;
+    for (final p in myPlans) {
+      if (!p.date.isBefore(t) || p.isRest || p.isFinished || p.skipped) continue;
+      if (p.startedAt != null || p.exercises.any((e) => e.anyCompleted)) continue;
+      p.skipped = true;
+      changed = true;
+    }
+    if (!changed) return;
+    await _save();
+    if (u.restMode == 'shift') await rebalanceAround(t);
   }
 
   /// 직접 손본 날로 표시(이후 자동 재배치 때 그대로 두고 기준으로 삼는다).
@@ -1401,7 +1449,7 @@ class AppState extends ChangeNotifier {
   PartnerCondition? partnerConditionOn(DateTime d) => partnerConditions[dateKey(d)];
 
   Future<void> _refreshPartnerConditions() async {
-    final today = dateOnly(DateTime.now());
+    final today = this.today;
     final days = myPlans.where((p) =>
         p.partnerName != null && !p.isFinished && !p.date.isBefore(today) && p.date.difference(today).inDays <= 7);
     final cache = <String, PartnerProfile?>{};
@@ -1773,7 +1821,7 @@ class AppState extends ChangeNotifier {
   Future<void> recalibrateFuture() async {
     final u = currentUser;
     if (u == null) return;
-    final today = dateOnly(DateTime.now());
+    final today = this.today;
     final future = myPlans.where((p) => !p.isFinished && !p.date.isBefore(today)).toList();
     if (future.isEmpty) return;
     final rest = manualRestDays;
@@ -1789,7 +1837,7 @@ class AppState extends ChangeNotifier {
   int get currentStreakWeeks {
     // 최근 주 단위로 완료 세션이 1개 이상인 주가 연속 몇 주인지.
     var weeks = 0;
-    var cursor = dateOnly(DateTime.now());
+    var cursor = today;
     while (true) {
       final start = cursor.subtract(Duration(days: cursor.weekday % 7)); // 일요일 시작
       final any = myPlans.any((p) =>

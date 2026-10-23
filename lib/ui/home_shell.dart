@@ -33,7 +33,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   void _refresh() {
     if (!mounted) return;
-    context.read<AppState>().refreshInbox();
+    final state = context.read<AppState>();
+    state.catchUpMissed();
+    state.refreshInbox();
   }
 
   @override

@@ -20,7 +20,7 @@ class DayPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final plan = state.planOn(date);
-    final today = dateOnly(DateTime.now());
+    final today = state.today;
     final d = dateOnly(date);
     final isPast = d.isBefore(today);
     final isFuture = d.isAfter(today);

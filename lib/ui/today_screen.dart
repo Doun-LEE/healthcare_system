@@ -16,7 +16,7 @@ class TodayScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final plan = state.todayPlan;
     final user = state.currentUser!;
-    final now = DateTime.now();
+    final now = state.today;
     const wd = ['월', '화', '수', '목', '금', '토', '일'];
 
     return Scaffold(
@@ -102,7 +102,7 @@ class _Empty extends StatelessWidget {
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () async {
-                final today = dateOnly(DateTime.now());
+                final today = state.today;
                 await state.generatePlans(
                   from: today,
                   to: today.add(const Duration(days: 6)),
@@ -114,7 +114,7 @@ class _Empty extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () => importRoutineDialog(context, DateTime.now()),
+              onPressed: () => importRoutineDialog(context, state.today),
               icon: const Icon(Icons.download_outlined),
               label: const Text('친구 루틴 불러오기'),
             ),

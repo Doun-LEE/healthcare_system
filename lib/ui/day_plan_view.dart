@@ -190,6 +190,23 @@ class DayPlanView extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
         _Header(plan: plan),
+        if (plan.skipped)
+          Card(
+            color: cs.tertiaryContainer,
+            child: ListTile(
+              leading: Icon(Icons.self_improvement, color: cs.onTertiaryContainer),
+              title: Text('휴식한 날', style: TextStyle(color: cs.onTertiaryContainer, fontWeight: FontWeight.bold)),
+              subtitle: Text(
+                state.currentUser?.restMode == 'keep'
+                    ? '계획한 루틴은 그대로 두고 이 날만 쉬었어요. 이후 루틴은 바뀌지 않아요.'
+                    : '이 날을 쉬어서 이후 루틴을 뒤로 밀어 다시 맞췄어요.',
+                style: TextStyle(color: cs.onTertiaryContainer),
+              ),
+              trailing: plan.isFinished
+                  ? null
+                  : TextButton(onPressed: () => state.toggleRestDay(plan.date), child: const Text('운동하기')),
+            ),
+          ),
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
           ConditionCard(key: ValueKey('cond-${plan.id}-${plan.loadFactor}-${plan.estimatedMinutes}'), plan: plan),
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty)

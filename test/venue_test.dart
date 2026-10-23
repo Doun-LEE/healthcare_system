@@ -87,4 +87,29 @@ void main() {
     expect(identical(plans[1], edited), isTrue);
     expect(DayPlan.fromJson(edited.toJson()).custom, isTrue);
   });
+
+  test('day start hour round-trips and defaults to 4am', () {
+    expect(UserProfile(id: 'u', name: 'x').dayStartHour, 4);
+    final p = UserProfile(id: 'u', name: 'x', dayStartHour: 7);
+    expect(UserProfile.fromJson(p.toJson()).dayStartHour, 7);
+    final legacy = p.toJson()..remove('dayStartHour');
+    expect(UserProfile.fromJson(legacy).dayStartHour, 4);
+  });
+
+  test('skipped day: keep mode continues the planned order, shift mode pushes it back', () {
+    List<DayPlan> run(String mode) {
+      final u = UserProfile(id: 'u', name: 'x', splitDays: 3, includeCardio: false, restMode: mode);
+      final skipped = DayPlan(id: 's', userId: 'u', date: DateTime(2026, 10, 20), kind: DayKind.workout,
+          focus: [MuscleGroup.chest, MuscleGroup.shoulder, MuscleGroup.arms], title: '밀기 (가슴·어깨·삼두)', skipped: true);
+      return Planner(PlannerInput(
+        profile: u, from: DateTime(2026, 10, 20), to: DateTime(2026, 10, 21), restDays: const {},
+        available: {EquipmentType.bodyweight, EquipmentType.dumbbell, EquipmentType.barbell, EquipmentType.flatBench},
+        progress: {}, history: [], newId: _id, fixed: {'2026-10-20': skipped},
+      )).build();
+    }
+    final keep = run('keep');
+    final shift = run('shift');
+    expect(keep[1].focus.first, isNot(MuscleGroup.chest)); // 다음 순서(당기기)로 진행
+    expect(shift[1].focus.first, MuscleGroup.chest); // 못 한 밀기를 다음 날로
+  });
 }

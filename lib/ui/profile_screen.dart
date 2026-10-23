@@ -200,6 +200,43 @@ class ProfileScreen extends StatelessWidget {
               onChanged: (v) => _edit(state, (p) => p.includeCardio = v),
             ),
             const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('하루 시작 시각', style: text.labelLarge),
+                  Text('이 시각 전에 하는 운동은 전날 운동으로 봐요. 밤샘·야간 근무면 늦게 잡으세요. 시작한 운동은 끝낼 때까지 그 날 운동으로 남아요.',
+                      style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<int>(
+                value: u.dayStartHour.clamp(0, 12),
+                items: [
+                  for (var h = 0; h <= 12; h++)
+                    DropdownMenuItem(value: h, child: Text(h == 0 ? '자정' : (h < 12 ? '새벽·오전 $h시' : '정오'))),
+                ],
+                onChanged: (v) => _edit(state, (p) => p.dayStartHour = v ?? p.dayStartHour),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Text('갑자기 쉬게 되면', style: text.labelLarge),
+            const SizedBox(height: 4),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'shift', label: Text('루틴 뒤로 밀기')),
+                ButtonSegment(value: 'keep', label: Text('루틴 그대로')),
+              ],
+              selected: {u.restMode},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => _edit(state, (p) => p.restMode = s.first),
+            ),
+            Text(
+              u.restMode == 'keep'
+                  ? '쉬거나 못 간 날은 그 날만 "휴식"으로 표시하고, 날짜별로 정해진 루틴(예: 금요일 하체)은 그대로 둡니다.'
+                  : '쉬거나 못 간 날의 부위가 빠지지 않게, 이후 루틴을 하루씩 뒤로 밀어 다시 맞춥니다.',
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
             Text('운동 구역 순서', style: text.labelLarge),
             Text('손잡이를 끌어 하루 루틴에서 어떤 구역을 먼저 할지 정합니다.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),

@@ -36,7 +36,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final plans = {for (final p in state.myPlans) dateKey(p.date): p};
-    final today = dateOnly(DateTime.now());
+    final today = context.read<AppState>().today;
     final selectedPlan = _selected == null ? null : plans[dateKey(_selected!)];
 
     return Scaffold(
@@ -116,7 +116,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _generate(BuildContext context, AppState state, String mode) async {
-    final today = dateOnly(DateTime.now());
+    final today = context.read<AppState>().today;
     if (mode == 'clear') {
       await state.deletePlansFrom(today);
       return;
@@ -241,7 +241,7 @@ class _MonthGrid extends StatelessWidget {
       if (plan.isFinished) {
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;
-      } else if (plan.isRest) {
+      } else if (plan.isRest || plan.skipped) {
         bg = cs.tertiaryContainer;
         fg = cs.onTertiaryContainer;
       } else {
@@ -270,16 +270,18 @@ class _MonthGrid extends StatelessWidget {
           children: [
             Text('$day', style: TextStyle(fontSize: 12, fontWeight: isToday ? FontWeight.bold : null, color: fg)),
             if (plan != null && !plan.isRest)
-              Expanded(
+              Flexible(
                 child: Text(
                   plan.focus.take(2).map((g) => g.label).join('·'),
-                  style: TextStyle(fontSize: 10, color: fg),
+                  style: TextStyle(fontSize: 10, color: fg, decoration: plan.skipped ? TextDecoration.lineThrough : null),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
+                  maxLines: plan.skipped ? 1 : 2,
                 ),
               ),
             if (plan != null && plan.isRest)
               Text('휴식', style: TextStyle(fontSize: 10, color: fg)),
+            if (plan != null && plan.skipped)
+              Text('휴식', style: TextStyle(fontSize: 11, color: fg, fontWeight: FontWeight.bold)),
             Row(children: [
               if (plan != null && plan.isFinished) Icon(Icons.check, size: 12, color: cs.primary),
               if (plan != null && plan.partnerName != null) Icon(Icons.group, size: 12, color: cs.secondary),

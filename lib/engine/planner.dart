@@ -84,7 +84,7 @@ class Planner {
     // 부위별 마지막 훈련일(기록 기준).
     final lastTrained = <MuscleGroup, DateTime>{};
     for (final h in input.history) {
-      if (h.isRest || h.date.isAfter(input.to)) continue;
+      if (h.isRest || h.skipped || h.date.isAfter(input.to)) continue;
       for (final g in h.focus) {
         final prev = lastTrained[g];
         if (prev == null || h.date.isAfter(prev)) lastTrained[g] = h.date;
@@ -94,7 +94,7 @@ class Planner {
     // 사이클 위치: 이력에서 마지막 운동일의 타이틀을 찾아 이어간다.
     var cycleIdx = 0;
     final lastWorkout = input.history
-        .where((h) => !h.isRest && h.date.isBefore(input.from))
+        .where((h) => !h.isRest && !h.skipped && h.date.isBefore(input.from))
         .fold<DayPlan?>(null, (a, b) => a == null || b.date.isAfter(a.date) ? b : a);
     if (lastWorkout != null) {
       final i = cycle.indexWhere((d) => d.title == lastWorkout.title);
@@ -113,6 +113,14 @@ class Planner {
         plans.add(fixedDay);
         if (fixedDay.isRest) {
           streak = 0;
+        } else if (fixedDay.skipped) {
+          // 쉬기로 한 운동일: 그 부위는 안 한 것으로 본다.
+          // '루틴 그대로' 모드면 그 날 순서는 지나간 것으로 보고 다음 날은 원래 계획대로 이어간다.
+          streak = 0;
+          if (input.profile.restMode == 'keep') {
+            final i = cycle.indexWhere((d) => d.groups.every(fixedDay.focus.contains));
+            if (i >= 0) cycleIdx = (i + 1) % cycle.length;
+          }
         } else {
           for (final g in fixedDay.focus) {
             lastTrained[g] = date;
@@ -195,7 +203,7 @@ class Planner {
     var d = from.subtract(const Duration(days: 1));
     while (true) {
       final p = input.history.where((h) => dateKey(h.date) == dateKey(d)).toList();
-      if (p.isEmpty || p.first.isRest) break;
+      if (p.isEmpty || p.first.isRest || p.first.skipped) break;
       streak++;
       d = d.subtract(const Duration(days: 1));
       if (streak > 10) break;
