@@ -3,17 +3,22 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/save_file.dart';
 import '../../data/catalog.dart';
 import '../../models/models.dart';
+import '../../state/app_state.dart';
 
 /// 운동 완료 카드. 이미지로 캡처해 공유한다(인스타·카톡).
 class WorkoutSummaryCard extends StatelessWidget {
-  const WorkoutSummaryCard({super.key, required this.plan, required this.userName});
+  const WorkoutSummaryCard({super.key, required this.plan, required this.userName, this.equipmentLabel});
   final DayPlan plan;
   final String userName;
+
+  /// 운동에 쓴 기구 이름(내 헬스장 등록 이름). 없으면 표시 안 함.
+  final String Function(PlannedExercise)? equipmentLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +79,11 @@ class WorkoutSummaryCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   flex: 4,
-                  child: Text(exerciseById(e.exerciseId)?.name ?? '', style: const TextStyle(color: fg, fontSize: 13), overflow: TextOverflow.ellipsis),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(exerciseById(e.exerciseId)?.name ?? '', style: const TextStyle(color: fg, fontSize: 13), overflow: TextOverflow.ellipsis),
+                    if (equipmentLabel != null)
+                      Text(equipmentLabel!(e), style: const TextStyle(color: Colors.white54, fontSize: 10.5), overflow: TextOverflow.ellipsis),
+                  ]),
                 ),
                 Expanded(
                   flex: 6,
@@ -142,7 +151,14 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
       insetPadding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          RepaintBoundary(key: key, child: WorkoutSummaryCard(plan: plan, userName: userName)),
+          RepaintBoundary(
+            key: key,
+            child: WorkoutSummaryCard(
+              plan: plan,
+              userName: userName,
+              equipmentLabel: (e) => context.read<AppState>().equipmentLabelFor(plan, e.equipmentType),
+            ),
+          ),
           const SizedBox(height: 12),
           Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기', style: TextStyle(color: Colors.white))),

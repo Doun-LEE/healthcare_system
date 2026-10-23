@@ -14,6 +14,8 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/equipment_3d.dart';
+import 'widgets/equipment_look.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
@@ -776,6 +778,7 @@ class _ExerciseCard extends StatelessWidget {
     final isCardio = ex.loadType == LoadType.cardio;
     final isBw = ex.loadType == LoadType.bodyweight;
     final unit = isCardio ? '분' : (ex.id == 'plank' ? '초' : '회');
+    final myEq = state.equipmentFor(plan, pe.equipmentType);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -785,19 +788,41 @@ class _ExerciseCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => ExerciseSheet.show(context, ex, pe.equipmentType),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 10, top: 2),
+                    child: myEq != null
+                        ? EquipmentThumb(eq: myEq, size: 48)
+                        : SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Equipment3DView(type: pe.equipmentType, height: 48, autoRotate: false),
+                          ),
+                  ),
+                ),
                 Expanded(
                   child: InkWell(
                     onTap: () => ExerciseSheet.show(context, ex, pe.equipmentType),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(ex.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                         Row(children: [
-                          Text(ex.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                          const SizedBox(width: 6),
-                          Icon(Icons.view_in_ar, size: 16, color: cs.primary),
+                          Icon(isBw ? Icons.accessibility_new : Icons.fitness_center, size: 14, color: cs.primary),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              state.equipmentLabelFor(plan, pe.equipmentType),
+                              style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ]),
-                        Text('${pe.equipmentType.label} · ${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}',
+                        Text('${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}${myEq != null && myEq.displayName != pe.equipmentType.label ? ' · ${pe.equipmentType.label}' : ''}',
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (pe.note != null && pe.note!.isNotEmpty)
                           Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),

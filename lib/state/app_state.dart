@@ -63,6 +63,23 @@ class AppState extends ChangeNotifier {
 
   Gym? gymById(String? id) => id == null ? null : _data.gyms.where((g) => g.id == id).firstOrNull;
 
+  /// 그 날 헬스장에서 이 운동에 쓰는 실제 기구(등록한 이름·사진). 파트너 헬스장이거나 못 찾으면 null.
+  /// 같은 종류가 여러 대면 사진 있는 것 → 브랜드 지정한 것 → 먼저 등록한 것 순.
+  GymEquipment? equipmentFor(DayPlan plan, EquipmentType type) {
+    if (plan.atOtherGym || type == EquipmentType.bodyweight) return null;
+    final list = gymOf(plan)?.equipment ?? const <GymEquipment>[];
+    final exact = list.where((e) => e.type == type).toList();
+    final pool = exact.isNotEmpty ? exact : list.where((e) => e.allTypes.contains(type)).toList();
+    if (pool.isEmpty) return null;
+    return pool.firstWhere((e) => e.hasPhoto, orElse: () => pool.firstWhere((e) => e.brand != null, orElse: () => pool.first));
+  }
+
+  /// 루틴에 보여줄 기구 이름: 등록 이름(브랜드 모델명·별칭) 또는 종류 이름.
+  String equipmentLabelFor(DayPlan plan, EquipmentType type) {
+    if (type == EquipmentType.bodyweight) return '맨몸';
+    return equipmentFor(plan, type)?.displayName ?? type.label;
+  }
+
   /// 그 날 운동할 수 있는 기구: 파트너 헬스장이면 그곳 기구, 아니면 그 날 헬스장 기구.
   Set<EquipmentType> availableFor(DayPlan? p) {
     if (p != null && p.atOtherGym) return {EquipmentType.bodyweight, ...p.venueTypes};
