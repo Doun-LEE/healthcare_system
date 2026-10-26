@@ -20,12 +20,22 @@ class AppData {
     Map<String, Map<String, ExerciseProgress>>? progress,
     DateTime? updatedAt,
     List<PartnerLink>? partners,
-  })  : profiles = profiles ?? [],
+    Map<String, DateTime>? deleted,
+    Map<String, DateTime>? editedAt,
+  })  : deleted = deleted ?? {},
+        editedAt = editedAt ?? {},
+        profiles = profiles ?? [],
         gyms = gyms ?? [],
         plans = plans ?? [],
         progress = progress ?? {},
         partners = partners ?? [],
         updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 일부러 지운 것('userId|날짜' 기록, 'gym:id', 'profile:id' → 지운 시각). 기기끼리 합칠 때 되살리지 않는다.
+  final Map<String, DateTime> deleted;
+
+  /// 헬스장·프로필별 마지막 수정 시각('gym:id', 'profile:id'). 기기끼리 합칠 때 더 최근 것을 남긴다.
+  final Map<String, DateTime> editedAt;
 
   /// 등록한 운동 파트너(계정).
   final List<PartnerLink> partners;
@@ -55,6 +65,8 @@ class AppData {
         'gyms': gyms.map((g) => g.toJson()).toList(),
         'plans': plans.map((p) => p.toJson()).toList(),
         'partners': partners.map((p) => p.toJson()).toList(),
+        if (deleted.isNotEmpty) 'deleted': {for (final e in deleted.entries) e.key: e.value.toIso8601String()},
+        if (editedAt.isNotEmpty) 'editedAt': {for (final e in editedAt.entries) e.key: e.value.toIso8601String()},
         'progress': {
           for (final e in progress.entries)
             e.key: {for (final p in e.value.entries) p.key: p.value.toJson()},
@@ -74,6 +86,8 @@ class AppData {
         plans: ((j['plans'] as List?) ?? [])
             .map((p) => DayPlan.fromJson(p as Map<String, dynamic>))
             .toList(),
+        deleted: _times(j['deleted']),
+        editedAt: _times(j['editedAt']),
         partners: ((j['partners'] as List?) ?? [])
             .map((p) => PartnerLink.fromJson(p as Map<String, dynamic>))
             .toList(),
@@ -87,6 +101,11 @@ class AppData {
         },
       );
 }
+
+Map<String, DateTime> _times(Object? m) => {
+      for (final e in ((m as Map?) ?? const {}).entries)
+        if (DateTime.tryParse('${e.value}') != null) '${e.key}': DateTime.parse('${e.value}'),
+    };
 
 abstract class DataStore {
   Future<AppData> load();

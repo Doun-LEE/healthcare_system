@@ -9,6 +9,7 @@ import '../models/models.dart';
 import 'widgets/level_card.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
+import 'widgets/backup_section.dart';
 import 'widgets/partner_widgets.dart';
 import 'widgets/version_section.dart';
 
@@ -329,6 +330,8 @@ class ProfileScreen extends StatelessWidget {
 
           // 계정
           const _Section(title: '계정 · 동기화', children: [AccountSection()]),
+          const SizedBox(height: 12),
+          const _Section(title: '기록 저장 · 불러오기', children: [BackupSection()]),
 
           // 파트너
           const _Section(title: '운동 파트너', children: [PartnerSection()]),

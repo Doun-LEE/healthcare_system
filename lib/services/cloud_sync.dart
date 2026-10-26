@@ -149,6 +149,73 @@ class CloudSync {
     });
   }
 
+  // ───────── 백업(세이브 슬롯) ─────────
+  // 목록은 users/{uid}/data/backups, 내용은 users/{uid}/data/bk_<id>. (기존 규칙 그대로 본인만 접근)
+
+  DocumentReference<Map<String, dynamic>> _backupIndex(String uid) => _db.doc('users/$uid/data/backups');
+
+  Future<List<BackupInfo>> listBackups() async {
+    final u = user;
+    if (u == null) return const [];
+    final snap = await _backupIndex(u.uid).get().timeout(const Duration(seconds: 12));
+    final items = (snap.data()?['items'] as List?) ?? const [];
+    return [for (final i in items) BackupInfo.fromJson((i as Map).cast<String, dynamic>())]
+      ..sort((a, b) => b.at.compareTo(a.at));
+  }
+
+  /// 지금 데이터를 백업 슬롯에 저장. 자동 저장은 [keepAuto]개, 직접 저장은 [keepManual]개까지 남긴다.
+  Future<BackupInfo?> saveBackup(AppData data,
+      {required String label, bool auto = false, int keepAuto = 10, int keepManual = 10}) async {
+    final u = user;
+    if (u == null) return null;
+    final now = DateTime.now();
+    final info = BackupInfo(
+      id: '${now.millisecondsSinceEpoch}',
+      label: label,
+      at: now,
+      auto: auto,
+      workouts: data.plans.where((p) => p.isFinished).length,
+      gyms: data.gyms.length,
+    );
+    final list = [info, ...await listBackups()];
+    final drop = [
+      ...list.where((b) => b.auto).skip(keepAuto),
+      ...list.where((b) => !b.auto).skip(keepManual),
+    ];
+    final batch = _db.batch();
+    batch.set(_db.doc('users/${u.uid}/data/bk_${info.id}'), {
+      'json': jsonEncode(data.toJson()),
+      'at': FieldValue.serverTimestamp(),
+    });
+    for (final b in drop) {
+      batch.delete(_db.doc('users/${u.uid}/data/bk_${b.id}'));
+    }
+    batch.set(_backupIndex(u.uid), {
+      'items': [for (final b in list) if (!drop.contains(b)) b.toJson()],
+    });
+    await batch.commit().timeout(const Duration(seconds: 20));
+    return info;
+  }
+
+  Future<AppData?> loadBackup(String id) async {
+    final u = user;
+    if (u == null) return null;
+    final snap = await _db.doc('users/${u.uid}/data/bk_$id').get().timeout(const Duration(seconds: 20));
+    final json = snap.data()?['json'] as String?;
+    if (json == null) return null;
+    return AppData.fromJson(jsonDecode(json) as Map<String, dynamic>);
+  }
+
+  Future<void> deleteBackup(String id) async {
+    final u = user;
+    if (u == null) return;
+    final list = await listBackups();
+    final batch = _db.batch();
+    batch.delete(_db.doc('users/${u.uid}/data/bk_$id'));
+    batch.set(_backupIndex(u.uid), {'items': [for (final b in list) if (b.id != id) b.toJson()]});
+    await batch.commit();
+  }
+
   // ───────── 파트너 ─────────
 
   static String emailKey(String email) =>
@@ -296,4 +363,36 @@ class Debouncer {
   }
 
   void cancel() => _t?.cancel();
+}
+
+
+/// 백업 슬롯 하나의 요약.
+class BackupInfo {
+  BackupInfo({required this.id, required this.label, required this.at, this.auto = false, this.workouts = 0, this.gyms = 0});
+
+  final String id;
+  final String label;
+  final DateTime at;
+  final bool auto;
+
+  /// 저장 당시 완료한 운동일 수 / 헬스장 수.
+  final int workouts;
+  final int gyms;
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'label': label, 'at': at.toIso8601String(), 'auto': auto, 'workouts': workouts, 'gyms': gyms};
+
+  factory BackupInfo.fromJson(Map<String, dynamic> j) => BackupInfo(
+        id: j['id'] as String,
+        label: (j['label'] as String?) ?? '',
+        at: DateTime.tryParse(j['at'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+        auto: (j['auto'] as bool?) ?? false,
+        workouts: (j['workouts'] as num?)?.toInt() ?? 0,
+        gyms: (j['gyms'] as num?)?.toInt() ?? 0,
+      );
+
+  @override
+  bool operator ==(Object other) => other is BackupInfo && other.id == id;
+  @override
+  int get hashCode => id.hashCode;
 }

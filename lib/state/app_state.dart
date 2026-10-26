@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -292,6 +293,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> load() async {
     _data = await _store.load();
+    _snapshotEntities();
+    final loadedAt = _data.updatedAt;
     _dedupeEquipment();
     _loaded = true;
     if (!cloudSignedIn) _initialSyncDone = true;
@@ -301,12 +304,22 @@ class AppState extends ChangeNotifier {
       _authed = currentUser != null;
       notifyListeners();
       // 다른 기기에서 바꾼 내용이 있으면 내려받는다 (실패해도 로컬로 계속).
+      var pulled = false;
       try {
-        await _pullIfNewer();
+        await _pullIfNewer(baseline: loadedAt);
         _ensureProfileForAccount();
         _authed = currentUser != null;
+        pulled = true;
       } catch (_) {}
-      _initialSyncDone = true;
+      if (pulled) {
+        _initialSyncDone = true;
+        if (_pendingPush) _pushDebounce(_pushNow);
+        _pendingPush = false;
+        await _autoBackupDaily();
+      } else {
+        // 오프라인: 올리지 않고 이 기기에서만 쓴다. 다음 동기화 때 합친다.
+        _initialSyncDone = true;
+      }
       await refreshInbox();
       await catchUpMissed();
       try {
@@ -337,10 +350,100 @@ class AppState extends ChangeNotifier {
 
   Future<void> _save() async {
     _data.updatedAt = DateTime.now();
+    _trackEdits();
     await _store.save(_data);
     notifyListeners();
-    if (cloudSignedIn) _pushDebounce(_pushNow);
+    // 앱을 연 뒤 클라우드 최신본을 받기 전에는 올리지 않는다(옛 데이터로 덮어쓰지 않게).
+    if (cloudSignedIn) {
+      if (_initialSyncDone) {
+        _pushDebounce(_pushNow);
+      } else {
+        _pendingPush = true;
+      }
+    }
   }
+
+  bool _pendingPush = false;
+
+  /// 마지막으로 본 헬스장·프로필 내용('gym:id' → json). 바뀐 것만 수정 시각을 찍는다.
+  final Map<String, String> _entityJson = {};
+
+  Map<String, String> _entities(AppData d) => {
+        for (final g in d.gyms) 'gym:${g.id}': jsonEncode(g.toJson()),
+        for (final p in d.profiles) 'profile:${p.id}': jsonEncode(p.toJson()),
+      };
+
+  void _snapshotEntities() {
+    _entityJson
+      ..clear()
+      ..addAll(_entities(_data));
+  }
+
+  void _trackEdits() {
+    final now = DateTime.now();
+    final cur = _entities(_data);
+    for (final e in cur.entries) {
+      if (_entityJson[e.key] != e.value) _data.editedAt[e.key] = now;
+    }
+    for (final k in _entityJson.keys) {
+      if (!cur.containsKey(k)) _data.deleted[k] = now;
+    }
+    _entityJson
+      ..clear()
+      ..addAll(cur);
+  }
+
+  /// 헬스장·프로필을 하나씩 비교해 더 최근에 고친 쪽을 [into]에 남긴다. 바뀐 수.
+  /// (지운 표시 합치기는 [_keepRecordedPlans]가 먼저 한다)
+  int _mergeEntities({required AppData from, required AppData into}) {
+    var n = 0;
+    final intoEdits = Map.of(into.editedAt);
+    void mergeList<T>(List<T> src, List<T> dst, String prefix, String Function(T) id) {
+      for (final x in src) {
+        final key = '$prefix:${id(x)}';
+        final fe = from.editedAt[key];
+        final i = dst.indexWhere((y) => id(y) == id(x));
+        if (i < 0) {
+          final del = into.deleted[key];
+          if (del == null || (fe != null && fe.isAfter(del))) {
+            dst.add(x);
+            n++;
+          }
+        } else {
+          final ie = intoEdits[key];
+          if (fe != null && (ie == null || fe.isAfter(ie))) {
+            dst[i] = x;
+            n++;
+          }
+        }
+      }
+    }
+
+    mergeList<Gym>(from.gyms, into.gyms, 'gym', (g) => g.id);
+    mergeList<UserProfile>(from.profiles, into.profiles, 'profile', (p) => p.id);
+    for (final e in from.editedAt.entries) {
+      final cur = into.editedAt[e.key];
+      if (cur == null || e.value.isAfter(cur)) into.editedAt[e.key] = e.value;
+    }
+    bool gone(String key) {
+      final del = into.deleted[key];
+      final ed = into.editedAt[key];
+      return del != null && (ed == null || del.isAfter(ed));
+    }
+    final before = into.gyms.length + into.profiles.length;
+    into.gyms.removeWhere((g) => gone('gym:${g.id}'));
+    into.profiles.removeWhere((p) => gone('profile:${p.id}') && p.id != into.currentUserId);
+    n += before - into.gyms.length - into.profiles.length;
+    return n;
+  }
+
+  /// 기록(운동한 날)·헬스장·프로필을 안전하게 합친다. 바뀐 수.
+  @visibleForTesting
+  int mergeForTest(AppData from, AppData into) => _mergeSafe(from: from, into: into);
+
+  int _mergeSafe({required AppData from, required AppData into}) =>
+      _keepRecordedPlans(from: from, into: into) + _mergeEntities(from: from, into: into);
+
 
   // ───────── 계정 / 클라우드 동기화 ─────────
 
@@ -358,6 +461,18 @@ class AppState extends ChangeNotifier {
     syncError = null;
     notifyListeners();
     try {
+      // 올리기 전에 클라우드 쪽 운동 기록·헬스장 수정을 먼저 합친다(다른 기기 것을 덮어쓰지 않게).
+      try {
+        final remote = await CloudSync.instance.pull().timeout(const Duration(seconds: 12));
+        if (remote != null) {
+          final (r, _) = remote;
+          if (_mergeSafe(from: r, into: _data) > 0) {
+            _mergeProgress(r);
+            _snapshotEntities();
+            await _store.save(_data);
+          }
+        }
+      } catch (_) {}
       await CloudSync.instance.push(_data);
       await _publishPublic();
       lastSyncedAt = DateTime.now();
@@ -370,31 +485,35 @@ class AppState extends ChangeNotifier {
   }
 
   /// 클라우드가 로컬보다 최신이면 내려받아 교체.
-  Future<bool> _pullIfNewer() async {
+  Future<bool> _pullIfNewer({DateTime? baseline}) async {
     final remote = await CloudSync.instance.pull();
     if (remote == null) return false;
     final (data, _) = remote;
-    // 날짜별로 '운동한 기록'이 있는 쪽을 지킨다. 한쪽 기기에서 운동을 기록했는데 다른 기기가
-    // 그걸 모른 채 휴식 처리해 올린 경우에도 기록이 사라지지 않게 한다.
-    final rescued = _keepRecordedPlans(from: _data, into: data);
-    if (data.updatedAt.isAfter(_data.updatedAt) || rescued > 0) {
+    // 클라우드가 더 최신이면 그걸 기준으로 하되, 이 기기에만 있는 운동 기록·더 최근에 고친 헬스장/프로필은 지킨다.
+    // (앱을 연 직후 자동으로 바뀐 것 때문에 이 기기가 '더 최신'으로 보이지 않게 [baseline]=불러온 시각과 비교)
+    final base = baseline ?? _data.updatedAt;
+    if (data.updatedAt.isAfter(base)) {
       final local = _data;
+      final rescued = _mergeSafe(from: local, into: data);
       _data = data;
-      if (rescued > 0) {
-        _mergeProgress(local);
-        _data.updatedAt = DateTime.now();
-      }
+      _mergeProgress(local);
+      if (rescued > 0) _data.updatedAt = DateTime.now();
+      _snapshotEntities();
       await _store.save(_data);
       lastSyncedAt = DateTime.now();
       notifyListeners();
       if (rescued > 0 && cloudSignedIn) _pushDebounce(_pushNow);
       return true;
     }
-    // 내 쪽이 더 최신이어도, 클라우드에만 있는 운동 기록은 가져온다.
-    final pulledBack = _keepRecordedPlans(from: data, into: _data);
+    // 내 쪽이 더 최신이어도, 클라우드에만 있는 운동 기록·헬스장 수정은 가져온다.
+    final pulledBack = _mergeSafe(from: data, into: _data);
     if (pulledBack > 0) {
       _mergeProgress(data);
-      await _save();
+      _snapshotEntities();
+      _data.updatedAt = DateTime.now();
+      await _store.save(_data);
+      notifyListeners();
+      if (_initialSyncDone) _pushDebounce(_pushNow);
       return true;
     }
     return false;
@@ -427,6 +546,7 @@ class AppState extends ChangeNotifier {
         final local = _data;
         _data = remote.$1;
         _mergeFrom(local);
+        _snapshotEntities();
         msg = '계정의 데이터를 불러왔어요. 이제 어느 기기에서든 같은 데이터를 봅니다.';
       } else {
         msg = _data.isEmpty ? '환영합니다! 헬스장 기구를 등록하고 루틴을 만들어 보세요.' : '로그인 완료. 이 기기의 데이터를 계정에 올렸어요.';
@@ -461,8 +581,20 @@ class AppState extends ChangeNotifier {
   /// [from]에만 있거나 [from] 쪽이 더 진행된(운동 기록이 있는) 날의 계획을 [into]로 옮긴다. 옮긴 수.
   int _keepRecordedPlans({required AppData from, required AppData into}) {
     var n = 0;
+    // 일부러 지운 표시를 합치고, 그보다 오래된 기록은 되살리지 않는다.
+    for (final e in from.deleted.entries) {
+      final cur = into.deleted[e.key];
+      if (cur == null || e.value.isAfter(cur)) into.deleted[e.key] = e.value;
+    }
+    bool deletedLater(DayPlan p) {
+      final del = into.deleted['${p.userId}|${dateKey(p.date)}'];
+      return del != null && !(p.finishedAt ?? p.startedAt ?? p.date).isAfter(del);
+    }
+    final before = into.plans.length;
+    into.plans.removeWhere((p) => _progressRank(p) >= 2 && deletedLater(p));
+    n += before - into.plans.length;
     for (final p in from.plans) {
-      if (_progressRank(p) < 2) continue;
+      if (_progressRank(p) < 2 || deletedLater(p)) continue;
       final i = into.plans.indexWhere((x) => x.userId == p.userId && dateKey(x.date) == dateKey(p.date));
       if (i < 0) {
         into.plans.add(p);
@@ -1903,7 +2035,85 @@ class AppState extends ChangeNotifier {
     final p = planOn(date);
     if (p == null) return;
     _data.plans.remove(p);
+    if (_progressRank(p) >= 2) _data.deleted['${p.userId}|${dateKey(p.date)}'] = DateTime.now();
     await _save();
+  }
+
+  // ───────── 백업(세이브 슬롯) ─────────
+
+  List<BackupInfo> backups = const [];
+
+  Future<void> refreshBackups() async {
+    if (!cloudSignedIn) return;
+    try {
+      backups = await CloudSync.instance.listBackups();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// 지금 기록을 백업 슬롯에 저장(게임의 '저장하기').
+  Future<BackupInfo?> saveBackup({String? label}) async {
+    if (!cloudSignedIn) return null;
+    final now = DateTime.now();
+    final info = await CloudSync.instance.saveBackup(
+      _data,
+      label: (label == null || label.trim().isEmpty)
+          ? '${now.month}/${now.day} ${now.hour}:${now.minute.toString().padLeft(2, '0')} 직접 저장'
+          : label.trim(),
+    );
+    await refreshBackups();
+    return info;
+  }
+
+  /// 하루 한 번, 앱을 열고 클라우드를 받은 직후 자동 저장(다른 자동 처리보다 먼저).
+  Future<void> _autoBackupDaily() async {
+    try {
+      final list = await CloudSync.instance.listBackups();
+      backups = list;
+      final t = DateTime.now();
+      if (list.any((b) => b.auto && dateKey(b.at) == dateKey(t))) return;
+      if (_data.isEmpty) return;
+      await CloudSync.instance.saveBackup(_data, label: '자동 저장 ${t.month}/${t.day}', auto: true);
+      backups = await CloudSync.instance.listBackups();
+    } catch (_) {}
+  }
+
+  /// 백업 슬롯 불러오기(게임의 '불러오기'). 지금 상태는 먼저 자동 저장해 둔다.
+  /// 불러온 뒤에도 다른 기기에서 한 운동 기록은 합쳐서 지킨다.
+  Future<bool> restoreBackup(BackupInfo b) async {
+    if (!cloudSignedIn) return false;
+    final data = await CloudSync.instance.loadBackup(b.id);
+    if (data == null) return false;
+    await CloudSync.instance.saveBackup(_data, label: '불러오기 전 자동 저장', auto: true);
+    // 불러온 내용이 이기도록 헬스장·프로필 수정 시각을 지금으로, 지운 표시는 비운다.
+    final now = DateTime.now();
+    data.deleted.removeWhere((k, _) => k.startsWith('gym:') || k.startsWith('profile:'));
+    for (final g in data.gyms) {
+      data.editedAt['gym:${g.id}'] = now;
+    }
+    for (final p in data.profiles) {
+      data.editedAt['profile:${p.id}'] = now;
+    }
+    for (final e in _data.deleted.entries) {
+      if (!e.key.startsWith('gym:') && !e.key.startsWith('profile:')) data.deleted.putIfAbsent(e.key, () => e.value);
+    }
+    _data = data;
+    _ensureProfileForAccount();
+    _authed = currentUser != null;
+    _data.updatedAt = now;
+    _snapshotEntities();
+    await _store.save(_data);
+    notifyListeners();
+    await _pushNow();
+    await refreshBackups();
+    return true;
+  }
+
+  Future<void> deleteBackup(BackupInfo b) async {
+    try {
+      await CloudSync.instance.deleteBackup(b.id);
+    } catch (_) {}
+    await refreshBackups();
   }
 
   /// 파트너 운동일 해제: 그날을 혼자 하는 루틴으로 되돌린다.
