@@ -131,8 +131,10 @@ class AppState extends ChangeNotifier {
     final m = <EquipmentType, double>{};
     for (final e in g?.equipment ?? const <GymEquipment>[]) {
       if (e.maxWeightKg != null) {
+        // 최대 무게는 화면 기준(한쪽 기준 기구면 한쪽)으로 적으니 앱 내부(합계) 기준으로 바꾼다.
+        final mx = e.maxWeightKg! / e.displayFactor;
         for (final t in e.allTypes) {
-          m[t] = max(m[t] ?? 0, e.maxWeightKg!);
+          m[t] = max(m[t] ?? 0, mx);
         }
       }
     }
@@ -142,7 +144,7 @@ class AppState extends ChangeNotifier {
   Map<EquipmentType, double> stepForGym(Gym? g) {
     final m = <EquipmentType, double>{};
     for (final e in g?.equipment ?? const <GymEquipment>[]) {
-      final st = e.effectiveStep;
+      final st = e.effectiveStep / e.displayFactor; // 한쪽 5kg 스택 2개 → 합계 10kg씩
       if (st > 0) {
         for (final t in e.allTypes) {
           m[t] = st;
@@ -1514,6 +1516,13 @@ class AppState extends ChangeNotifier {
           for (final e in planOn(d.add(Duration(days: off)))?.exercises ?? const <PlannedExercise>[])
             if (!e.warmup) e.exerciseId,
       };
+
+  /// 좌우 독립 머신: 한쪽씩 하기 / 양쪽 같이.
+  Future<void> toggleOneSide(DayPlan plan, PlannedExercise pe) async {
+    pe.oneSide = !pe.oneSide;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+  }
 
   /// 📌 고정 / 해제. 고정한 운동은 루틴을 다시 짜도 남는다.
   Future<void> togglePin(DayPlan plan, PlannedExercise pe) async {

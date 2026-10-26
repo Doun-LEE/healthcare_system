@@ -347,7 +347,7 @@ class SessionGenerator {
   int _costSec(PlannedExercise p, Exercise ex) {
     var total = _transitionSec;
     for (final s in p.sets) {
-      total += _workSeconds(s.targetReps, ex.unilateral) + p.restSeconds;
+      total += _workSeconds(s.targetReps, ex.unilateral || p.oneSide) + p.restSeconds;
     }
     return total - p.restSeconds; // 마지막 세트 뒤 휴식은 전환 시간에 포함
   }
@@ -543,7 +543,7 @@ class SessionGenerator {
       }
       sec += _transitionSec;
       for (final s in p.sets) {
-        sec += _workSeconds(s.targetReps, ex.unilateral) + p.restSeconds;
+        sec += _workSeconds(s.targetReps, ex.unilateral || p.oneSide) + p.restSeconds;
       }
       sec -= p.restSeconds;
     }

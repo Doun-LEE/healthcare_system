@@ -356,7 +356,10 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                 CheckboxListTile(
                   dense: true,
                   value: _brandPicked.containsKey(m),
-                  secondary: EquipmentPhoto(type: m.type, size: 44),
+                  secondary: GestureDetector(
+                    onTap: () => showEquipmentPreview(context, m.type, title: m.name),
+                    child: EquipmentPhoto(type: m.type, size: 44),
+                  ),
                   title: Text(m.name),
                   subtitle: Text('${m.type.label} · ${m.mechanism.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
                   onChanged: (_) => setState(() => _brandPicked.containsKey(m) ? _brandPicked.remove(m) : _brandPicked[m] = b.key),
@@ -491,7 +494,9 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                       sel ? _selected.remove(info.type) : _selected.add(info.type);
                     }
                   }),
-                  secondary: SizedBox(
+                  secondary: GestureDetector(
+                    onTap: () => showEquipmentPreview(context, info.type),
+                    child: SizedBox(
                     width: 52,
                     height: 52,
                     child: Stack(children: [
@@ -506,6 +511,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                           ),
                         ),
                     ]),
+                  ),
                   ),
                   title: Text(info.type.label,
                       style: rem ? TextStyle(decoration: TextDecoration.lineThrough, color: cs.onSurfaceVariant) : null),
@@ -740,6 +746,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
   late final TextEditingController _step;
   late LoadMechanism _mech;
   String? _basis;
+  late bool _dual;
   late List<EquipmentType> _extra;
 
   @override
@@ -750,6 +757,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     _note = TextEditingController(text: widget.existing?.note ?? '');
     _mech = widget.existing?.mechanism ?? LoadMechanism.defaultFor(widget.type);
     _basis = widget.existing?.weightBasis;
+    _dual = widget.existing?.dualStack ?? false;
     _extra = List.of(widget.existing?.extraTypes ?? const <EquipmentType>[]);
     _step = TextEditingController(text: widget.existing?.stepKg == null ? '' : _fmt(widget.existing!.stepKg!));
   }
@@ -835,7 +843,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               ButtonSegment(value: 'total', label: Text('양쪽 합계')),
               ButtonSegment(value: 'perSide', label: Text('한쪽 기준')),
             ],
-            selected: {_basis ?? (GymEquipment.perSideByDefault(widget.type) ? 'perSide' : 'total')},
+            selected: {_basis ?? (GymEquipment.perSideByDefault(widget.type) || _dual ? 'perSide' : 'total')},
             showSelectedIcon: false,
             onSelectionChanged: (v) => setState(() => _basis = v.first),
           ),
@@ -845,6 +853,17 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
                 : '좌우에 원판을 따로 거는 머신(해머 등)은 한쪽 기준이 편해요.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
+          if (isMachine)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _dual,
+              title: const Text('좌우 따로 움직임 (핀·스택 2개)'),
+              subtitle: const Text("양쪽에 핀을 따로 꽂는 머신. 무게·한 칸·최대 무게를 한쪽 기준으로 보고, 운동마다 '한쪽씩 하기'를 고를 수 있어요."),
+              onChanged: (v) => setState(() {
+                _dual = v;
+                if (v) _basis = 'perSide';
+              }),
+            ),
           const SizedBox(height: 10),
           Align(alignment: Alignment.centerLeft, child: Text('이 기구로 하는 다른 운동(다기능 머신)', style: Theme.of(context).textTheme.labelLarge)),
           Wrap(spacing: 6, runSpacing: 4, children: [
@@ -887,6 +906,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               shroud: widget.existing?.shroud,
               hasPhoto: widget.existing?.hasPhoto ?? false,
               weightBasis: _basis,
+              dualStack: _dual,
             ),
           ),
           child: const Text('저장'),

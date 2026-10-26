@@ -5,7 +5,8 @@ import '../../data/catalog.dart';
 import 'app_sheet.dart';
 
 /// 실제 수행 무게·횟수를 위아래로 돌려서 고르는 휠 입력.
-/// 무게는 기구 단위(바벨 2.5 / 덤벨 2 / 머신 5kg)로, 횟수는 1씩 움직인다.
+/// 무게는 기구 단위(바벨 2.5 / 덤벨 1 / 머신 5kg)로, 횟수는 1씩 움직인다.
+/// 키보드로 넣은 무게가 칸에 없으면 그 값을 휠에 칸으로 끼워 넣어 그대로 보여 준다.
 class SetEditorSheet extends StatefulWidget {
   const SetEditorSheet({
     super.key,
@@ -78,10 +79,11 @@ class SetEditorSheet extends StatefulWidget {
 class _SetEditorSheetState extends State<SetEditorSheet> {
   int get _maxReps => widget.maxReps;
   late int _reps;
-  late int _weightIdx; // weight = idx * step
-  /// 키보드로 직접 넣은 무게(휠 단위와 안 맞아도 그대로 저장).
-  double? _exactWeight;
-  late final int _maxWeightIdx;
+  /// 휠에 보이는 무게들(기구 단위 칸 + 직접 넣은 값).
+  late List<double> _grid;
+  late int _weightIdx;
+  /// 코드로 휠을 옮기는 동안엔 휠 이벤트를 무시한다(지나가는 칸으로 값이 바뀌지 않게).
+  bool _moving = false;
   late final FixedExtentScrollController _repsCtrl;
   late final FixedExtentScrollController _weightCtrl;
   late int _level;
@@ -93,9 +95,9 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   @override
   void initState() {
     super.initState();
-    _maxWeightIdx = (400 / _step).round();
+    _grid = [for (var i = 0; i <= (400 / _step).round(); i++) _r(i * _step)];
     _reps = widget.initialReps.clamp(0, _maxReps);
-    _weightIdx = (widget.initialWeight / _step).round().clamp(0, _maxWeightIdx);
+    _weightIdx = _ensure(widget.initialWeight);
     _repsCtrl = FixedExtentScrollController(initialItem: _reps);
     _weightCtrl = FixedExtentScrollController(initialItem: _weightIdx);
     final sp = _spec;
@@ -111,7 +113,32 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     super.dispose();
   }
 
-  double get _weight => _exactWeight ?? _weightIdx * _step;
+  double get _weight => _grid[_weightIdx];
+
+  static double _r(double v) => (v * 1000).roundToDouble() / 1000;
+
+  /// [w]가 휠에 있으면 그 칸, 없으면 끼워 넣고 그 칸 번호.
+  int _ensure(double w) {
+    final v = _r(w.clamp(0, 999).toDouble());
+    final i = _grid.indexWhere((x) => (x - v).abs() < 0.001);
+    if (i >= 0) return i;
+    final at = _grid.indexWhere((x) => x > v);
+    final idx = at < 0 ? _grid.length : at;
+    _grid.insert(idx, v);
+    return idx;
+  }
+
+  /// 무게를 [w]로 맞추고 휠도 그 칸으로 옮긴다.
+  void _setWeight(double w) {
+    final idx = _ensure(w);
+    setState(() => _weightIdx = idx);
+    _moving = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_weightCtrl.hasClients) _weightCtrl.jumpToItem(idx);
+      _moving = false;
+    });
+  }
 
   String _fmt(double w) =>
       w == w.roundToDouble() ? w.toInt().toString() : w.toStringAsFixed(1);
@@ -154,14 +181,13 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                     child: _Wheel(
                       label: 'kg',
                       controller: _weightCtrl,
-                      count: _maxWeightIdx + 1,
+                      count: _grid.length,
                       selected: _weightIdx,
                       highlight: upW ? cs.primary : null,
-                      itemText: (i) => _fmt(i * _step),
-                      onChanged: (i) => setState(() {
-                        _weightIdx = i;
-                        _exactWeight = null;
-                      }),
+                      itemText: (i) => _fmt(_grid[i]),
+                      onChanged: (i) {
+                        if (!_moving) setState(() => _weightIdx = i);
+                      },
                     ),
                   ),
                 if (widget.showWeight)
@@ -200,19 +226,13 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               ],
             ),
           ),
-          if (_exactWeight != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text('직접 입력 ${_fmt(_exactWeight!)}kg 로 저장돼요 (휠은 가장 가까운 칸 표시)',
-                  style: text.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
-            ),
           const SizedBox(height: 8),
           Row(
             children: [
               if (widget.showWeight) ...[
-                _Nudge(label: '-${_fmt(_step)}', onTap: () => _jumpW(_weightIdx - 1)),
+                _Nudge(label: '-${_fmt(_step)}', onTap: () => _setWeight(((_weight - _step) / _step).round() * _step < 0 ? 0 : ((_weight - _step) / _step).round() * _step)),
                 const SizedBox(width: 6),
-                _Nudge(label: '+${_fmt(_step)}', onTap: () => _jumpW(_weightIdx + 1)),
+                _Nudge(label: '+${_fmt(_step)}', onTap: () => _setWeight(((_weight + _step) / _step).round() * _step)),
                 const Spacer(),
               ],
               _Nudge(label: '-1', onTap: () => _jumpR(_reps - 1)),
@@ -226,7 +246,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               OutlinedButton(
                 onPressed: () {
                   _jumpR(widget.targetReps);
-                  if (widget.showWeight) _jumpW((widget.targetWeight / _step).round());
+                  if (widget.showWeight) _setWeight(widget.targetWeight);
                 },
                 child: const Text('처방대로'),
               ),
@@ -243,15 +263,6 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
         ],
       ),
     );
-  }
-
-  void _jumpW(int i, {double? exact}) {
-    final v = i.clamp(0, _maxWeightIdx);
-    _weightCtrl.animateToItem(v, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
-    setState(() {
-      _weightIdx = v;
-      _exactWeight = exact != null && (exact - v * _step).abs() > 0.001 ? exact : null;
-    });
   }
 
   void _jumpR(int i) {
@@ -306,7 +317,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     );
     if (ok != true || !mounted) return;
     final w = double.tryParse(wCtrl.text.trim());
-    if (widget.showWeight && w != null) _jumpW((w / _step).round(), exact: w);
+    if (widget.showWeight && w != null) _setWeight(w);
     final r = int.tryParse(rCtrl.text.trim());
     if (r != null) _jumpR(r);
     final l = int.tryParse(lCtrl.text.trim());

@@ -973,6 +973,8 @@ class _ExerciseCard extends StatelessWidget {
                           await state.toggleSkipMine(plan, pe);
                         case 'pin':
                           await state.togglePin(plan, pe);
+                        case 'oneSide':
+                          await state.toggleOneSide(plan, pe);
                         case 'up':
                           await state.moveExercise(plan, pe, -1);
                         case 'down':
@@ -992,6 +994,8 @@ class _ExerciseCard extends StatelessWidget {
                             child: Text('${pe.effectiveGroup == g ? '✓ ' : ''}타깃: ${g.label}'),
                           ),
                       PopupMenuItem(value: 'pin', child: Text(pe.pinned ? '📌 고정 해제' : '📌 고정 (다시 짜도 유지)')),
+                      if (pe.oneSide || (state.equipmentFor(plan, pe.equipmentType)?.independentSides ?? false))
+                        PopupMenuItem(value: 'oneSide', child: Text(pe.oneSide ? '양쪽 같이 하기' : '한쪽씩 하기 (좌우 각각)')),
                       if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
                       const PopupMenuItem(value: 'up', child: Text('↑ 위로')),
                       const PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
@@ -1015,6 +1019,7 @@ class _ExerciseCard extends StatelessWidget {
                 planning: editable && !logging,
                 weightFactor: state.weightFactor(plan, pe.equipmentType),
                 weightSuffix: state.weightBasisLabel(plan, pe.equipmentType),
+                eachSide: pe.oneSide,
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
                   if (pe.sets[i].completed && pe.restSeconds > 0 && i < pe.sets.length - 1 && context.mounted) {
@@ -1050,7 +1055,8 @@ class _ExerciseCard extends StatelessWidget {
     final spec = ex == null ? null : cardioLevels[ex.id];
     final f = state.weightFactor(plan, pe.equipmentType);
     final basis = state.weightBasisLabel(plan, pe.equipmentType);
-    final step = state.stepForPlan(plan)[pe.equipmentType] ?? ex?.loadType.increment ?? 2.5;
+    // 한 칸은 화면 기준(한쪽 기준 기구면 한쪽 무게)
+    final step = (state.stepForPlan(plan)[pe.equipmentType] ?? ex?.loadType.increment ?? 2.5) * f;
     final isCardio = ex?.loadType == LoadType.cardio;
     final result = await SetEditorSheet.show(
       context,
@@ -1140,6 +1146,7 @@ class _SetRow extends StatelessWidget {
     this.levelText,
     this.weightFactor = 1,
     this.weightSuffix = '',
+    this.eachSide = false,
     this.planning = false,
   });
 
@@ -1149,6 +1156,9 @@ class _SetRow extends StatelessWidget {
   /// 기구별 '한쪽/양쪽' 표시 배율과 꼬리표(예: '한쪽').
   final double weightFactor;
   final String weightSuffix;
+
+  /// 한쪽씩: 횟수 뒤에 '좌우 각각'.
+  final bool eachSide;
 
   /// 앞으로 할 날: 체크 없이 처방만 고친다.
   final bool planning;
@@ -1183,7 +1193,7 @@ class _SetRow extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '${showWeight ? '${_fmt(set.effectiveWeight * weightFactor)}kg${weightSuffix.isEmpty ? '' : '($weightSuffix)'} × ' : ''}${set.effectiveReps}$unit${levelText != null ? ' · $levelText' : ''}',
+                '${showWeight ? '${_fmt(set.effectiveWeight * weightFactor)}kg${weightSuffix.isEmpty ? '' : '($weightSuffix)'} × ' : ''}${set.effectiveReps}$unit${eachSide ? ' 좌우 각각' : ''}${levelText != null ? ' · $levelText' : ''}',
                 style: text.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   decoration: set.completed ? TextDecoration.lineThrough : null,

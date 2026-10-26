@@ -462,6 +462,12 @@ const List<EquipmentInfo> equipmentCatalog = [
     groups: [MuscleGroup.chest],
   ),
   EquipmentInfo(
+    type: EquipmentType.lyingChestPress,
+    summary: '벤치에 누워서 손잡이를 위로 미는 프레스 머신(플레이트·핀). 바벨 벤치처럼 누운 자세지만 궤도가 고정돼 안전하다.',
+    strengths: ['누운 자세 가슴 프레스', '보조자 없이 고중량', '좌우 독립(아이소 래터럴형)'],
+    groups: [MuscleGroup.chest],
+  ),
+  EquipmentInfo(
     type: EquipmentType.functionalTrainer,
     summary: '양쪽 도르래 높이를 자유롭게 바꾸는 듀얼 케이블. 케이블 운동 전부 가능.',
     strengths: ['전 부위 케이블 운동', '회전·기능성 동작', '피크 수축'],
@@ -1765,6 +1771,13 @@ const List<Exercise> exerciseCatalog = [
     repRange: [20, 40], priority: 2, activity: true,
   ),
   // ── 기구 연결 보강 (2026-10) ──
+  Exercise(
+    id: 'lying_chest_press_m', name: '라잉 체스트 프레스 머신', group: MuscleGroup.chest,
+    emphasis: ['가슴 중앙부', '삼두'], equipment: [EquipmentType.lyingChestPress],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.85,
+    compound: true, repRange: [8, 12], priority: 2,
+    description: '벤치에 누워서 미는 머신. 바벨 벤치프레스 대신 안전하게 고중량.',
+  ),
   Exercise(
     id: 'incline_db_fly', name: '인클라인 덤벨 플라이', group: MuscleGroup.chest,
     emphasis: ['윗가슴', '가슴 스트레칭'], equipment: [EquipmentType.dumbbell],

@@ -121,6 +121,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.inclineChestPress => _pressMachine(arms: true, tall: true),
       EquipmentType.declineChestPress => _pressMachine(arms: true),
       EquipmentType.chestPressPlateLoaded => _pressMachine(arms: true, plateLoaded: true),
+      EquipmentType.lyingChestPress => _lyingPress(),
       EquipmentType.pecDeck => _pecDeck(),
       EquipmentType.cableMachine => _cable(),
       EquipmentType.functionalTrainer => _cable(),
@@ -507,6 +508,21 @@ List<Prim> _pressMachine({required bool arms, bool tall = false, bool plateLoade
       Box(const V3(0, 1.25, 0.1), const V3(0.4, 0.1, 0.1), _padDark), // 복근 패드
   ];
 }
+
+/// 누워서 미는 프레스: 플랫 벤치 + 머리 쪽 기둥 + 가슴 위로 오는 레버 암·원판 혼.
+List<Prim> _lyingPress() => [
+      Box(const V3(0, 0.04, 0), const V3(1.3, 0.08, 1.6), _dark),
+      ..._legs(0.0, 0.5, 0.42, w: 0.06),
+      Box(const V3(0, 0.46, 0.1), const V3(0.32, 0.08, 1.25), _pad), // 누운 벤치
+      for (final x in [-0.55, 0.55]) ...[
+        Box(V3(x, 0.75, -0.55), const V3(0.1, 1.5, 0.1), _dark), // 머리 쪽 기둥
+        Box(V3(x * 0.8, 1.35, -0.2), const V3(0.06, 0.06, 0.8), _steel), // 레버 암
+        Box(V3(x * 0.55, 1.1, 0.05), const V3(0.05, 0.45, 0.05), _steel), // 손잡이까지 내려오는 팔
+        Cyl(V3(x * 0.55, 0.9, 0.05), 0.02, 0.18, 'x', _chrome), // 손잡이
+        Cyl(V3(x * 1.1, 1.35, -0.55), 0.2, 0.03, 'x', _plate), // 원판 혼
+        Cyl(V3(x * 1.15, 1.35, -0.55), 0.2, 0.03, 'x', _plate),
+      ],
+    ];
 
 List<Prim> _pecDeck() => [
       Box(const V3(0, 0.04, 0), const V3(1.2, 0.08, 1.0), _dark),

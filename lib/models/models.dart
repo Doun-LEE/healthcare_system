@@ -71,6 +71,7 @@ enum EquipmentType {
   inclineChestPress('인클라인 체스트 프레스 머신', EquipmentCategory.chest, ['incline chest press', '인클라인 프레스']),
   declineChestPress('디클라인 체스트 프레스 머신', EquipmentCategory.chest, ['decline chest press']),
   chestPressPlateLoaded('해머 체스트 프레스(플레이트 로디드)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소', '해머 프레스', '해머프레스', '해머 체스트']),
+  lyingChestPress('라잉 체스트 프레스 머신(누워서 미는)', EquipmentCategory.chest, ['lying chest press', 'horizontal bench press', 'iso-lateral bench press', 'bench press machine', '라잉', '라잉 체스트', '누워서', '벤치형', '플레이트 벤치']),
   pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
   cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신', '케이블', '암풀다운', '케이블 크런치', '페이스풀']),
   functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
@@ -479,6 +480,7 @@ enum LoadMechanism {
       case EquipmentType.beltSquat:
         return LoadMechanism.free;
       case EquipmentType.chestPressPlateLoaded:
+      case EquipmentType.lyingChestPress:
       case EquipmentType.latPulldownPlateLoaded:
       case EquipmentType.monsterGlute:
       case EquipmentType.shoulderPressPlateLoaded:
@@ -546,6 +548,7 @@ class GymEquipment {
     this.padColor,
     this.shroud,
     this.hasPhoto = false,
+    this.dualStack = false,
     this.weightBasis,
   })  : mechanism = mechanism ?? LoadMechanism.defaultFor(type),
         extraTypes = extraTypes ?? [];
@@ -566,7 +569,14 @@ class GymEquipment {
   /// 무게 한 칸(kg). 비우면 방식의 기본값(핀 5 / 원판 2.5).
   double? stepKg;
 
-  double get effectiveStep => stepKg ?? mechanism.defaultStepKg;
+  /// 화면 기준 한 칸 무게(한쪽 기준 기구면 한쪽 무게). 덤벨은 보통 1kg 단위.
+  double get effectiveStep =>
+      stepKg ??
+      switch (type) {
+        EquipmentType.dumbbell => 1.0,
+        EquipmentType.kettlebell => 2.0,
+        _ => mechanism.defaultStepKg,
+      };
 
   /// 복합(짬뽕) 머신: 한 기구로 여러 종류 운동이 될 때 추가로 해당하는 기구 종류.
   /// 예) 레그 익스텐션 + 레그 컬 겸용, 랫풀다운 + 시티드 로우 겸용.
@@ -587,12 +597,19 @@ class GymEquipment {
   /// 이 기기에 실물 사진이 저장돼 있는지(사진 자체는 동기화하지 않는다).
   bool hasPhoto;
 
+  /// 좌우가 따로 움직이고 웨이트 스택(핀)도 양쪽에 따로 있는 머신. 무게는 한쪽(스택 하나) 기준,
+  /// 한쪽씩도 할 수 있다.
+  bool dualStack;
+
+  /// 좌우를 따로 쓰는 머신(스택 2개 또는 한쪽 기준 원판 머신) — '한쪽씩 하기'가 가능.
+  bool get independentSides => dualStack || (effectiveBasis == 'perSide' && !perSideByDefault(type));
+
   /// 무게 표시 기준: 'total'(양쪽 합계) / 'perSide'(한쪽 기준). null이면 기구 기본
   /// (덤벨·케틀벨은 한 손 기준, 나머지는 합계).
   String? weightBasis;
 
   static bool perSideByDefault(EquipmentType t) => t == EquipmentType.dumbbell || t == EquipmentType.kettlebell;
-  String get effectiveBasis => weightBasis ?? (perSideByDefault(type) ? 'perSide' : 'total');
+  String get effectiveBasis => weightBasis ?? (perSideByDefault(type) || dualStack ? 'perSide' : 'total');
 
   /// 앱 내부 무게(덤벨은 한 손, 나머지는 합계) → 화면에 보일 무게로 바꾸는 배율.
   double get displayFactor {
@@ -623,6 +640,7 @@ class GymEquipment {
         if (shroud != null) 'shroud': shroud,
         if (hasPhoto) 'hasPhoto': true,
         if (weightBasis != null) 'weightBasis': weightBasis,
+        if (dualStack) 'dualStack': true,
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -643,6 +661,7 @@ class GymEquipment {
         shroud: j['shroud'] as bool?,
         hasPhoto: (j['hasPhoto'] as bool?) ?? false,
         weightBasis: j['weightBasis'] as String?,
+        dualStack: (j['dualStack'] as bool?) ?? false,
       );
 }
 
@@ -777,6 +796,7 @@ class PlannedExercise {
     this.warmup = false,
     this.pinned = false,
     this.skipMine = false,
+    this.oneSide = false,
   });
 
   final String exerciseId;
@@ -803,6 +823,9 @@ class PlannedExercise {
   /// 파트너 날에 나만 빼기로 한 운동(파트너는 그대로 한다). 내 화면에선 흐리게 표시.
   bool skipMine;
 
+  /// 좌우 독립 머신에서 한쪽씩 하기(횟수는 좌우 각각).
+  bool oneSide;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -817,6 +840,7 @@ class PlannedExercise {
         if (warmup) 'warmup': true,
         if (pinned) 'pinned': true,
         if (skipMine) 'skipMine': true,
+        if (oneSide) 'oneSide': true,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -832,6 +856,7 @@ class PlannedExercise {
         warmup: (j['warmup'] as bool?) ?? false,
         pinned: (j['pinned'] as bool?) ?? false,
         skipMine: (j['skipMine'] as bool?) ?? false,
+        oneSide: (j['oneSide'] as bool?) ?? false,
       );
 }
 

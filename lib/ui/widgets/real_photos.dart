@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../data/catalog.dart';
 import '../../data/exercise_photos.dart';
 import '../../models/models.dart';
 import 'equipment_3d.dart';
@@ -170,4 +171,38 @@ class ExerciseThumb extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 기구 사진을 크게 보여 주는 창(실제 사용 사진 + 3D + 설명). 기구를 고를 때 뭔지 확인용.
+Future<void> showEquipmentPreview(BuildContext context, EquipmentType type, {String? title}) {
+  final info = equipmentInfo(type);
+  final hasPhoto = equipmentPhotoUrl(type) != null;
+  return showDialog<void>(
+    context: context,
+    builder: (c) {
+      final text = Theme.of(c).textTheme;
+      return Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title ?? type.label, style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            if (title != null && title != type.label) Text(type.label, style: text.bodySmall),
+            const SizedBox(height: 10),
+            if (hasPhoto)
+              InteractiveViewer(child: EquipmentPhoto(type: type, height: 280, rounded: 14)),
+            const SizedBox(height: 8),
+            Equipment3DView(type: type, height: hasPhoto ? 180 : 280),
+            const SizedBox(height: 8),
+            Text(info.summary, style: text.bodyMedium),
+            if (info.strengths.isNotEmpty)
+              Text(info.strengths.join(' · '), style: text.bodySmall),
+            if (hasPhoto) Text('사진: Free Exercise DB(퍼블릭 도메인) 예시', style: text.labelSmall),
+            const SizedBox(height: 8),
+            Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기'))),
+          ]),
+        ),
+      );
+    },
+  );
 }

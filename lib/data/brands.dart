@@ -95,6 +95,7 @@ List<BrandModel> _plateLoaded(String prefix) => [
       BrandModel('$prefix 체스트 프레스(플레이트)', EquipmentType.chestPressPlateLoaded, _plate),
       BrandModel('$prefix 인클라인 프레스(플레이트)', EquipmentType.chestPressPlateLoaded, _plate),
       BrandModel('$prefix 디클라인 프레스(플레이트)', EquipmentType.declineChestPress, _plate),
+      BrandModel('$prefix 라잉 체스트 프레스(누워서)', EquipmentType.lyingChestPress, _plate, perSide: true),
       BrandModel('$prefix 숄더 프레스(플레이트)', EquipmentType.shoulderPressPlateLoaded, _plate),
       BrandModel('$prefix 풀다운(플레이트)', EquipmentType.latPulldownPlateLoaded, _plate),
       BrandModel('$prefix 하이 로우', EquipmentType.highRow, _plate),
