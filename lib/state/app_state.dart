@@ -876,6 +876,29 @@ class AppState extends ChangeNotifier {
     await rebalanceAround(dateOnly(date));
   }
 
+  /// 휴식으로 바뀐 지난 날을 '계획대로 운동함'으로 되돌린다(기록을 못 했거나 휴식 처리된 경우).
+  /// 모든 세트를 처방대로 한 것으로 체크하고 완료 처리한다. 이후 세부 기록은 '다시 열기'로 고칠 수 있다.
+  Future<void> markDoneAsPlanned(DayPlan plan) async {
+    final u = currentUser;
+    if (u == null || plan.isFinished || plan.isRest || plan.exercises.isEmpty) return;
+    plan.skipped = false;
+    for (final pe in plan.exercises) {
+      if (pe.skipMine) continue;
+      for (final s in pe.sets) {
+        s.completed = true;
+      }
+    }
+    await finishDay(plan);
+    // 완료 시각은 그 날짜로(지금 시각이면 기록이 오늘로 보일 수 있다).
+    final d = dateOnly(plan.date);
+    if (d.isBefore(today)) {
+      plan.finishedAt = DateTime(d.year, d.month, d.day, 21);
+      plan.endedAt = null;
+    }
+    await _save();
+    if (u.restMode == 'shift') await rebalanceAround(d);
+  }
+
   /// 그날의 부위를 바꾸고 루틴을 다시 뽑는다. [shiftFollowing]이면 이후 미완료 날짜를
   /// 이 날 기준으로 다시 배치한다(플래너가 이 날의 제목을 보고 분할 순서를 이어감).
   Future<void> changeDayFocus(

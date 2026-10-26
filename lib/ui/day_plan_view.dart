@@ -204,9 +204,32 @@ class DayPlanView extends StatelessWidget {
                     : '이 날을 쉬어서 이후 루틴을 뒤로 밀어 다시 맞췄어요.',
                 style: TextStyle(color: cs.onTertiaryContainer),
               ),
-              trailing: plan.isFinished
+              trailing: plan.isFinished || plan.date.isBefore(state.today)
                   ? null
                   : TextButton(onPressed: () => state.toggleRestDay(plan.date), child: const Text('운동하기')),
+            ),
+          ),
+        if (plan.skipped && !plan.isFinished && plan.date.isBefore(state.today) && plan.exercises.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: FilledButton.icon(
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('이 날 운동했어요 (계획대로 완료로 표시)'),
+              onPressed: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    title: const Text('운동한 날로 되돌릴까요?'),
+                    content: const Text('아래 루틴의 모든 세트를 계획대로 한 것으로 체크하고 완료 처리해요. '
+                        "무게·횟수가 달랐다면 완료 후 '다시 열기'로 고칠 수 있어요."),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+                      FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('운동했어요')),
+                    ],
+                  ),
+                );
+                if (ok == true) await state.markDoneAsPlanned(plan);
+              },
             ),
           ),
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty && !plan.exercises.any((e) => e.anyCompleted))
