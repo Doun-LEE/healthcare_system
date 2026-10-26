@@ -302,10 +302,8 @@ Future<CustomEquipment?> customEquipmentDialog(BuildContext context, {String ini
 /// 기구 종류별로 할 수 있는 운동 이름(검색용).
 final Map<EquipmentType, List<String>> _exerciseNamesByType = () {
   final m = <EquipmentType, List<String>>{};
-  for (final ex in exerciseCatalog) {
-    for (final t in ex.equipment) {
-      (m[t] ??= []).add(ex.name);
-    }
+  for (final t in EquipmentType.values) {
+    m[t] = [for (final ex in exercisesForTypes({t, ...?impliedEquipment[t]})) ex.name];
   }
   return m;
 }();
@@ -649,7 +647,9 @@ class _EquipmentDetail extends StatelessWidget {
     final info = equipmentInfo(eq.type);
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final exercises = exerciseCatalog.where((x) => x.equipment.contains(eq.type)).toList();
+    final exercises = exercisesForTypes({
+      for (final t in eq.allTypes) ...[t, ...?impliedEquipment[t]],
+    });
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.8,

@@ -681,6 +681,14 @@ class Gym {
 /// 어떤 기구를 가지고 있으면 자동으로 "할 수 있는 것"으로 치는 기구들.
 const Map<EquipmentType, List<EquipmentType>> impliedEquipment = {
   EquipmentType.halfRack: [EquipmentType.squatRack],
+  // 어시스트 머신은 보조 0으로 두면 풀업·딥스 스테이션, 캡틴스 체어엔 딥스 손잡이가 있다.
+  EquipmentType.assistedPullUp: [EquipmentType.pullUpBar, EquipmentType.dipStation],
+  EquipmentType.captainsChair: [EquipmentType.dipStation],
+  // 멀티 힙 머신은 바깥·안쪽·뒤로 차기를 다 한다.
+  EquipmentType.multiHip: [EquipmentType.hipAbductor, EquipmentType.hipAdductor, EquipmentType.gluteKickback],
+  // GHD에서 백 익스텐션도 된다.
+  EquipmentType.ghd: [EquipmentType.romanChair],
+
   EquipmentType.inclineBench: [EquipmentType.flatBench],
   EquipmentType.declineBench: [EquipmentType.flatBench],
   EquipmentType.functionalTrainer: [EquipmentType.cableMachine],

@@ -29,6 +29,7 @@ class Exercise {
     this.altGroups = const [],
     this.warmupOnly = false,
     this.activity = false,
+    this.needs = const {},
   });
 
   final String id;
@@ -62,15 +63,24 @@ class Exercise {
   /// 워밍업·스트레칭 전용(본 운동으로는 뽑지 않는다).
   final bool warmupOnly;
 
+  /// 기구별로 같이 있어야 하는 것(예: 덤벨 → 인클라인 벤치). 그중 하나라도 있으면 된다.
+  final Map<EquipmentType, List<EquipmentType>> needs;
+
   /// 축구·농구 같은 스포츠·활동. 기구 없이 언제든 직접 추가할 수 있고, 루틴 자동 생성엔 넣지 않는다.
   final bool activity;
 
+  bool _usable(EquipmentType e, Set<EquipmentType> available) =>
+      available.contains(e) && (needs[e]?.any(available.contains) ?? true);
+
   bool canDoWith(Set<EquipmentType> available) =>
-      activity || equipment.any(available.contains);
+      activity || equipment.any((e) => _usable(e, available));
 
   /// 주어진 기구 집합에서 실제로 쓸 기구 하나를 고른다(정의 순서 우선).
   EquipmentType pickEquipment(Set<EquipmentType> available) =>
-      equipment.firstWhere(available.contains, orElse: () => equipment.first);
+      equipment.firstWhere((e) => _usable(e, available), orElse: () => equipment.first);
+
+  /// 이 운동에 쓰이는 모든 기구(같이 필요한 벤치 등 포함).
+  Set<EquipmentType> get allEquipment => {...equipment, for (final l in needs.values) ...l};
 }
 
 /// 기구 카탈로그 정보: 특징 설명과 세부 타깃.
@@ -828,9 +838,10 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'incline_db', name: '인클라인 덤벨프레스', group: MuscleGroup.chest,
-    emphasis: ['윗가슴'], equipment: [EquipmentType.inclineBench],
+    emphasis: ['윗가슴'], equipment: [EquipmentType.dumbbell],
     loadType: LoadType.dumbbell, refLift: RefLift.bench, ratio: 0.3,
     compound: true, repRange: [8, 12], priority: 2,
+    needs: {EquipmentType.dumbbell: [EquipmentType.inclineBench]},
     description: '윗가슴 발달에 가장 대중적인 선택.',
   ),
   Exercise(
@@ -860,7 +871,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'dips', name: '딥스', group: MuscleGroup.chest,
-    emphasis: ['아랫가슴', '삼두'], equipment: [EquipmentType.dipStation],
+    emphasis: ['아랫가슴', '삼두'], equipment: [EquipmentType.dipStation, EquipmentType.captainsChair],
     loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
     compound: true, repRange: [8, 12], priority: 2,
     description: '몸을 앞으로 기울이면 가슴, 세우면 삼두 비중이 커진다.',
@@ -909,7 +920,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'db_row', name: '원암 덤벨 로우', group: MuscleGroup.back,
-    emphasis: ['광배 하부', '등 두께'], equipment: [EquipmentType.dumbbell],
+    emphasis: ['광배 하부', '등 두께'], equipment: [EquipmentType.dumbbell, EquipmentType.kettlebell],
     loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.42,
     compound: true, unilateral: true, repRange: [8, 12], priority: 2,
   ),
@@ -939,7 +950,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'face_pull', name: '페이스 풀', group: MuscleGroup.back,
-    emphasis: ['후면 어깨', '등 상부', '회전근개'], equipment: [EquipmentType.cableMachine],
+    emphasis: ['후면 어깨', '등 상부', '회전근개'], equipment: [EquipmentType.cableMachine, EquipmentType.resistanceBand],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.25,
     repRange: [12, 20], priority: 1,
   ),
@@ -973,7 +984,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'rdl', name: '루마니안 데드리프트', group: MuscleGroup.legs,
-    emphasis: ['햄스트링', '둔근', '등 하부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell],
+    emphasis: ['햄스트링', '둔근', '등 하부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.smithMachine, EquipmentType.kettlebell],
     loadType: LoadType.barbell, refLift: RefLift.deadlift, ratio: 0.7,
     compound: true, repRange: [8, 12], priority: 3,
   ),
@@ -999,7 +1010,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'lunge', name: '워킹 런지', group: MuscleGroup.legs,
-    emphasis: ['둔근', '대퇴사두'], equipment: [EquipmentType.dumbbell, EquipmentType.bodyweight],
+    emphasis: ['둔근', '대퇴사두'], equipment: [EquipmentType.dumbbell, EquipmentType.kettlebell, EquipmentType.smithMachine, EquipmentType.bodyweight],
     loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.15,
     compound: true, unilateral: true, repRange: [10, 12], priority: 1,
   ),
@@ -1017,13 +1028,13 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'hip_thrust', name: '힙 쓰러스트', group: MuscleGroup.legs,
-    emphasis: ['대둔근'], equipment: [EquipmentType.hipThrust, EquipmentType.barbell],
+    emphasis: ['대둔근'], equipment: [EquipmentType.hipThrust, EquipmentType.barbell, EquipmentType.smithMachine],
     loadType: LoadType.barbell, refLift: RefLift.squat, ratio: 1.0,
     compound: true, repRange: [8, 12], priority: 2,
   ),
   Exercise(
     id: 'calf_raise', name: '카프 레이즈', group: MuscleGroup.legs,
-    emphasis: ['종아리'], equipment: [EquipmentType.calfRaise, EquipmentType.legPress, EquipmentType.smithMachine, EquipmentType.bodyweight],
+    emphasis: ['종아리'], equipment: [EquipmentType.calfRaise, EquipmentType.legPress, EquipmentType.hackSquat, EquipmentType.smithMachine, EquipmentType.bodyweight],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.9,
     repRange: [12, 20], priority: 1,
   ),
@@ -1087,7 +1098,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'upright_row', name: '업라이트 로우', group: MuscleGroup.shoulder,
-    emphasis: ['측면 어깨', '승모 상부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.cableMachine],
+    emphasis: ['측면 어깨', '승모 상부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.cableMachine, EquipmentType.ezBar, EquipmentType.fixedBarbell],
     loadType: LoadType.barbell, refLift: RefLift.ohp, ratio: 0.6,
     repRange: [10, 12], priority: 1,
   ),
@@ -1095,7 +1106,7 @@ const List<Exercise> exerciseCatalog = [
   // ───────────── 팔 ─────────────
   Exercise(
     id: 'bb_curl', name: '바벨 컬', group: MuscleGroup.arms,
-    emphasis: ['이두 전체'], equipment: [EquipmentType.barbell],
+    emphasis: ['이두 전체'], equipment: [EquipmentType.barbell, EquipmentType.ezBar, EquipmentType.fixedBarbell],
     loadType: LoadType.barbell, refLift: RefLift.row, ratio: 0.4,
     repRange: [8, 12], priority: 3,
   ),
@@ -1107,9 +1118,10 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'incline_curl', name: '인클라인 덤벨 컬', group: MuscleGroup.arms,
-    emphasis: ['이두 장두(봉우리)'], equipment: [EquipmentType.inclineBench],
+    emphasis: ['이두 장두(봉우리)'], equipment: [EquipmentType.dumbbell],
     loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.14,
     repRange: [10, 12], priority: 2,
+    needs: {EquipmentType.dumbbell: [EquipmentType.inclineBench]},
   ),
   Exercise(
     id: 'preacher_curl', name: '프리처 컬', group: MuscleGroup.arms,
@@ -1151,7 +1163,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'skull_crusher', name: '스컬 크러셔', group: MuscleGroup.arms,
-    emphasis: ['삼두 장두'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell],
+    emphasis: ['삼두 장두'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.fixedBarbell],
     loadType: LoadType.barbell, refLift: RefLift.bench, ratio: 0.35,
     repRange: [8, 12], priority: 2,
   ),
@@ -1220,7 +1232,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'russian_twist', name: '러시안 트위스트', group: MuscleGroup.abs,
-    emphasis: ['복사근'], equipment: [EquipmentType.bodyweight, EquipmentType.kettlebell, EquipmentType.dumbbell],
+    emphasis: ['복사근'], equipment: [EquipmentType.bodyweight, EquipmentType.kettlebell, EquipmentType.dumbbell, EquipmentType.medicineBall],
     loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [20, 30], priority: 1,
   ),
@@ -1377,7 +1389,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'shrug', name: '슈러그', group: MuscleGroup.back,
-    emphasis: ['승모 상부'], equipment: [EquipmentType.shrugMachine, EquipmentType.dumbbell, EquipmentType.barbell, EquipmentType.trapBar, EquipmentType.smithMachine],
+    emphasis: ['승모 상부'], equipment: [EquipmentType.shrugMachine, EquipmentType.dumbbell, EquipmentType.barbell, EquipmentType.trapBar, EquipmentType.smithMachine, EquipmentType.kettlebell],
     loadType: LoadType.machine, refLift: RefLift.deadlift, ratio: 0.7,
     repRange: [10, 15], priority: 1,
   ),
@@ -1452,13 +1464,13 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'hip_abduction', name: '힙 어브덕션', group: MuscleGroup.legs,
-    emphasis: ['중둔근(힙 라인)'], equipment: [EquipmentType.hipAbductor],
+    emphasis: ['중둔근(힙 라인)'], equipment: [EquipmentType.hipAbductor, EquipmentType.multiHip],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.5,
     repRange: [15, 20], priority: 1,
   ),
   Exercise(
     id: 'hip_adduction', name: '힙 어덕션', group: MuscleGroup.legs,
-    emphasis: ['내전근'], equipment: [EquipmentType.hipAdductor],
+    emphasis: ['내전근'], equipment: [EquipmentType.hipAdductor, EquipmentType.multiHip],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.5,
     repRange: [15, 20], priority: 1,
   ),
@@ -1495,7 +1507,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'step_up', name: '박스 스텝업', group: MuscleGroup.legs,
-    emphasis: ['둔근', '대퇴사두', '좌우 균형'], equipment: [EquipmentType.plyoBox],
+    emphasis: ['둔근', '대퇴사두', '좌우 균형'], equipment: [EquipmentType.plyoBox, EquipmentType.flatBench, EquipmentType.dumbbell],
     loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.15,
     compound: true, unilateral: true, repRange: [10, 12], priority: 1,
   ),
@@ -1752,6 +1764,268 @@ const List<Exercise> exerciseCatalog = [
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
     repRange: [20, 40], priority: 2, activity: true,
   ),
+  // ── 기구 연결 보강 (2026-10) ──
+  Exercise(
+    id: 'incline_db_fly', name: '인클라인 덤벨 플라이', group: MuscleGroup.chest,
+    emphasis: ['윗가슴', '가슴 스트레칭'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.bench, ratio: 0.12,
+    repRange: [10, 15], priority: 1,
+    needs: {EquipmentType.dumbbell: [EquipmentType.inclineBench]},
+  ),
+  Exercise(
+    id: 'decline_db', name: '디클라인 덤벨프레스', group: MuscleGroup.chest,
+    emphasis: ['아랫가슴'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.bench, ratio: 0.3,
+    compound: true, repRange: [8, 12], priority: 1,
+    needs: {EquipmentType.dumbbell: [EquipmentType.declineBench]},
+  ),
+  Exercise(
+    id: 'low_cable_fly', name: '로우 투 하이 케이블 플라이', group: MuscleGroup.chest,
+    emphasis: ['윗가슴', '가슴 안쪽'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.15,
+    repRange: [12, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'decline_pushup', name: '디클라인 푸시업', group: MuscleGroup.chest,
+    emphasis: ['윗가슴', '코어'], equipment: [EquipmentType.bodyweight, EquipmentType.flatBench],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [10, 20], priority: 1,
+    description: '발을 벤치·의자에 올리고 하는 푸시업.',
+  ),
+  Exercise(
+    id: 'close_grip_pulldown', name: '클로즈그립 랫풀다운', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '등 두께(능형근)'], equipment: [EquipmentType.latPulldown, EquipmentType.cableMachine, EquipmentType.latPulldownPlateLoaded],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 2,
+    description: 'V바(좁은 손잡이)로 당긴다.',
+  ),
+  Exercise(
+    id: 'underhand_pulldown', name: '언더그립 랫풀다운', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '이두'], equipment: [EquipmentType.latPulldown, EquipmentType.cableMachine, EquipmentType.latPulldownPlateLoaded],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.85,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'single_arm_pulldown', name: '원암 랫풀다운', group: MuscleGroup.back,
+    emphasis: ['광배(넓이)', '좌우 균형'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
+    loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.4,
+    unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'chinup', name: '친업', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '이두'], equipment: [EquipmentType.pullUpBar, EquipmentType.assistedPullUp],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [5, 10], priority: 2,
+    description: '손바닥이 나를 보게 잡는 턱걸이.',
+  ),
+  Exercise(
+    id: 'wide_seated_row', name: '와이드그립 시티드 로우', group: MuscleGroup.back,
+    emphasis: ['등 상부(두께)', '후면 어깨'], equipment: [EquipmentType.seatedRow, EquipmentType.cableMachine],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.8,
+    compound: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'single_arm_cable_row', name: '원암 케이블 로우', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '좌우 균형'], equipment: [EquipmentType.cableMachine, EquipmentType.seatedRow],
+    loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.45,
+    compound: true, unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'incline_db_row', name: '인클라인 벤치 덤벨 로우', group: MuscleGroup.back,
+    emphasis: ['등 두께(능형근)', '허리 부담 0'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.35,
+    compound: true, repRange: [10, 12], priority: 2,
+    needs: {EquipmentType.dumbbell: [EquipmentType.inclineBench]},
+    description: '벤치에 엎드려 하는 체스트 서포티드 로우.',
+  ),
+  Exercise(
+    id: 'meadows_row', name: '메도우 로우', group: MuscleGroup.back,
+    emphasis: ['광배 하부', '좌우 균형'], equipment: [EquipmentType.landmine],
+    loadType: LoadType.barbell, refLift: RefLift.row, ratio: 0.4,
+    compound: true, unilateral: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'inverted_row', name: '인버티드 로우', group: MuscleGroup.back,
+    emphasis: ['등 상부(두께)', '맨몸'], equipment: [EquipmentType.smithMachine, EquipmentType.squatRack, EquipmentType.trx],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [8, 15], priority: 1,
+    description: '스미스·랙 바를 허리 높이에 걸고 매달려 당긴다.',
+  ),
+  Exercise(
+    id: 'good_morning', name: '굿모닝', group: MuscleGroup.legs,
+    emphasis: ['햄스트링', '등 하부'], equipment: [EquipmentType.barbell, EquipmentType.smithMachine, EquipmentType.squatRack],
+    loadType: LoadType.barbell, refLift: RefLift.deadlift, ratio: 0.35,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'sumo_deadlift', name: '스모 데드리프트', group: MuscleGroup.legs,
+    emphasis: ['둔근', '내전근', '햄스트링'], equipment: [EquipmentType.barbell],
+    loadType: LoadType.barbell, refLift: RefLift.deadlift, ratio: 0.9,
+    compound: true, repRange: [5, 8], priority: 2,
+  ),
+  Exercise(
+    id: 'sumo_squat', name: '스모 스쿼트(덤벨·케틀벨)', group: MuscleGroup.legs,
+    emphasis: ['내전근', '둔근'], equipment: [EquipmentType.dumbbell, EquipmentType.kettlebell],
+    loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.25,
+    compound: true, repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'reverse_lunge', name: '리버스 런지', group: MuscleGroup.legs,
+    emphasis: ['둔근', '대퇴사두', '무릎 부담 ↓'], equipment: [EquipmentType.dumbbell, EquipmentType.kettlebell, EquipmentType.smithMachine, EquipmentType.bodyweight],
+    loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.15,
+    compound: true, unilateral: true, repRange: [8, 12], priority: 2,
+  ),
+  Exercise(
+    id: 'split_squat', name: '스플릿 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '둔근'], equipment: [EquipmentType.dumbbell, EquipmentType.smithMachine, EquipmentType.bodyweight],
+    loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.15,
+    compound: true, unilateral: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'single_leg_press', name: '싱글 레그 프레스', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '좌우 균형'], equipment: [EquipmentType.legPress, EquipmentType.horizontalLegPress],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.7,
+    compound: true, unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'reverse_hack', name: '리버스 핵 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['둔근', '햄스트링'], equipment: [EquipmentType.hackSquat],
+    loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.8,
+    compound: true, repRange: [10, 12], priority: 1,
+    description: '핵 스쿼트에 거꾸로(가슴을 패드에) 서서 한다.',
+  ),
+  Exercise(
+    id: 'cable_kickback', name: '케이블 글루트 킥백', group: MuscleGroup.legs,
+    emphasis: ['대둔근 고립'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.squat, ratio: 0.12,
+    unilateral: true, repRange: [12, 15], priority: 1,
+    description: '발목 스트랩을 끼고 한다.',
+  ),
+  Exercise(
+    id: 'cable_pull_through', name: '케이블 풀스루', group: MuscleGroup.legs,
+    emphasis: ['둔근', '햄스트링', '허리 부담 ↓'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.deadlift, ratio: 0.25,
+    compound: true, repRange: [12, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'cable_abduction', name: '케이블 힙 어브덕션', group: MuscleGroup.legs,
+    emphasis: ['중둔근(힙 라인)'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.squat, ratio: 0.08,
+    unilateral: true, repRange: [12, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'landmine_squat', name: '랜드마인 스쿼트', group: MuscleGroup.legs,
+    emphasis: ['대퇴사두', '둔근'], equipment: [EquipmentType.landmine],
+    loadType: LoadType.barbell, refLift: RefLift.squat, ratio: 0.45,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'hyper_glute', name: '45° 힙 익스텐션(둔근)', group: MuscleGroup.legs,
+    emphasis: ['둔근', '햄스트링'], equipment: [EquipmentType.romanChair, EquipmentType.ghd],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [12, 20], priority: 1,
+    description: '로만체어에서 등을 살짝 말고 둔근으로 올라온다.',
+  ),
+  Exercise(
+    id: 'arnold_press', name: '아놀드 프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '측면 어깨'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.ohp, ratio: 0.33,
+    compound: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'y_raise', name: '인클라인 Y 레이즈', group: MuscleGroup.shoulder,
+    emphasis: ['하부 승모', '후면 어깨'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.ohp, ratio: 0.06,
+    repRange: [12, 15], priority: 1,
+    needs: {EquipmentType.dumbbell: [EquipmentType.inclineBench]},
+  ),
+  Exercise(
+    id: 'kb_press', name: '케틀벨 프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '코어 안정'], equipment: [EquipmentType.kettlebell],
+    loadType: LoadType.dumbbell, refLift: RefLift.ohp, ratio: 0.3,
+    compound: true, unilateral: true, repRange: [8, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'concentration_curl', name: '컨센트레이션 컬', group: MuscleGroup.arms,
+    emphasis: ['이두 단두', '피크 수축'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.15,
+    unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'reverse_curl', name: '리버스 컬', group: MuscleGroup.arms,
+    emphasis: ['상완요골근', '전완'], equipment: [EquipmentType.ezBar, EquipmentType.barbell, EquipmentType.fixedBarbell],
+    loadType: LoadType.barbell, refLift: RefLift.row, ratio: 0.2,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'rope_hammer_curl', name: '로프 해머 컬', group: MuscleGroup.arms,
+    emphasis: ['상완근', '전완'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.3,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'bayesian_curl', name: '베이지안 케이블 컬', group: MuscleGroup.arms,
+    emphasis: ['이두 장두', '스트레칭'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.15,
+    unilateral: true, repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'wrist_curl', name: '리스트 컬', group: MuscleGroup.arms,
+    emphasis: ['전완'], equipment: [EquipmentType.dumbbell, EquipmentType.barbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.row, ratio: 0.1,
+    repRange: [15, 20], priority: 1,
+  ),
+  Exercise(
+    id: 'farmers_walk', name: '파머스 워크', group: MuscleGroup.arms,
+    emphasis: ['악력', '전완', '승모'], equipment: [EquipmentType.dumbbell, EquipmentType.kettlebell, EquipmentType.trapBar],
+    loadType: LoadType.dumbbell, refLift: RefLift.deadlift, ratio: 0.3,
+    compound: true, repRange: [20, 40], priority: 1,
+    description: '숫자는 걸음 수(20m ≈ 30걸음).',
+  ),
+  Exercise(
+    id: 'hanging_knee_raise', name: '행잉 니 레이즈', group: MuscleGroup.abs,
+    emphasis: ['하복부', '입문'], equipment: [EquipmentType.pullUpBar, EquipmentType.captainsChair, EquipmentType.dipStation],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 15], priority: 1,
+  ),
+  Exercise(
+    id: 'pallof_press', name: '팔로프 프레스', group: MuscleGroup.abs,
+    emphasis: ['코어 안정', '복사근(회전 저항)'], equipment: [EquipmentType.cableMachine, EquipmentType.resistanceBand],
+    loadType: LoadType.cable, refLift: RefLift.bodyweight, ratio: 0,
+    unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'woodchop', name: '케이블 우드찹', group: MuscleGroup.abs,
+    emphasis: ['복사근', '회전 코어'], equipment: [EquipmentType.cableMachine],
+    loadType: LoadType.cable, refLift: RefLift.bodyweight, ratio: 0,
+    unilateral: true, repRange: [10, 12], priority: 1,
+  ),
+  Exercise(
+    id: 'dead_bug', name: '데드버그', group: MuscleGroup.abs,
+    emphasis: ['복횡근', '허리 안정'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 16], priority: 1,
+  ),
+  Exercise(
+    id: 'side_plank', name: '사이드 플랭크', group: MuscleGroup.abs,
+    emphasis: ['복사근', '코어 안정'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    unilateral: true, repRange: [30, 60], priority: 1,
+    description: '숫자는 초.',
+  ),
+  Exercise(
+    id: 'bicycle_crunch', name: '바이시클 크런치', group: MuscleGroup.abs,
+    emphasis: ['복사근', '상복부'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [16, 30], priority: 1,
+  ),
+  Exercise(
+    id: 'wall_ball', name: '월볼', group: MuscleGroup.cardio,
+    emphasis: ['전신', '하체 파워'], equipment: [EquipmentType.medicineBall],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [5, 10], priority: 1,
+    description: '숫자는 분.',
+  ),
   // ── 스포츠·활동 (직접 추가용, 숫자는 분) ──
   Exercise(
     id: 'soccer', name: '축구', group: MuscleGroup.cardio,
@@ -1995,4 +2269,20 @@ bool exerciseMatches(Exercise e, String query) {
   if (hay.any((h) => h.contains(whole))) return true;
   final tokens = q.split(RegExp(r'\s+')).map(_norm).where((t) => t.isNotEmpty);
   return tokens.every((t) => hay.any((h) => h.contains(t)));
+}
+
+
+/// 이 기구(와 같이 있다고 보는 기구)로 할 수 있는 운동. 기구 상세·검색에 쓴다.
+/// 맨몸 운동은 맨몸 기구일 때만 보여 준다.
+List<Exercise> exercisesForTypes(Set<EquipmentType> types) {
+  final t = {...types}..remove(EquipmentType.bodyweight);
+  final onlyBody = types.contains(EquipmentType.bodyweight) && t.isEmpty;
+  return [
+    for (final e in exerciseCatalog)
+      if (!e.warmupOnly &&
+          (onlyBody
+              ? !e.activity && e.equipment.contains(EquipmentType.bodyweight)
+              : e.allEquipment.any(t.contains)))
+        e,
+  ];
 }
