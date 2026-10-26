@@ -74,6 +74,45 @@ class AppState extends ChangeNotifier {
     return pool.firstWhere((e) => e.hasPhoto, orElse: () => pool.firstWhere((e) => e.brand != null, orElse: () => pool.first));
   }
 
+  /// 화면 무게 배율(기구별 '한쪽/양쪽' 기준). 표시 = 내부 × 배율.
+  double weightFactor(DayPlan plan, EquipmentType type) => equipmentFor(plan, type)?.displayFactor ?? 1;
+  String weightBasisLabel(DayPlan plan, EquipmentType type) => equipmentFor(plan, type)?.basisLabel ?? '';
+
+  /// 앞으로 할 날의 처방(목표 무게·횟수)을 직접 바꾼다. 그 운동의 모든 세트에 적용.
+  Future<void> setTarget(DayPlan plan, PlannedExercise pe, {int? reps, double? weight, int? level}) async {
+    for (var i = 0; i < pe.sets.length; i++) {
+      final s0 = pe.sets[i];
+      pe.sets[i] = SetEntry(
+        targetReps: reps ?? s0.targetReps,
+        targetWeight: weight ?? s0.targetWeight,
+        level: level ?? s0.level,
+        extra: s0.extra,
+      );
+    }
+    plan.custom = true;
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
+  /// 운동 시작 시각을 직접 정한다(늦게 누른 경우).
+  Future<void> setWorkoutStart(DayPlan plan, DateTime at) async {
+    plan.startedAt = at;
+    await _save();
+  }
+
+  /// 같은 헬스장 안에 똑같은(종류·이름·방식 같음) 기구가 여러 개 있으면 하나만 남긴다.
+  void _dedupeEquipment() {
+    for (final g in _data.gyms) {
+      final seen = <String>{};
+      g.equipment.removeWhere((e) {
+        final k = '${e.type.name}|${e.displayName}|${e.mechanism.name}|${e.extraTypes.map((t) => t.name).join(',')}';
+        if (seen.contains(k) && !e.hasPhoto) return true;
+        seen.add(k);
+        return false;
+      });
+    }
+  }
+
   /// 루틴에 보여줄 기구 이름: 등록 이름(브랜드 모델명·별칭) 또는 종류 이름.
   String equipmentLabelFor(DayPlan plan, EquipmentType type) {
     if (type == EquipmentType.bodyweight) return '맨몸';
@@ -250,6 +289,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> load() async {
     _data = await _store.load();
+    _dedupeEquipment();
     _loaded = true;
     if (cloudSignedIn) {
       // 계정 세션이 살아 있으면 로그인 화면을 건너뛴다.
@@ -539,12 +579,15 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand, String? weightBasis}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
+    // 같은 종류·같은 이름 기구가 이미 있으면 또 넣지 않는다(중복 방지).
+    final label = (name == null || name.trim().isEmpty) ? type.label : name.trim();
+    if (g.equipment.any((e) => e.type == type && e.displayName == label)) return;
     g.equipment.add(GymEquipment(
         id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg,
-        extraTypes: extraTypes, brand: brand));
+        extraTypes: extraTypes, brand: brand, weightBasis: weightBasis));
     await _save();
   }
 
@@ -560,6 +603,8 @@ class AppState extends ChangeNotifier {
   Future<String?> addEquipmentReturningId(String gymId, EquipmentType type) async {
     final g = gymById(gymId);
     if (g == null) return null;
+    final dup = g.equipment.where((e) => e.type == type && e.customName == null).firstOrNull;
+    if (dup != null) return null;
     final e = GymEquipment(id: newId(), type: type);
     g.equipment.add(e);
     await _save();
@@ -795,6 +840,8 @@ class AppState extends ChangeNotifier {
       equipmentMax: maxForPlan(existing),
       equipmentStep: stepForPlan(existing),
       seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
+      pinned: [for (final e in existing?.exercises ?? const <PlannedExercise>[]) if (e.pinned) e],
+      avoidIds: _neighborIds(d),
     )).generate();
     final plan = DayPlan(
       id: existing?.id ?? newId(),
@@ -928,14 +975,18 @@ class AppState extends ChangeNotifier {
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return existing;
-    if (existing != null && existing.partnerName != null && cloudSignedIn) {
+    if (existing != null && existing.partnerName != null) {
       final link = _data.partners.where((p) => p.name == existing.partnerName && !p.pending).firstOrNull;
-      if (link != null) {
+      if (link != null && cloudSignedIn) {
         await generateJointSession(d, link, venue: venueOf(existing));
         return planOn(d);
       }
+      // 파트너 정보를 지금 못 쓰면(오프라인 등) 파트너 날은 그대로 두고 같은 부위로만 다시 짠다.
+      await changeDayFocus(d, existing.focus, title: (existing.title ?? '').split(' · ').first, shiftFollowing: false);
+      return planOn(d);
     }
     final gym = gymById(gymId ?? existing?.gymId);
+    final pinned = [for (final e in existing?.exercises ?? const <PlannedExercise>[]) if (e.pinned) e];
     final rest = manualRestDays..remove(dateKey(d));
     final history = myPlans.where((p) => dateKey(p.date) != dateKey(d)).toList();
     final gen = Planner(PlannerInput(
@@ -951,6 +1002,7 @@ class AppState extends ChangeNotifier {
       equipmentStep: stepForGym(gym ?? activeGym),
       dayAvailable: {if (gym != null) dateKey(d): gym.availableTypes},
       dayGym: {if (gym != null) dateKey(d): gym.id},
+      dayPinned: {if (pinned.isNotEmpty) dateKey(d): pinned},
     )).build();
     if (existing != null) _data.plans.remove(existing);
     _data.plans.addAll(gen);
@@ -962,8 +1014,9 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     if (u == null) return;
     final f = dateOnly(from);
+    // 파트너와 약속한 날은 지우지 않는다(파트너 해제는 그 날에서 따로).
     _data.plans.removeWhere(
-        (p) => p.userId == u.id && !p.date.isBefore(f) && !p.isFinished);
+        (p) => p.userId == u.id && !p.date.isBefore(f) && !p.isFinished && p.partnerName == null);
     await _save();
   }
 
@@ -1112,6 +1165,30 @@ class AppState extends ChangeNotifier {
     await _save();
     if (u.restMode == 'shift') await rebalanceAround(t);
   }
+
+  /// 전날·다음날 운동 id(같은 운동이 연일 겹치지 않게).
+  Set<String> _neighborIds(DateTime d) => {
+        for (final off in [-2, -1, 1])
+          for (final e in planOn(d.add(Duration(days: off)))?.exercises ?? const <PlannedExercise>[])
+            if (!e.warmup) e.exerciseId,
+      };
+
+  /// 📌 고정 / 해제. 고정한 운동은 루틴을 다시 짜도 남는다.
+  Future<void> togglePin(DayPlan plan, PlannedExercise pe) async {
+    pe.pinned = !pe.pinned;
+    if (pe.pinned) plan.custom = true;
+    await _save();
+  }
+
+  /// 파트너 날에 나만 이 운동을 빼거나 다시 넣는다(파트너 루틴은 그대로).
+  Future<void> toggleSkipMine(DayPlan plan, PlannedExercise pe) async {
+    pe.skipMine = !pe.skipMine;
+    plan.custom = true;
+    await _save();
+  }
+
+  /// 운동을 이미 시작했는지(시작 버튼 또는 세트 체크).
+  bool isStarted(DayPlan? p) => p != null && (p.isStarted || p.exercises.any((e) => e.anyCompleted));
 
   /// 직접 손본 날로 표시(이후 자동 재배치 때 그대로 두고 기준으로 삼는다).
   void _markCustom(DayPlan plan) {
@@ -1275,7 +1352,7 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
     plan.rpe = rpe;
     for (final pe in plan.exercises) {
-      if (!pe.anyCompleted || pe.warmup) continue;
+      if (!pe.anyCompleted || pe.warmup || pe.skipMine) continue;
       final ex = exerciseById(pe.exerciseId);
       if (ex == null) continue;
       // 처음 하는 운동의 기준 무게. 컨디션으로 낮춘 날이면 배율을 되돌려 평소 무게로 잡는다.
@@ -1364,7 +1441,26 @@ class AppState extends ChangeNotifier {
   Future<void> refreshInbox() async {
     if (!cloudSignedIn) return;
     try {
-      final items = await CloudSync.instance.readInbox();
+      final raw = await CloudSync.instance.readInbox();
+      // 같은 파트너가 같은 날짜로 여러 번 보낸 루틴(수정할 때마다 전송)은 가장 최근 것 하나만 남긴다.
+      final newestJoint = <String, InboxItem>{};
+      DateTime atOf(InboxItem i) => (i.code == null ? null : decodeRoutine(i.code!)?.at) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final items = <InboxItem>[];
+      for (final it in raw) {
+        if (it.type != InboxType.joint || it.date == null) {
+          items.add(it);
+          continue;
+        }
+        final k = '${it.fromUid}|${dateKey(it.date!)}';
+        final prev = newestJoint[k];
+        if (prev == null || atOf(it).isAfter(atOf(prev))) {
+          if (prev != null) unawaited(CloudSync.instance.deleteInbox(prev.id).catchError((_) {}));
+          newestJoint[k] = it;
+        } else {
+          unawaited(CloudSync.instance.deleteInbox(it.id).catchError((_) {}));
+        }
+      }
+      items.addAll(newestJoint.values);
       // 수락/거절 답장은 자동 처리하고 지운다. 요청·루틴은 화면에 남겨 사용자가 결정.
       final keep = <InboxItem>[];
       var changed = false;
@@ -1808,6 +1904,13 @@ class AppState extends ChangeNotifier {
     // 파트너 날 동기화: 내가 따로 넣은 개인 운동은 유지한다.
     if (existing != null && existing.partnerName != null) {
       plan.exercises.addAll(existing.exercises.where((e) => e.personal));
+      // 파트너가 루틴을 바꿔 보내와도 내가 '나만 빼기'·'고정'한 표시는 유지한다.
+      for (final e in plan.exercises) {
+        final old = existing.exercises.where((x) => x.exerciseId == e.exerciseId).firstOrNull;
+        if (old == null) continue;
+        e.skipMine = old.skipMine;
+        e.pinned = old.pinned;
+      }
     }
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);

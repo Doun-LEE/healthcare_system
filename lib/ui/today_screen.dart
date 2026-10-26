@@ -45,6 +45,10 @@ class TodayScreen extends StatelessWidget {
               tooltip: '오늘 루틴 다시 생성',
               icon: const Icon(Icons.refresh),
               onPressed: () async {
+                if (state.isStarted(plan)) {
+                  if (await confirmRebuildIfStarted(context, plan)) await state.regenerateDay(now);
+                  return;
+                }
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(

@@ -13,7 +13,10 @@ import '../../state/app_state.dart';
 
 /// 운동 완료 카드. 이미지로 캡처해 공유한다(인스타·카톡).
 class WorkoutSummaryCard extends StatelessWidget {
-  const WorkoutSummaryCard({super.key, required this.plan, required this.userName, this.equipmentLabel});
+  const WorkoutSummaryCard({super.key, required this.plan, required this.userName, this.equipmentLabel, this.showAll = false});
+
+  /// 운동을 전부 펼쳐 보여줄지(기본은 8개까지).
+  final bool showAll;
   final DayPlan plan;
   final String userName;
 
@@ -71,7 +74,7 @@ class WorkoutSummaryCard extends StatelessWidget {
             if (cardioMin > 0) _Stat(label: '유산소', value: '$cardioMin분'),
           ]),
           const SizedBox(height: 14),
-          for (final e in done.take(8))
+          for (final e in showAll ? done : done.take(8))
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
@@ -91,7 +94,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                 ),
               ]),
             ),
-          if (done.length > 8)
+          if (!showAll && done.length > 8)
             Text('외 ${done.length - 8}개', style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ],
       ),
@@ -144,9 +147,10 @@ class _Stat extends StatelessWidget {
 /// 완료 카드를 보여주고 이미지로 공유/저장한다.
 Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userName) async {
   final key = GlobalKey();
+  var showAll = false;
   await showDialog<void>(
     context: context,
-    builder: (c) => Dialog(
+    builder: (c) => StatefulBuilder(builder: (c, setDialog) => Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(16),
       child: SingleChildScrollView(
@@ -156,9 +160,16 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
             child: WorkoutSummaryCard(
               plan: plan,
               userName: userName,
+              showAll: showAll,
               equipmentLabel: (e) => context.read<AppState>().equipmentLabelFor(plan, e.equipmentType),
             ),
           ),
+          if (plan.exercises.where((e) => e.anyCompleted).length > 8)
+            TextButton.icon(
+              onPressed: () => setDialog(() => showAll = !showAll),
+              icon: Icon(showAll ? Icons.unfold_less : Icons.unfold_more, color: Colors.white),
+              label: Text(showAll ? '접기' : '전부 펼치기', style: const TextStyle(color: Colors.white)),
+            ),
           const SizedBox(height: 12),
           Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기', style: TextStyle(color: Colors.white))),
@@ -200,7 +211,7 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
         ]),
       ),
     ),
-  );
+  ));
 }
 
 Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false, bool copy = false}) async {

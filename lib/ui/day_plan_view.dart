@@ -61,6 +61,8 @@ Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
 /// "이후 날짜도 이어서 재배치"를 켜면 분할 순서가 그날부터 다시 이어진다.
 Future<void> changeDayFocusDialog(BuildContext context, DayPlan plan) async {
   final state = context.read<AppState>();
+  if (!await confirmRebuildIfStarted(context, plan)) return;
+  if (!context.mounted) return;
   final user = state.currentUser;
   if (user == null) return;
   final cycle = splitCycles[user.splitDays.clamp(1, 6)]!;
@@ -452,6 +454,7 @@ Future<void> switchGymDialog(BuildContext context, DayPlan plan) async {
   );
   if (mode == null || !context.mounted) return;
   if (mode == 'rebuild') {
+    if (!await confirmRebuildIfStarted(context, plan)) return;
     await state.rebuildDayAtGym(plan, picked);
     if (context.mounted) {
       final name = state.gyms.firstWhere((g) => g.id == picked).name;
@@ -597,12 +600,29 @@ class _WorkoutClockState extends State<_WorkoutClock> {
     if (!p.isStarted) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
-        child: FilledButton.tonalIcon(
-          onPressed: widget.onStart,
-          icon: const Icon(Icons.play_arrow),
-          label: Text('운동 시작 (예상 ${p.estimatedMinutes}분)'),
-          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-        ),
+        child: Row(children: [
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: widget.onStart,
+              icon: const Icon(Icons.play_arrow),
+              label: Text('운동 시작 (예상 ${p.estimatedMinutes}분)'),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+            ),
+          ),
+          const SizedBox(width: 6),
+          IconButton.outlined(
+            tooltip: '이미 시작했어요(시각 입력)',
+            icon: const Icon(Icons.schedule),
+            onPressed: () async {
+              final t = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+              if (t == null || !context.mounted) return;
+              final now = DateTime.now();
+              var at = DateTime(now.year, now.month, now.day, t.hour, t.minute);
+              if (at.isAfter(now)) at = at.subtract(const Duration(days: 1));
+              await context.read<AppState>().setWorkoutStart(p, at);
+            },
+          ),
+        ]),
       );
     }
     final elapsed = p.actualMinutes ?? 0;
@@ -623,8 +643,21 @@ class _WorkoutClockState extends State<_WorkoutClock> {
         PopupMenuButton<String>(
           tooltip: '시작 시각',
           icon: Icon(Icons.more_horiz, size: 18, color: cs.onSurfaceVariant),
-          onSelected: (v) => context.read<AppState>().cancelWorkoutStart(p, resetToNow: v == 'now'),
+          onSelected: (v) async {
+            final st = context.read<AppState>();
+            if (v == 'pick') {
+              final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(p.startedAt ?? DateTime.now()));
+              if (t == null) return;
+              final now = DateTime.now();
+              var at = DateTime(now.year, now.month, now.day, t.hour, t.minute);
+              if (at.isAfter(now)) at = at.subtract(const Duration(days: 1)); // 자정 넘겨 시작한 경우
+              await st.setWorkoutStart(p, at);
+              return;
+            }
+            await st.cancelWorkoutStart(p, resetToNow: v == 'now');
+          },
           itemBuilder: (_) => [
+            const PopupMenuItem(value: 'pick', child: Text('시작 시각 직접 정하기')),
             if (!p.exercises.any((e) => e.anyCompleted)) const PopupMenuItem(value: 'cancel', child: Text('시작 취소 (잘못 눌렀어요)')),
             const PopupMenuItem(value: 'now', child: Text('시작 시각을 지금으로')),
           ],
@@ -827,7 +860,21 @@ class _ExerciseCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(ex.name, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        Row(children: [
+                          Flexible(
+                            child: Text(
+                              ex.name,
+                              style: text.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                decoration: pe.skipMine ? TextDecoration.lineThrough : null,
+                                color: pe.skipMine ? cs.onSurfaceVariant : null,
+                              ),
+                            ),
+                          ),
+                          if (pe.pinned) Padding(padding: const EdgeInsets.only(left: 4), child: Icon(Icons.push_pin, size: 16, color: cs.primary)),
+                        ]),
+                        if (pe.skipMine)
+                          Text('나는 이번엔 빼요 · ${plan.partnerName}는 그대로', style: text.bodySmall?.copyWith(color: cs.secondary)),
                         Row(children: [
                           Icon(isBw ? Icons.accessibility_new : Icons.fitness_center, size: 14, color: cs.primary),
                           const SizedBox(width: 4),
@@ -880,7 +927,32 @@ class _ExerciseCard extends StatelessWidget {
                         case 'removeSet':
                           await state.removeSet(plan, pe);
                         case 'remove':
-                          await state.removeExercise(plan, pe);
+                          if (plan.partnerName != null && !pe.personal) {
+                            final both = await showDialog<String>(
+                              context: context,
+                              builder: (c) => SimpleDialog(
+                                title: Text('${ex.name} 빼기'),
+                                children: [
+                                  SimpleDialogOption(
+                                    onPressed: () => Navigator.pop(c, 'both'),
+                                    child: Text('${plan.partnerName}도 같이 빼기'),
+                                  ),
+                                  SimpleDialogOption(
+                                    onPressed: () => Navigator.pop(c, 'me'),
+                                    child: Text('나만 빼기 (${plan.partnerName}는 그대로)'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (both == 'both') await state.removeExercise(plan, pe);
+                            if (both == 'me') await state.toggleSkipMine(plan, pe);
+                          } else {
+                            await state.removeExercise(plan, pe);
+                          }
+                        case 'unskip':
+                          await state.toggleSkipMine(plan, pe);
+                        case 'pin':
+                          await state.togglePin(plan, pe);
                         case 'up':
                           await state.moveExercise(plan, pe, -1);
                         case 'down':
@@ -899,6 +971,8 @@ class _ExerciseCard extends StatelessWidget {
                             value: 'target:${g.name}',
                             child: Text('${pe.effectiveGroup == g ? '✓ ' : ''}타깃: ${g.label}'),
                           ),
+                      PopupMenuItem(value: 'pin', child: Text(pe.pinned ? '📌 고정 해제' : '📌 고정 (다시 짜도 유지)')),
+                      if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
                       const PopupMenuItem(value: 'up', child: Text('↑ 위로')),
                       const PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
                       PopupMenuItem(value: 'swap', child: Text('다른 운동으로 교체')),
@@ -918,13 +992,16 @@ class _ExerciseCard extends StatelessWidget {
                     ? cardioLevels[ex.id]!.format(pe.sets[i].effectiveLevel!)
                     : null,
                 editable: logging,
+                planning: editable && !logging,
+                weightFactor: state.weightFactor(plan, pe.equipmentType),
+                weightSuffix: state.weightBasisLabel(plan, pe.equipmentType),
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
                   if (pe.sets[i].completed && pe.restSeconds > 0 && i < pe.sets.length - 1 && context.mounted) {
                     RestTimerSheet.show(context, pe.restSeconds);
                   }
                 },
-                onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw),
+                onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw, planning: editable && !logging),
               ),
             if ((editable || logging) && !isCardio)
               Row(children: [
@@ -947,26 +1024,36 @@ class _ExerciseCard extends StatelessWidget {
     );
   }
 
-  Future<void> _editSet(BuildContext context, AppState state, int i, String unit, bool showWeight) async {
+  Future<void> _editSet(BuildContext context, AppState state, int i, String unit, bool showWeight, {bool planning = false}) async {
     final s = pe.sets[i];
     final ex = exerciseById(pe.exerciseId);
     final spec = ex == null ? null : cardioLevels[ex.id];
+    final f = state.weightFactor(plan, pe.equipmentType);
+    final basis = state.weightBasisLabel(plan, pe.equipmentType);
+    final step = state.stepForPlan(plan)[pe.equipmentType] ?? ex?.loadType.increment ?? 2.5;
+    final isCardio = ex?.loadType == LoadType.cardio;
     final result = await SetEditorSheet.show(
       context,
-      title: '${ex?.name ?? ''} ${i + 1}세트 실제 수행',
+      title: planning
+          ? '${ex?.name ?? ''} 처방 바꾸기 (모든 세트)${basis.isEmpty ? '' : ' · $basis'}'
+          : '${ex?.name ?? ''} ${i + 1}세트 실제 수행${basis.isEmpty ? '' : ' · $basis'}',
       targetReps: s.targetReps,
-      targetWeight: s.targetWeight,
-      initialReps: s.effectiveReps,
-      initialWeight: s.effectiveWeight,
-      weightStep: ex?.loadType.increment ?? 2.5,
+      targetWeight: s.targetWeight * f,
+      initialReps: planning ? s.targetReps : s.effectiveReps,
+      initialWeight: (planning ? s.targetWeight : s.effectiveWeight) * f,
+      weightStep: step,
       unit: unit,
       showWeight: showWeight,
       levelSpec: spec,
-      initialLevel: s.effectiveLevel,
+      initialLevel: planning ? s.level : s.effectiveLevel,
+      maxReps: isCardio ? 240 : 60,
     );
-    if (result != null) {
-      await state.updateSet(plan, pe, i,
-          reps: result.$1, weight: showWeight ? result.$2 : null, level: result.$3); // 완료 체크는 체크박스로만
+    if (result == null) return;
+    final weight = showWeight ? result.$2 / f : null;
+    if (planning) {
+      await state.setTarget(plan, pe, reps: result.$1, weight: weight, level: result.$3);
+    } else {
+      await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3); // 완료 체크는 체크박스로만
     }
   }
 
@@ -1010,10 +1097,20 @@ class _SetRow extends StatelessWidget {
     required this.onToggle,
     required this.onEdit,
     this.levelText,
+    this.weightFactor = 1,
+    this.weightSuffix = '',
+    this.planning = false,
   });
 
   final int index;
   final SetEntry set;
+
+  /// 기구별 '한쪽/양쪽' 표시 배율과 꼬리표(예: '한쪽').
+  final double weightFactor;
+  final String weightSuffix;
+
+  /// 앞으로 할 날: 체크 없이 처방만 고친다.
+  final bool planning;
   final String unit;
   final bool showWeight;
   final bool editable;
@@ -1045,7 +1142,7 @@ class _SetRow extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                '${showWeight ? '${_fmt(set.effectiveWeight)}kg × ' : ''}${set.effectiveReps}$unit${levelText != null ? ' · $levelText' : ''}',
+                '${showWeight ? '${_fmt(set.effectiveWeight * weightFactor)}kg${weightSuffix.isEmpty ? '' : '($weightSuffix)'} × ' : ''}${set.effectiveReps}$unit${levelText != null ? ' · $levelText' : ''}',
                 style: text.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   decoration: set.completed ? TextDecoration.lineThrough : null,
@@ -1056,10 +1153,10 @@ class _SetRow extends StatelessWidget {
             if (changed)
               Icon(up ? Icons.trending_up : Icons.trending_down,
                   size: 18, color: up ? cs.primary : cs.error),
-            if (editable)
+            if (editable || planning)
               IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                tooltip: '실제 수행 입력',
+                tooltip: planning ? '처방 무게·횟수 바꾸기' : '실제 수행 입력',
                 onPressed: onEdit,
               ),
           ],
@@ -1100,4 +1197,24 @@ class QuoteBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// 운동을 이미 시작한 날 루틴을 다시 만들려 할 때 한 번 더 확인한다.
+/// 시작 전이면 바로 true.
+Future<bool> confirmRebuildIfStarted(BuildContext context, DayPlan? plan) async {
+  final state = context.read<AppState>();
+  if (!state.isStarted(plan)) return true;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: const Text('이미 운동을 시작했어요'),
+      content: const Text('지금 다시 만들면 체크한 세트와 입력한 기록이 사라집니다. 📌 고정한 운동만 남아요.\n그래도 다시 만들까요?'),
+      actions: [
+        FilledButton(onPressed: () => Navigator.pop(c, false), child: const Text('그대로 두기')),
+        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('그래도 다시 만들기')),
+      ],
+    ),
+  );
+  return ok == true;
 }

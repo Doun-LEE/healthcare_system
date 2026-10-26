@@ -83,7 +83,7 @@ class DayPage extends StatelessWidget {
       case 'import':
         await importRoutineDialog(context, d);
       case 'regen':
-        await state.regenerateDay(d);
+        if (await confirmRebuildIfStarted(context, plan)) await state.regenerateDay(d);
       case 'rest':
         await state.toggleRestDay(d);
       case 'delete':

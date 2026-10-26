@@ -264,6 +264,7 @@ class UserProfile {
     this.restMode = 'shift',
     this.warmupMode = 'auto',
     List<String>? warmupIds,
+    Map<String, List<String>>? warmupByGroupIds,
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
@@ -284,7 +285,8 @@ class UserProfile {
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
         exerciseRank = exerciseRank ?? {},
         groupRank = groupRank ?? {},
-        warmupIds = warmupIds ?? [];
+        warmupIds = warmupIds ?? [],
+        warmupByGroupIds = warmupByGroupIds ?? {};
 
   final String id;
   String name;
@@ -311,7 +313,12 @@ class UserProfile {
 
   /// 운동 전 워밍업: 'auto'(그 날 부위에 맞춰), 'custom'(직접 고른 것), 'off'.
   String warmupMode;
+
+  /// 직접 정하기: 매번 하는 워밍업.
   List<String> warmupIds;
+
+  /// 직접 정하기: 그 날 부위에 따라 하는 워밍업(부위 이름 → 운동 id). 예) 등 → 덤벨 풀오버·풀업.
+  Map<String, List<String>> warmupByGroupIds;
 
   /// n분할. 1(무분할)~6.
   int splitDays;
@@ -361,6 +368,7 @@ class UserProfile {
         'restMode': restMode,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
+        'warmupByGroupIds': warmupByGroupIds,
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
@@ -395,6 +403,10 @@ class UserProfile {
         restMode: (j['restMode'] as String?) ?? 'shift',
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
+        warmupByGroupIds: {
+          for (final e in ((j['warmupByGroupIds'] as Map?) ?? const {}).entries)
+            e.key as String: ((e.value as List?) ?? const []).cast<String>().toList(),
+        },
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
@@ -524,6 +536,7 @@ class GymEquipment {
     this.padColor,
     this.shroud,
     this.hasPhoto = false,
+    this.weightBasis,
   })  : mechanism = mechanism ?? LoadMechanism.defaultFor(type),
         extraTypes = extraTypes ?? [];
 
@@ -564,6 +577,24 @@ class GymEquipment {
   /// 이 기기에 실물 사진이 저장돼 있는지(사진 자체는 동기화하지 않는다).
   bool hasPhoto;
 
+  /// 무게 표시 기준: 'total'(양쪽 합계) / 'perSide'(한쪽 기준). null이면 기구 기본
+  /// (덤벨·케틀벨은 한 손 기준, 나머지는 합계).
+  String? weightBasis;
+
+  static bool perSideByDefault(EquipmentType t) => t == EquipmentType.dumbbell || t == EquipmentType.kettlebell;
+  String get effectiveBasis => weightBasis ?? (perSideByDefault(type) ? 'perSide' : 'total');
+
+  /// 앱 내부 무게(덤벨은 한 손, 나머지는 합계) → 화면에 보일 무게로 바꾸는 배율.
+  double get displayFactor {
+    final def = perSideByDefault(type) ? 'perSide' : 'total';
+    if (effectiveBasis == def) return 1;
+    return def == 'perSide' ? 2 : 0.5;
+  }
+
+  String get basisLabel => effectiveBasis == 'perSide'
+      ? (perSideByDefault(type) ? '한 손' : '한쪽')
+      : (perSideByDefault(type) ? '양손 합' : '');
+
   String get displayName =>
       (customName == null || customName!.isEmpty) ? type.label : customName!;
 
@@ -581,6 +612,7 @@ class GymEquipment {
         if (padColor != null) 'padColor': padColor,
         if (shroud != null) 'shroud': shroud,
         if (hasPhoto) 'hasPhoto': true,
+        if (weightBasis != null) 'weightBasis': weightBasis,
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -600,6 +632,7 @@ class GymEquipment {
         padColor: (j['padColor'] as num?)?.toInt(),
         shroud: j['shroud'] as bool?,
         hasPhoto: (j['hasPhoto'] as bool?) ?? false,
+        weightBasis: j['weightBasis'] as String?,
       );
 }
 
@@ -724,6 +757,8 @@ class PlannedExercise {
     this.personal = false,
     this.groupOverride,
     this.warmup = false,
+    this.pinned = false,
+    this.skipMine = false,
   });
 
   final String exerciseId;
@@ -744,6 +779,12 @@ class PlannedExercise {
   /// 본 운동 전 워밍업·스트레칭. 기록(무게 진행·밸런스)에 넣지 않는다.
   final bool warmup;
 
+  /// 루틴을 다시 짜도 바꾸지 않을 운동(📌 고정).
+  bool pinned;
+
+  /// 파트너 날에 나만 빼기로 한 운동(파트너는 그대로 한다). 내 화면에선 흐리게 표시.
+  bool skipMine;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -756,6 +797,8 @@ class PlannedExercise {
         if (personal) 'personal': true,
         if (groupOverride != null) 'group': groupOverride!.name,
         if (warmup) 'warmup': true,
+        if (pinned) 'pinned': true,
+        if (skipMine) 'skipMine': true,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -769,6 +812,8 @@ class PlannedExercise {
         personal: (j['personal'] as bool?) ?? false,
         groupOverride: j['group'] == null ? null : MuscleGroup.parse(j['group'] as String),
         warmup: (j['warmup'] as bool?) ?? false,
+        pinned: (j['pinned'] as bool?) ?? false,
+        skipMine: (j['skipMine'] as bool?) ?? false,
       );
 }
 
@@ -877,9 +922,10 @@ class DayPlan {
       0, (a, e) => a + e.sets.where((s) => s.completed && (s.extra || e.note == '직접 추가')).length);
 
   double get completionRatio {
-    final total = exercises.fold<int>(0, (a, e) => a + e.sets.length);
+    final mine = exercises.where((e) => !e.skipMine);
+    final total = mine.fold<int>(0, (a, e) => a + e.sets.length);
     if (total == 0) return 0;
-    final done = exercises.fold<int>(
+    final done = mine.fold<int>(
         0, (a, e) => a + e.sets.where((s) => s.completed).length);
     return done / total;
   }

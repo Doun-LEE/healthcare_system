@@ -19,10 +19,14 @@ class SetEditorSheet extends StatefulWidget {
     required this.showWeight,
     this.levelSpec,
     this.initialLevel,
+    this.maxReps = 60,
   });
 
   final String title;
   final CardioLevelSpec? levelSpec;
+
+  /// 횟수(유산소는 분) 휠의 최대값.
+  final int maxReps;
   final int? initialLevel;
   final int targetReps;
   final double targetWeight;
@@ -45,6 +49,7 @@ class SetEditorSheet extends StatefulWidget {
     required bool showWeight,
     CardioLevelSpec? levelSpec,
     int? initialLevel,
+    int maxReps = 60,
   }) =>
       showAppSheet<(int, double, int?)>(
         context: context,
@@ -62,6 +67,7 @@ class SetEditorSheet extends StatefulWidget {
           showWeight: showWeight,
           levelSpec: levelSpec,
           initialLevel: initialLevel,
+          maxReps: maxReps,
         ),
       );
 
@@ -70,7 +76,7 @@ class SetEditorSheet extends StatefulWidget {
 }
 
 class _SetEditorSheetState extends State<SetEditorSheet> {
-  static const int _maxReps = 60;
+  int get _maxReps => widget.maxReps;
   late int _reps;
   late int _weightIdx; // weight = idx * step
   /// 키보드로 직접 넣은 무게(휠 단위와 안 맞아도 그대로 저장).

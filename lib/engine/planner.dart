@@ -36,6 +36,7 @@ class PlannerInput {
     this.fixed = const {},
     this.dayAvailable = const {},
     this.dayGym = const {},
+    this.dayPinned = const {},
   });
 
   final UserProfile profile;
@@ -61,6 +62,9 @@ class PlannerInput {
   /// 날짜별로 다른 헬스장에 가는 날: 그 날 쓸 기구(dateKey → 기구)와 헬스장 id.
   final Map<String, Set<EquipmentType>> dayAvailable;
   final Map<String, String> dayGym;
+
+  /// 날짜별로 고정(📌)한 운동 — 다시 짜도 남긴다.
+  final Map<String, List<PlannedExercise>> dayPinned;
 }
 
 class Planner {
@@ -102,6 +106,15 @@ class Planner {
     }
 
     var streak = _streakBefore(input.from);
+
+    // 전날·전전날 운동(이력 포함) — 연일 같은 운동 피하기용.
+    final idsByDay = <String, Set<String>>{
+      for (final h in input.history) dateKey(h.date): {for (final e in h.exercises) if (!e.warmup) e.exerciseId},
+    };
+    Set<String> recentIds(DateTime d) => {
+          ...?idsByDay[dateKey(d.subtract(const Duration(days: 1)))],
+          ...?idsByDay[dateKey(d.subtract(const Duration(days: 2)))],
+        };
     final totalDays = input.to.difference(input.from).inDays + 1;
 
     for (var i = 0; i < totalDays; i++) {
@@ -111,6 +124,7 @@ class Planner {
       final fixedDay = input.fixed[key];
       if (fixedDay != null) {
         plans.add(fixedDay);
+        idsByDay[key] = {for (final e in fixedDay.exercises) if (!e.warmup) e.exerciseId};
         if (fixedDay.isRest) {
           streak = 0;
         } else if (fixedDay.skipped) {
@@ -163,6 +177,8 @@ class Planner {
       final exercises = SessionGenerator(SessionRequest(
         groups: groups,
         available: input.dayAvailable[key] ?? input.available,
+        avoidIds: recentIds(date),
+        pinned: input.dayPinned[key] ?? const [],
         progress: input.progress,
         profile: input.profile,
         minutesBudget: (input.profile.sessionMinutes * input.profile.volumeBias).round(),
@@ -173,6 +189,7 @@ class Planner {
         seed: date.millisecondsSinceEpoch ~/ 86400000,
       )).generate();
 
+      idsByDay[key] = {for (final e in exercises) if (!e.warmup) e.exerciseId};
       plans.add(DayPlan(
         id: input.newId(),
         userId: input.profile.id,

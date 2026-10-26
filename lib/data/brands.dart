@@ -11,10 +11,16 @@ import '../models/models.dart';
 import 'equipment_models.dart';
 
 class BrandModel {
-  const BrandModel(this.name, this.type, this.mechanism);
+  const BrandModel(this.name, this.type, this.mechanism, {this.extra = const [], this.perSide = false});
   final String name;
   final EquipmentType type;
   final LoadMechanism mechanism;
+
+  /// 한 기구로 되는 다른 운동 종류(다기능 머신).
+  final List<EquipmentType> extra;
+
+  /// 좌우 따로 원판을 거는 기구라 '한쪽 기준'으로 보기 좋은 경우.
+  final bool perSide;
 }
 
 class EquipmentBrand {
@@ -228,7 +234,12 @@ final equipmentBrands = <EquipmentBrand>[
     style: const ModelStyle(frame: Color(0xFF2B2E33), pad: Color(0xFF2A2A2A), padDark: Color(0xFF1A1A1A), accent: Color(0xFF9AA3AD)),
     aliases: ['newtech', '뉴텍'],
     note: '국산 브랜드.',
-    models: [..._selectorized('뉴텍'), ..._plateLoaded('뉴텍')],
+    models: [
+      const BrandModel('뉴텍 멀티 해머 프레스(숄더·슈러그·로우·카프)', EquipmentType.shoulderPressPlateLoaded, _plate,
+          extra: [EquipmentType.shrugMachine, EquipmentType.lowRow, EquipmentType.calfRaise], perSide: true),
+      ..._selectorized('뉴텍'),
+      ..._plateLoaded('뉴텍'),
+    ],
   ),
   EquipmentBrand(
     key: 'cable',

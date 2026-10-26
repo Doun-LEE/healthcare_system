@@ -258,23 +258,36 @@ class ProfileScreen extends StatelessWidget {
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
             if (u.warmupMode == 'custom')
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Wrap(spacing: 6, runSpacing: 6, children: [
-                  for (final id in u.warmupIds)
-                    if (exerciseById(id) != null)
-                      InputChip(
-                        label: Text(exerciseById(id)!.name),
-                        onDeleted: () => _edit(state, (p) => p.warmupIds.remove(id)),
-                        visualDensity: VisualDensity.compact,
+              for (final key in ['all', 'back', 'chest', 'shoulder', 'arms', 'legs', 'abs'])
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    SizedBox(
+                      width: 52,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(key == 'all' ? '매번' : MuscleGroup.parse(key).label, style: text.labelMedium),
                       ),
-                  ActionChip(
-                    avatar: const Icon(Icons.add, size: 18),
-                    label: const Text('워밍업 고르기'),
-                    onPressed: () => _pickWarmups(context, state),
-                  ),
-                ]),
-              ),
+                    ),
+                    Expanded(
+                      child: Wrap(spacing: 6, runSpacing: 4, children: [
+                        for (final id in (key == 'all' ? u.warmupIds : (u.warmupByGroupIds[key] ?? const <String>[])))
+                          if (exerciseById(id) != null)
+                            InputChip(
+                              label: Text(exerciseById(id)!.name),
+                              onDeleted: () => _edit(state, (p) => key == 'all' ? p.warmupIds.remove(id) : p.warmupByGroupIds[key]?.remove(id)),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16),
+                          label: Text(key == 'all' ? '매번 할 것' : '이 부위 날'),
+                          onPressed: () => _pickWarmups(context, state, key),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ]),
+                    ),
+                  ]),
+                ),
             const SizedBox(height: 12),
             Text('운동 구역 순서', style: text.labelLarge),
             Text('손잡이를 끌어 하루 루틴에서 어떤 구역을 먼저 할지 정합니다.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
@@ -362,25 +375,38 @@ class ProfileScreen extends StatelessWidget {
 
   void _edit(AppState state, void Function(UserProfile) f) => state.updateProfile(f);
 
-  Future<void> _pickWarmups(BuildContext context, AppState state) async {
-    final chosen = {...state.currentUser!.warmupIds};
+  Future<void> _pickWarmups(BuildContext context, AppState state, String key) async {
+    final u = state.currentUser!;
+    final chosen = {...(key == 'all' ? u.warmupIds : (u.warmupByGroupIds[key] ?? const <String>[]))};
+    var query = '';
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c, setState) => AlertDialog(
-          title: const Text('워밍업 고르기'),
+          title: Text(key == 'all' ? '매번 하는 워밍업' : '${MuscleGroup.parse(key).label} 날 워밍업'),
           content: SizedBox(
             width: double.maxFinite,
-            height: 420,
-            child: ListView(children: [
-              for (final e in warmupChoices)
-                CheckboxListTile(
-                  dense: true,
-                  value: chosen.contains(e.id),
-                  title: Text(e.name),
-                  subtitle: Text('${e.group.label} · ${e.emphasis.take(2).join(' · ')}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onChanged: (v) => setState(() => v == true ? chosen.add(e.id) : chosen.remove(e.id)),
-                ),
+            height: 460,
+            child: Column(children: [
+              TextField(
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '예: 풀오버, 어덕션, 스트레칭', isDense: true),
+                onChanged: (v) => setState(() => query = v.trim()),
+              ),
+              Expanded(
+                child: ListView(children: [
+                  for (final e in [
+                    ...warmupChoices,
+                    ...exerciseCatalog.where((x) => !warmupChoices.contains(x) && (key == 'all' || x.group.name == key)),
+                  ].where((x) => query.isEmpty || x.name.contains(query) || x.emphasis.any((m) => m.contains(query))))
+                    CheckboxListTile(
+                      dense: true,
+                      value: chosen.contains(e.id),
+                      title: Text(e.name),
+                      subtitle: Text('${e.warmupOnly ? '워밍업 · ' : ''}${e.group.label} · ${e.emphasis.take(2).join(' · ')}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      onChanged: (v) => setState(() => v == true ? chosen.add(e.id) : chosen.remove(e.id)),
+                    ),
+                ]),
+              ),
             ]),
           ),
           actions: [
@@ -391,9 +417,16 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      _edit(state, (p) => p
-        ..warmupIds.clear()
-        ..warmupIds.addAll([for (final e in warmupChoices) if (chosen.contains(e.id)) e.id]));
+      _edit(state, (p) {
+        final list = chosen.toList();
+        if (key == 'all') {
+          p.warmupIds
+            ..clear()
+            ..addAll(list);
+        } else {
+          p.warmupByGroupIds[key] = list;
+        }
+      });
     }
   }
 }

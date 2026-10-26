@@ -34,7 +34,15 @@ class SessionRequest {
     this.seed,
     this.extraInjuries = const {},
     this.cardioOverride,
+    this.avoidIds = const {},
+    this.pinned = const [],
   });
+
+  /// 전날·전전날 한 운동(같은 자세·무게가 연일 겹치지 않게 피한다).
+  final Set<String> avoidIds;
+
+  /// 사용자가 고정한 운동(다시 짜도 그대로 남긴다).
+  final List<PlannedExercise> pinned;
 
   /// 파트너 운동 시 파트너의 부상 부위(양쪽 모두 제외).
   final Set<InjuryArea> extraInjuries;
@@ -97,6 +105,8 @@ class SessionGenerator {
   /// 워밍업·마무리 스트레칭에 고정으로 빼두는 시간(분).
   static const int _overheadMin = 8;
 
+  Set<String> _reserved = const {};
+
   List<PlannedExercise> generate() {
     final groups = req.groups
         .where((g) => g != MuscleGroup.cardio || req.includeCardio)
@@ -113,21 +123,31 @@ class SessionGenerator {
 
     final strengthGroups =
         groups.where((g) => g != MuscleGroup.cardio).toList();
+    // 직접 정한 워밍업 운동은 본 운동으로 뽑지 않는다(워밍업 자리에 넣는다).
+    final pf = req.profile;
+    _reserved = pf.warmupMode == 'custom'
+        ? {...pf.warmupIds, for (final g in strengthGroups) ...?pf.warmupByGroupIds[g.name]}
+        : <String>{};
     final perGroup = _exercisesPerGroup(strengthGroups.length);
 
-    final picked = <PlannedExercise>[];
-    final usedEmphasis = <String>{};
-    var usedSec = 0;
+    // 고정한 운동은 먼저 넣는다(시간·개수에 포함).
+    final picked = <PlannedExercise>[
+      for (final p in req.pinned)
+        if (exerciseById(p.exerciseId) != null && !p.warmup) p,
+    ];
+    final usedEmphasis = <String>{for (final p in picked) ...exerciseById(p.exerciseId)!.emphasis};
+    var usedSec = picked.fold<int>(0, (a, p) => a + _costSec(p, exerciseById(p.exerciseId)!));
     EquipmentType? lastEquipment;
 
-    final maxExercises = _maxExercises(strengthGroups.length);
+    final maxExercises = max(_maxExercises(strengthGroups.length), picked.length);
+    int countOf(MuscleGroup g) => picked.where((p) => p.effectiveGroup == g).length;
 
-    // 1차: 부위별 할당 수만큼. 2차: 남는 시간이 있으면 보조 운동으로 채운다.
-    for (var round = 0; round < 2; round++) {
+    // 0차: 시간이 모자라도 그 날 부위는 하나씩은 꼭 넣는다(세트를 2개까지 줄여서라도).
+    // 1차: 부위별 할당 수까지. 2차: 남는 시간이 있으면 보조 운동으로 채운다.
+    for (var round = 0; round < 3; round++) {
       for (final g in strengthGroups) {
-        final want = round == 0 ? perGroup : 1;
-        final already = picked.where((p) => exerciseById(p.exerciseId)?.group == g).length;
-        if (round == 1 && already >= perGroup + 1) continue;
+        final already = countOf(g);
+        final want = switch (round) { 0 => already == 0 ? 1 : 0, 1 => perGroup - already, _ => already >= perGroup + 1 ? 0 : 1 };
         var added = 0;
         while (added < want && picked.length < maxExercises) {
           final candidate = _best(g, picked, usedEmphasis, lastEquipment, strengthGroups);
@@ -135,8 +155,8 @@ class SessionGenerator {
           final planned = _plan(candidate);
           final cost = _costSec(planned, candidate);
           if (usedSec + cost > strengthBudget) {
-            // 시간이 없으면 세트 수를 줄여서라도 한 번 시도.
-            final trimmed = _trim(planned, strengthBudget - usedSec, candidate);
+            // 시간이 없으면 세트 수를 줄여서라도 한 번 시도. 첫 운동은 최소 2세트로라도 넣는다.
+            final trimmed = _trim(planned, strengthBudget - usedSec, candidate) ?? (round == 0 ? _minSets(planned) : null);
             if (trimmed == null) break;
             picked.add(trimmed);
             usedSec += _costSec(trimmed, candidate);
@@ -152,7 +172,7 @@ class SessionGenerator {
           added++;
         }
       }
-      if (usedSec > strengthBudget * 0.85 || picked.length >= maxExercises) break;
+      if (round > 0 && (usedSec > strengthBudget * 0.85 || picked.length >= maxExercises)) break;
     }
 
     if (cardioSec > 0) {
@@ -181,8 +201,11 @@ class SessionGenerator {
     if (p.warmupMode == 'off' || groups.isEmpty) return const [];
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final ids = <String>[];
-    if (p.warmupMode == 'custom' && p.warmupIds.isNotEmpty) {
-      ids.addAll(p.warmupIds);
+    final perGroup = [for (final g in groups) ...?p.warmupByGroupIds[g.name]];
+    if (p.warmupMode == 'custom' && (p.warmupIds.isNotEmpty || perGroup.isNotEmpty)) {
+      for (final id in [...p.warmupIds, ...perGroup]) {
+        if (!ids.contains(id)) ids.add(id);
+      }
     } else {
       ids.add('dyn_stretch');
       for (final g in groups.take(2)) {
@@ -200,7 +223,7 @@ class SessionGenerator {
     final out = <PlannedExercise>[];
     for (final id in ids) {
       final ex = exerciseById(id);
-      if (ex == null || !ex.canDoWith(req.available)) continue;
+      if (ex == null || !ex.canDoWith(req.available) || mainIds.contains(id)) continue;
       final eq = ex.pickEquipment(req.available);
       if (ex.loadType == LoadType.cardio) {
         out.add(PlannedExercise(
@@ -266,7 +289,27 @@ class SessionGenerator {
     if (list.length < 2) return list;
     bool isCompound(PlannedExercise e) => exerciseById(e.exerciseId)?.compound ?? false;
     MuscleGroup groupOf(PlannedExercise e) => e.effectiveGroup;
-    final base = [...list.where(isCompound), ...list.where((e) => !isCompound(e))];
+    // 기본 효율 순서: 복합 → 큰 근육(하체·등·가슴 > 어깨 > 팔) → 프리웨이트(바벨·덤벨) 먼저.
+    const sizeRank = {
+      MuscleGroup.legs: 0, MuscleGroup.back: 1, MuscleGroup.chest: 2,
+      MuscleGroup.shoulder: 3, MuscleGroup.arms: 4, MuscleGroup.abs: 5, MuscleGroup.cardio: 6,
+    };
+    bool isFree(PlannedExercise e) => const {
+          EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.ezBar, EquipmentType.trapBar,
+          EquipmentType.kettlebell, EquipmentType.safetySquatBar, EquipmentType.squatRack, EquipmentType.flatBench,
+          EquipmentType.inclineBench, EquipmentType.declineBench,
+        }.contains(e.equipmentType);
+    final indexed = [for (var i = 0; i < list.length; i++) (i, list[i])];
+    indexed.sort((a, b) {
+      final ca = isCompound(a.$2) ? 0 : 1, cb = isCompound(b.$2) ? 0 : 1;
+      if (ca != cb) return ca - cb;
+      final ga = sizeRank[groupOf(a.$2)] ?? 9, gb = sizeRank[groupOf(b.$2)] ?? 9;
+      if (ga != gb) return ga - gb;
+      final fa = isFree(a.$2) ? 0 : 1, fb = isFree(b.$2) ? 0 : 1;
+      if (fa != fb) return fa - fb;
+      return a.$1 - b.$1;
+    });
+    final base = [for (final e in indexed) e.$2];
     // 학습한 순위가 하나도 없으면 기본 효율 순서(복합 → 고립) 그대로.
     final learned = list.any((e) => p.exerciseRank.containsKey(e.exerciseId) || p.groupRank.containsKey(groupOf(e).name));
     if (!learned) return base;
@@ -306,6 +349,14 @@ class SessionGenerator {
     return total - p.restSeconds; // 마지막 세트 뒤 휴식은 전환 시간에 포함
   }
 
+  PlannedExercise _minSets(PlannedExercise p) => PlannedExercise(
+        exerciseId: p.exerciseId,
+        equipmentType: p.equipmentType,
+        restSeconds: p.restSeconds,
+        sets: p.sets.take(2).toList(),
+        note: '${p.note ?? ''} · 시간이 짧아 2세트'.trim(),
+      );
+
   PlannedExercise? _trim(PlannedExercise p, int remainingSec, Exercise ex) {
     var sets = List<SetEntry>.from(p.sets);
     while (sets.length > 2) {
@@ -341,8 +392,10 @@ class SessionGenerator {
     Exercise? best;
     var bestScore = double.negativeInfinity;
     for (final ex in exercisesOf(g)) {
-      if (ex.warmupOnly) continue;
+      if (ex.warmupOnly || _reserved.contains(ex.id)) continue;
       if (pickedIds.contains(ex.id)) continue;
+      // 전날·전전날 한 운동은 웬만하면 피한다(같은 자세·무게가 연일 겹치지 않게).
+      final repeatPenalty = req.avoidIds.contains(ex.id) ? 6.0 : 0.0;
       if (!ex.canDoWith(req.available)) continue;
       if (excludedByInjury(ex, req.injuries)) continue;
 
@@ -386,6 +439,7 @@ class SessionGenerator {
           (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable)) {
         score += 0.5;
       }
+      score -= repeatPenalty;
       score += _rng.nextDouble() * 0.6; // 동점 깨기 + 약간의 변화
 
       if (score > bestScore) {

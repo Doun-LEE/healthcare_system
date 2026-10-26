@@ -144,7 +144,12 @@ class GymScreen extends StatelessWidget {
       return;
     }
     for (final p in result.named) {
-      await state.addEquipment(gym.id, p.model.type, name: p.model.name, mechanism: p.model.mechanism, brand: p.brandKey);
+      await state.addEquipment(gym.id, p.model.type,
+          name: p.model.name,
+          mechanism: p.model.mechanism,
+          brand: p.brandKey,
+          extraTypes: p.model.extra.isEmpty ? null : List.of(p.model.extra),
+          weightBasis: p.model.perSide ? 'perSide' : null);
     }
     if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty) {
       if (context.mounted) {
@@ -718,6 +723,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
   late final TextEditingController _note;
   late final TextEditingController _step;
   late LoadMechanism _mech;
+  String? _basis;
+  late List<EquipmentType> _extra;
 
   @override
   void initState() {
@@ -726,6 +733,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     _max = TextEditingController(text: widget.existing?.maxWeightKg?.toInt().toString() ?? '');
     _note = TextEditingController(text: widget.existing?.note ?? '');
     _mech = widget.existing?.mechanism ?? LoadMechanism.defaultFor(widget.type);
+    _basis = widget.existing?.weightBasis;
+    _extra = List.of(widget.existing?.extraTypes ?? const <EquipmentType>[]);
     _step = TextEditingController(text: widget.existing?.stepKg == null ? '' : _fmt(widget.existing!.stepKg!));
   }
 
@@ -750,6 +759,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     ].contains(widget.type);
     return AlertDialog(
       title: Text(widget.existing == null ? '${widget.type.label} 추가' : '${widget.type.label} 수정'),
+      scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -801,6 +811,38 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerLeft, child: Text('무게 표시 기준', style: Theme.of(context).textTheme.labelLarge)),
+          const SizedBox(height: 4),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'total', label: Text('양쪽 합계')),
+              ButtonSegment(value: 'perSide', label: Text('한쪽 기준')),
+            ],
+            selected: {_basis ?? (GymEquipment.perSideByDefault(widget.type) ? 'perSide' : 'total')},
+            showSelectedIcon: false,
+            onSelectionChanged: (v) => setState(() => _basis = v.first),
+          ),
+          Text(
+            GymEquipment.perSideByDefault(widget.type)
+                ? '덤벨은 보통 한 손 무게로 봐요. 양손 합으로 보고 싶으면 바꾸세요.'
+                : '좌우에 원판을 따로 거는 머신(해머 등)은 한쪽 기준이 편해요.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerLeft, child: Text('이 기구로 하는 다른 운동(다기능 머신)', style: Theme.of(context).textTheme.labelLarge)),
+          Wrap(spacing: 6, runSpacing: 4, children: [
+            for (final t in _extra)
+              InputChip(label: Text(t.label), onDeleted: () => setState(() => _extra.remove(t)), visualDensity: VisualDensity.compact),
+            ActionChip(
+              avatar: const Icon(Icons.add, size: 16),
+              label: const Text('추가'),
+              onPressed: () async {
+                final t = await _pickExtraType(context, {widget.type, ..._extra});
+                if (t != null) setState(() => _extra.add(t));
+              },
+            ),
+          ]),
           const SizedBox(height: 8),
           TextField(
             controller: _note,
@@ -821,6 +863,14 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               note: _note.text.trim().isEmpty ? null : _note.text.trim(),
               mechanism: isMachine ? _mech : LoadMechanism.defaultFor(widget.type),
               stepKg: double.tryParse(_step.text),
+              // 수정해도 브랜드·색·사진 정보는 그대로 둔다.
+              extraTypes: List.of(_extra),
+              brand: widget.existing?.brand,
+              frameColor: widget.existing?.frameColor,
+              padColor: widget.existing?.padColor,
+              shroud: widget.existing?.shroud,
+              hasPhoto: widget.existing?.hasPhoto ?? false,
+              weightBasis: _basis,
             ),
           ),
           child: const Text('저장'),
@@ -828,4 +878,36 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
       ],
     );
   }
+}
+
+
+/// 다기능 머신에 더할 운동 종류 고르기.
+Future<EquipmentType?> _pickExtraType(BuildContext context, Set<EquipmentType> exclude) {
+  var query = '';
+  return showDialog<EquipmentType>(
+    context: context,
+    builder: (c) => StatefulBuilder(builder: (c, setState) {
+      final list = equipmentCatalog.where((i) => !exclude.contains(i.type) && i.type != EquipmentType.bodyweight && i.type.matches(query)).toList();
+      return AlertDialog(
+        title: const Text('어떤 운동도 되나요?'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 380,
+          child: Column(children: [
+            TextField(
+              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '예: 슈러그, 로우, 카프'),
+              onChanged: (v) => setState(() => query = v),
+            ),
+            Expanded(
+              child: ListView(children: [
+                for (final i in list)
+                  ListTile(dense: true, title: Text(i.type.label), onTap: () => Navigator.pop(c, i.type)),
+              ]),
+            ),
+          ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소'))],
+      );
+    }),
+  );
 }
