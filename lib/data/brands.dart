@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import 'brand_catalog.dart';
 import 'equipment_models.dart';
 
 class BrandModel {
@@ -111,7 +112,8 @@ List<BrandModel> _plateLoaded(String prefix) => [
       BrandModel('$prefix 슈러그', EquipmentType.shrugMachine, _plate),
     ];
 
-final equipmentBrands = <EquipmentBrand>[
+/// 예전 대표 모델 목록(3D 색 스타일과, 조사 목록에 없는 기구 종류를 채우는 데 쓴다).
+final _legacyBrands = <EquipmentBrand>[
   EquipmentBrand(
     key: 'drax',
     name: '디랙스 (DRAX)',
@@ -256,9 +258,9 @@ final equipmentBrands = <EquipmentBrand>[
   ),
   EquipmentBrand(
     key: 'cable',
-    name: '프리모션 / 기타 케이블',
+    name: '기타 케이블·멀티 스테이션',
     style: ModelStyle.standard,
-    aliases: ['freemotion', '프리모션', '케이블'],
+    aliases: ['케이블', '멀티', '홈짐', 'cable'],
     models: const [
       BrandModel('듀얼 케이블(펑셔널 트레이너)', EquipmentType.functionalTrainer, _pin),
       BrandModel('케이블 크로스오버', EquipmentType.cableMachine, _pin),
@@ -267,6 +269,31 @@ final equipmentBrands = <EquipmentBrand>[
   ),
 ];
 
+
+/// 브랜드 목록: 공식 카탈로그·딜러 자료로 조사한 실제 모델 + (조사 목록에 없는 기구 종류만) 예전 대표 모델.
+final List<EquipmentBrand> equipmentBrands = [
+  for (final r in researchedBrands) _merge(r),
+  ..._legacyBrands.where((b) => !researchedBrands.any((r) => r.key == b.key)),
+];
+
+EquipmentBrand _merge(BrandData r) {
+  final old = _legacyBrands.where((b) => b.key == r.key).firstOrNull;
+  final types = {for (final m in r.models) m.type};
+  return EquipmentBrand(
+    key: r.key,
+    name: r.name,
+    aliases: {...r.aliases, ...?old?.aliases}.toList(),
+    note: r.note,
+    style: old?.style ?? ModelStyle(frame: const Color(0xFF26282C), pad: const Color(0xFF2A2A2A), padDark: const Color(0xFF1A1A1A), accent: r.color),
+    color: r.color,
+    models: [
+      ...r.models,
+      // 조사 목록에 없는 기구 종류는 예전 대표 모델로 채워 고를 수 있게 둔다.
+      for (final m in old?.models ?? const <BrandModel>[])
+        if (!types.contains(m.type)) m,
+    ],
+  );
+}
 
 EquipmentBrand? brandByKey(String? key) => key == null ? null : equipmentBrands.where((b) => b.key == key).firstOrNull;
 

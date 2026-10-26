@@ -1,4 +1,5 @@
 import 'package:fit_routine/core/store.dart';
+import 'package:fit_routine/data/brands.dart';
 import 'package:fit_routine/data/catalog.dart';
 import 'package:fit_routine/engine/session_generator.dart';
 import 'package:fit_routine/models/models.dart';
@@ -32,4 +33,14 @@ void main() {
     expect(exerciseById('lying_chest_press_m')!.canDoWith({EquipmentType.lyingChestPress}), isTrue);
     expect(exercisesForTypes({EquipmentType.lyingChestPress}).map((e) => e.id), contains('lying_chest_press_m'));
   });
+
+  test('researched brand line-ups are in, e.g. Hammer Strength hip thrust', () {
+    final hammer = brandByKey('hammer')!;
+    expect(hammer.models.any((m) => m.type == EquipmentType.hipThrust), isTrue);
+    expect(hammer.badgeName, 'Hammer Strength');
+    expect(equipmentBrands.length, greaterThanOrEqualTo(19));
+    expect(equipmentBrands.fold<int>(0, (a, b) => a + b.models.length), greaterThan(1000));
+    expect(brandByKey('lexco')!.models.any((m) => m.type == EquipmentType.lyingChestPress), isTrue);
+  });
 }
+
