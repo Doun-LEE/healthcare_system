@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/catalog.dart';
 import '../../services/cloud_sync.dart';
+import '../../services/record_code.dart';
 import '../../state/app_state.dart';
 
 /// 게임 세이브처럼 기록을 저장하고 불러온다. 하루 한 번 자동 저장도 된다.
@@ -39,8 +41,17 @@ class _BackupSectionState extends State<BackupSection> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final text = Theme.of(context).textTheme;
+    final restoreButton = OutlinedButton.icon(
+      icon: const Icon(Icons.restore_page_outlined),
+      label: const Text('기록 코드로 하루 복원'),
+      onPressed: _busy ? null : () => _restoreFromCode(state),
+    );
     if (!state.cloudSignedIn) {
-      return const Text('계정에 로그인하면 기록을 클라우드에 저장하고 불러올 수 있어요.');
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('계정에 로그인하면 기록을 클라우드에 저장하고 불러올 수 있어요.'),
+        const SizedBox(height: 8),
+        restoreButton,
+      ]);
     }
     final list = state.backups;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -79,6 +90,8 @@ class _BackupSectionState extends State<BackupSection> {
                 });
               },
       ),
+      const SizedBox(height: 6),
+      restoreButton,
       const SizedBox(height: 8),
       if (list.isEmpty) Text('아직 저장된 기록이 없어요.', style: text.bodySmall),
       for (final b in list)
@@ -102,6 +115,55 @@ class _BackupSectionState extends State<BackupSection> {
         ),
     ]);
   }
+
+  Future<void> _restoreFromCode(AppState state) async {
+    final ctrl = TextEditingController();
+    RecordCode? rc;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(builder: (c, setState) {
+        return AlertDialog(
+          title: const Text('기록 코드로 복원'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              TextField(
+                controller: ctrl,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(hintText: 'FRREC1. 로 시작하는 코드 붙여넣기'),
+                onChanged: (v) => setState(() => rc = RecordCode.decode(v)),
+              ),
+              const SizedBox(height: 8),
+              if (ctrl.text.trim().isNotEmpty && rc == null)
+                const Text('코드를 읽지 못했어요. 전체를 빠짐없이 붙여넣었는지 확인하세요.'),
+              if (rc != null) ...[
+                Text('${rc!.date.month}/${rc!.date.day} · 운동 ${rc!.exercises.length}개 · ${rc!.setCount}세트',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                for (final x in rc!.exercises)
+                  Text('· ${exerciseById(x.exerciseId)!.name}  '
+                      '${x.sets.map((s) => s.weight > 0 ? '${_num(s.weight)}kg×${s.reps}' : s.level != null ? '${s.reps}분·${s.level}' : '${s.reps}').join(', ')}'),
+                const SizedBox(height: 8),
+                const Text('이 날 기록을 위 내용으로 덮어쓰고 완료로 표시해요.'),
+              ],
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+            FilledButton(onPressed: rc == null ? null : () => Navigator.pop(c, true), child: const Text('복원')),
+          ],
+        );
+      }),
+    );
+    if (ok != true || rc == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await _run(() async {
+      if (state.cloudSignedIn) await state.saveBackup(label: '기록 복원 전 자동 저장');
+      final p = await state.restoreRecord(rc!);
+      messenger.showSnackBar(SnackBar(content: Text(p == null ? '복원하지 못했어요.' : '${rc!.date.month}/${rc!.date.day} 기록을 복원했어요.')));
+    });
+  }
+
+  static String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
   Future<void> _restore(AppState state, BackupInfo b) async {
     final ok = await showDialog<bool>(

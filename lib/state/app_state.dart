@@ -21,6 +21,7 @@ import '../engine/stats.dart';
 import '../services/ai_coach.dart';
 import '../services/cloud_sync.dart';
 import '../services/partner.dart';
+import '../services/record_code.dart';
 import '../services/routine_share.dart';
 
 String newId() {
@@ -1006,6 +1007,80 @@ class AppState extends ChangeNotifier {
     await _save();
     // 쉬는 날이 생겼으니 그 부위가 빠지지 않게 이후(와 오늘 이후 앞쪽) 날짜를 다시 맞춘다.
     await rebalanceAround(dateOnly(date));
+  }
+
+  /// 기록 복원 코드로 그 날을 '완료한 운동'으로 덮어쓴다. 그 날의 제목·파트너·헬스장 정보는 유지.
+  Future<DayPlan?> restoreRecord(RecordCode rc) async {
+    final u = currentUser;
+    if (u == null) return null;
+    final d = dateOnly(rc.date);
+    var plan = planOn(d);
+    if (plan == null) {
+      final groups = <MuscleGroup>[];
+      for (final x in rc.exercises) {
+        final g = exerciseById(x.exerciseId)!.group;
+        if (!groups.contains(g)) groups.add(g);
+      }
+      plan = DayPlan(
+        id: newId(),
+        userId: u.id,
+        date: d,
+        gymId: activeGym?.id,
+        kind: DayKind.workout,
+        focus: groups,
+        exercises: [],
+        title: groups.map((g) => g.label).join('·'),
+      );
+      _data.plans.add(plan);
+    }
+    final available = availableFor(plan);
+    final list = <PlannedExercise>[];
+    for (final x in rc.exercises) {
+      final ex = exerciseById(x.exerciseId)!;
+      final eq = ex.pickEquipment(available);
+      final f = weightFactor(plan, eq);
+      final rule = restRules[ex.group]!;
+      list.add(PlannedExercise(
+        exerciseId: ex.id,
+        equipmentType: eq,
+        restSeconds: ex.compound ? rule.compoundRestSec : rule.isolationRestSec,
+        note: '기록 복원',
+        sets: [
+          for (final s in x.sets)
+            SetEntry(
+              targetReps: s.reps,
+              targetWeight: f == 0 ? s.weight : s.weight / f,
+              doneReps: s.reps,
+              doneWeight: f == 0 ? s.weight : s.weight / f,
+              level: s.level,
+              doneLevel: s.level,
+              completed: true,
+            ),
+        ],
+      ));
+    }
+    plan.exercises
+      ..clear()
+      ..addAll(list);
+    plan.skipped = false;
+    plan.finishedAt = null;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(list);
+    await finishDay(plan, rpe: rc.rpe);
+    // 완료 시각·마지막 수행일은 그 날짜로.
+    if (d.isBefore(today)) {
+      plan.finishedAt = DateTime(d.year, d.month, d.day, 21);
+      plan.endedAt = null;
+      for (final x in list) {
+        final pr = progress[x.exerciseId];
+        if (pr != null && (pr.lastPerformed == null || pr.lastPerformed!.isAfter(plan.finishedAt!))) {
+          pr.lastPerformed = plan.finishedAt;
+        }
+      }
+    }
+    _data.deleted.remove('${plan.userId}|${dateKey(d)}');
+    await _save();
+    if (u.restMode == 'shift') await rebalanceAround(d);
+    return plan;
   }
 
   /// 휴식으로 바뀐 지난 날을 '계획대로 운동함'으로 되돌린다(기록을 못 했거나 휴식 처리된 경우).
