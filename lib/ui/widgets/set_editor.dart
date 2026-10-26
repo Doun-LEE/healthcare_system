@@ -346,7 +346,7 @@ class _Wheel extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        CupertinoPicker(
+        CupertinoPicker.builder(
           scrollController: controller,
           itemExtent: 44,
           magnification: 1.1,
@@ -354,19 +354,17 @@ class _Wheel extends StatelessWidget {
           squeeze: 1.1,
           selectionOverlay: const SizedBox.shrink(),
           onSelectedItemChanged: onChanged,
-          children: [
-            for (var i = 0; i < count; i++)
-              Center(
-                child: Text(
-                  itemText(i),
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: i == selected ? FontWeight.bold : FontWeight.normal,
-                    color: i == selected ? (highlight ?? cs.onSurface) : cs.onSurfaceVariant,
-                  ),
-                ),
+          childCount: count,
+          itemBuilder: (_, i) => Center(
+            child: Text(
+              itemText(i),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: i == selected ? FontWeight.bold : FontWeight.normal,
+                color: i == selected ? (highlight ?? cs.onSurface) : cs.onSurfaceVariant,
               ),
-          ],
+            ),
+          ),
         ),
         Positioned(
           right: 8,

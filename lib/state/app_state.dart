@@ -287,10 +287,14 @@ class AppState extends ChangeNotifier {
   Map<String, ExerciseProgress> get progress =>
       _data.progress.putIfAbsent(currentUser?.id ?? '_', () => {});
 
+  /// 앱을 연 뒤 클라우드에서 최신 기록을 한 번 받아왔는지(받기 전엔 자동 처리를 하지 않는다).
+  bool _initialSyncDone = false;
+
   Future<void> load() async {
     _data = await _store.load();
     _dedupeEquipment();
     _loaded = true;
+    if (!cloudSignedIn) _initialSyncDone = true;
     if (cloudSignedIn) {
       // 계정 세션이 살아 있으면 로그인 화면을 건너뛴다.
       _ensureProfileForAccount();
@@ -302,7 +306,9 @@ class AppState extends ChangeNotifier {
         _ensureProfileForAccount();
         _authed = currentUser != null;
       } catch (_) {}
+      _initialSyncDone = true;
       await refreshInbox();
+      await catchUpMissed();
       try {
         await _publishPublic();
       } catch (_) {}
@@ -368,11 +374,27 @@ class AppState extends ChangeNotifier {
     final remote = await CloudSync.instance.pull();
     if (remote == null) return false;
     final (data, _) = remote;
-    if (data.updatedAt.isAfter(_data.updatedAt)) {
+    // 날짜별로 '운동한 기록'이 있는 쪽을 지킨다. 한쪽 기기에서 운동을 기록했는데 다른 기기가
+    // 그걸 모른 채 휴식 처리해 올린 경우에도 기록이 사라지지 않게 한다.
+    final rescued = _keepRecordedPlans(from: _data, into: data);
+    if (data.updatedAt.isAfter(_data.updatedAt) || rescued > 0) {
+      final local = _data;
       _data = data;
+      if (rescued > 0) {
+        _mergeProgress(local);
+        _data.updatedAt = DateTime.now();
+      }
       await _store.save(_data);
       lastSyncedAt = DateTime.now();
       notifyListeners();
+      if (rescued > 0 && cloudSignedIn) _pushDebounce(_pushNow);
+      return true;
+    }
+    // 내 쪽이 더 최신이어도, 클라우드에만 있는 운동 기록은 가져온다.
+    final pulledBack = _keepRecordedPlans(from: data, into: _data);
+    if (pulledBack > 0) {
+      _mergeProgress(data);
+      await _save();
       return true;
     }
     return false;
@@ -428,6 +450,43 @@ class AppState extends ChangeNotifier {
   }
 
   /// 이 기기에만 있던 프로필/헬스장/계획/진행을 현재 데이터에 합친다(같은 것은 현재 우선).
+  /// 운동 진행 정도: 완료 > 세트 체크/시작 > 손 안 댐 > 휴식 처리.
+  static int _progressRank(DayPlan p) {
+    if (p.isFinished) return 3;
+    if (p.startedAt != null || p.exercises.any((e) => e.anyCompleted)) return 2;
+    if (p.skipped || p.isRest) return 0;
+    return 1;
+  }
+
+  /// [from]에만 있거나 [from] 쪽이 더 진행된(운동 기록이 있는) 날의 계획을 [into]로 옮긴다. 옮긴 수.
+  int _keepRecordedPlans({required AppData from, required AppData into}) {
+    var n = 0;
+    for (final p in from.plans) {
+      if (_progressRank(p) < 2) continue;
+      final i = into.plans.indexWhere((x) => x.userId == p.userId && dateKey(x.date) == dateKey(p.date));
+      if (i < 0) {
+        into.plans.add(p);
+        n++;
+      } else if (_progressRank(into.plans[i]) < _progressRank(p)) {
+        into.plans[i] = p;
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /// 운동별 진행(작업 무게)은 더 최근에 한 쪽을 남긴다.
+  void _mergeProgress(AppData other) {
+    for (final e in other.progress.entries) {
+      final target = _data.progress.putIfAbsent(e.key, () => {});
+      for (final p in e.value.entries) {
+        final cur = target[p.key];
+        final a = cur?.lastPerformed, b = p.value.lastPerformed;
+        if (cur == null || (b != null && (a == null || b.isAfter(a)))) target[p.key] = p.value;
+      }
+    }
+  }
+
   void _mergeFrom(AppData local) {
     for (final p in local.profiles) {
       if (!_data.profiles.any((x) => x.id == p.id)) _data.profiles.add(p);
@@ -1153,10 +1212,14 @@ class AppState extends ChangeNotifier {
   Future<void> catchUpMissed() async {
     final u = currentUser;
     if (u == null) return;
+    // 클라우드 기록을 받기 전엔 하지 않는다(다른 기기에서 한 운동을 '안 함'으로 오해하지 않게).
+    if (!_initialSyncDone) return;
     final t = today;
+    // 하루 여유: 어제 운동은 오늘 늦게 기록할 수도 있으니 그저께 이전만 '휴식'으로 본다.
+    final cutoff = t.subtract(const Duration(days: 1));
     var changed = false;
     for (final p in myPlans) {
-      if (!p.date.isBefore(t) || p.isRest || p.isFinished || p.skipped) continue;
+      if (!p.date.isBefore(cutoff) || p.isRest || p.isFinished || p.skipped) continue;
       if (p.startedAt != null || p.exercises.any((e) => e.anyCompleted)) continue;
       p.skipped = true;
       changed = true;
