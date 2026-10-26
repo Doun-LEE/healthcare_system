@@ -68,4 +68,12 @@ void main() {
     expect(picks.map((p) => p.exercise.id), isNot(contains('pec_deck')));
     expect(picks.every((p) => p.exercise.group == MuscleGroup.chest), isTrue);
   });
+
+  test('search ignores spacing and matches partial names', () {
+    List<String> find(String q) => [for (final e in exerciseCatalog) if (exerciseMatches(e, q)) e.id];
+    expect(find('불가리안 스쿼트'), contains('bulgarian'));
+    expect(find('런지'), contains('lunge'));
+    expect(find('덤벨 스티프'), contains('db_stiff_deadlift'));
+    expect(find('바벨스티프'), contains('bb_stiff_deadlift'));
+  });
 }

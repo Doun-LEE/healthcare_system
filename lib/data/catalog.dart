@@ -978,6 +978,20 @@ const List<Exercise> exerciseCatalog = [
     compound: true, repRange: [8, 12], priority: 3,
   ),
   Exercise(
+    id: 'bb_stiff_deadlift', name: '바벨 스티프 레그 데드리프트', group: MuscleGroup.legs,
+    emphasis: ['햄스트링', '둔근', '등 하부'], equipment: [EquipmentType.barbell],
+    loadType: LoadType.barbell, refLift: RefLift.deadlift, ratio: 0.6,
+    compound: true, repRange: [8, 12], priority: 2,
+    description: '루마니안보다 무릎을 더 펴고 햄스트링을 길게 늘린다. 무게는 가볍게.',
+  ),
+  Exercise(
+    id: 'db_stiff_deadlift', name: '덤벨 스티프 레그 데드리프트', group: MuscleGroup.legs,
+    emphasis: ['햄스트링', '둔근', '등 하부'], equipment: [EquipmentType.dumbbell],
+    loadType: LoadType.dumbbell, refLift: RefLift.deadlift, ratio: 0.25,
+    compound: true, repRange: [10, 12], priority: 2,
+    description: '숫자는 한 손 덤벨 무게.',
+  ),
+  Exercise(
     id: 'bulgarian', name: '불가리안 스플릿 스쿼트', group: MuscleGroup.legs,
     emphasis: ['둔근', '대퇴사두', '좌우 균형'], equipment: [EquipmentType.dumbbell, EquipmentType.flatBench],
     loadType: LoadType.dumbbell, refLift: RefLift.squat, ratio: 0.18,
@@ -1893,6 +1907,7 @@ const Map<String, CardioLevelSpec> cardioLevels = {
 const Map<InjuryArea, Set<String>> injuryExclusions = {
   InjuryArea.lowerBack: {
     'deadlift', 'trap_deadlift', 'rack_pull', 'bb_row', 'tbar_row', 'landmine_row', 'rdl',
+    'bb_stiff_deadlift', 'db_stiff_deadlift',
     'bb_squat', 'front_squat', 'ssb_squat', 'back_ext', 'back_ext_m', 'ghr', 'reverse_hyper',
     'kb_swing', 'sled_drag', 'decline_situp', 'ghd_situp', 'russian_twist',
   },
@@ -1949,4 +1964,31 @@ const warmupByGroup = <MuscleGroup, List<String>>{
 List<Exercise> get warmupChoices {
   final ids = <String>{'dyn_stretch', for (final l in warmupByGroup.values) ...l};
   return [for (final id in ids) if (exerciseById(id) != null) exerciseById(id)!];
+}
+
+
+/// 운동 검색에서 자주 쓰는 다른 이름(줄임말·영어).
+const Map<String, List<String>> exerciseAliases = {
+  'bulgarian': ['불가리안 스쿼트', '스플릿 스쿼트', 'BSS', 'bulgarian'],
+  'lunge': ['런지', 'lunge'],
+  'rdl': ['RDL', '루마니안', 'romanian'],
+  'bb_stiff_deadlift': ['스티프', '스티프 데드', 'SLDL', 'stiff'],
+  'db_stiff_deadlift': ['스티프', '스티프 데드', 'SLDL', 'stiff'],
+  'deadlift': ['데드', '컨벤', 'deadlift'],
+  'reverse_pec_deck': ['리버스 플라이', '리어 델트', '후면 어깨'],
+  'rear_delt_fly': ['리버스 플라이', '후면 어깨'],
+};
+
+String _norm(String s) => s.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
+/// 검색어가 운동에 맞는지: 띄어쓰기 무시, 여러 단어면 단어마다 이름·다른 이름·타깃·부위 중 하나에 있으면 된다.
+/// 예) '불가리안 스쿼트' → 불가리안 스플릿 스쿼트, '덤벨 스티프' → 덤벨 스티프 레그 데드리프트.
+bool exerciseMatches(Exercise e, String query) {
+  final q = query.trim();
+  if (q.isEmpty) return true;
+  final hay = [e.name, ...?exerciseAliases[e.id], ...e.emphasis, e.group.label].map(_norm).toList();
+  final whole = _norm(q);
+  if (hay.any((h) => h.contains(whole))) return true;
+  final tokens = q.split(RegExp(r'\s+')).map(_norm).where((t) => t.isNotEmpty);
+  return tokens.every((t) => hay.any((h) => h.contains(t)));
 }

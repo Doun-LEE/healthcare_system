@@ -400,7 +400,7 @@ class ProfileScreen extends StatelessWidget {
                   for (final e in [
                     ...warmupChoices,
                     ...exerciseCatalog.where((x) => !warmupChoices.contains(x) && (key == 'all' || x.group.name == key)),
-                  ].where((x) => query.isEmpty || x.name.contains(query) || x.emphasis.any((m) => m.contains(query))))
+                  ].where((x) => exerciseMatches(x, query)))
                     CheckboxListTile(
                       dense: true,
                       value: chosen.contains(e.id),

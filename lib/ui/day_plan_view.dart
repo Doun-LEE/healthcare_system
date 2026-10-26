@@ -738,7 +738,7 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
       final available = state.availableFor(plan);
       final list = exerciseCatalog
           .where((e) => group == null || e.group == group)
-          .where((e) => query.isEmpty || e.name.toLowerCase().contains(query.toLowerCase()) || e.emphasis.any((m) => m.contains(query)))
+          .where((e) => exerciseMatches(e, query))
           .toList()
         ..sort((a, b) {
           final ca = a.canDoWith(available) ? 0 : 1, cb = b.canDoWith(available) ? 0 : 1;
