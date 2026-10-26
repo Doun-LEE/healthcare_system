@@ -22,7 +22,7 @@ void main() {
     expect(p, contains('candidates'));
     expect(p, isNot(contains('leg_press |'))); // 레그프레스 기구 없음
     expect(p, isNot(contains('\nohp |'))); // 어깨 부상 → OHP 제외
-    expect(p, contains('부상/주의: 어깨'));
+    expect(p, contains('부상(해당 운동 제외됨): 어깨'));
   });
 
   test('validate maps ids to a plan with baseline-scaled weights and drops unknown ids', () {

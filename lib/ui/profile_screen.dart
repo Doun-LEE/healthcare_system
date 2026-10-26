@@ -9,6 +9,7 @@ import '../models/models.dart';
 import 'widgets/level_card.dart';
 import '../state/app_state.dart';
 import 'widgets/account_sheet.dart';
+import 'widgets/injury_chips.dart';
 import 'widgets/backup_section.dart';
 import 'widgets/partner_widgets.dart';
 import 'widgets/version_section.dart';
@@ -107,20 +108,18 @@ class ProfileScreen extends StatelessWidget {
             Text(u.goal.description, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 14),
             Text('부상 · 주의 부위', style: text.labelLarge),
-            Text('체크한 부위에 부담 가는 운동은 루틴에서 자동으로 뺍니다.',
-                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: [
-                for (final a in InjuryArea.values)
-                  FilterChip(
-                    label: Text(a.label),
-                    selected: u.injuries.contains(a),
-                    onSelected: (on) => _edit(state, (p) => on ? p.injuries.add(a) : p.injuries.remove(a)),
-                  ),
-              ],
+            InjuryChips(
+              injuries: u.injuries,
+              cautions: u.cautions,
+              onChanged: (inj, cau) => _edit(state, (p) {
+                p.injuries
+                  ..clear()
+                  ..addAll(inj);
+                p.cautions
+                  ..clear()
+                  ..addAll(cau);
+              }),
             ),
             const SizedBox(height: 12),
             Container(

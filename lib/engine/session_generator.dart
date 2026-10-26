@@ -53,6 +53,9 @@ class SessionRequest {
   bool get includeCardio => cardioOverride ?? profile.includeCardio;
   Set<InjuryArea> get injuries => {...profile.injuries, ...extraInjuries};
 
+  /// 주의 부위(부상으로 뺀 부위는 제외): 운동은 넣되 가볍게.
+  Set<InjuryArea> get cautions => profile.cautions.difference(injuries);
+
   final List<MuscleGroup> groups;
   final Set<EquipmentType> available;
 
@@ -400,6 +403,8 @@ class SessionGenerator {
       if (excludedByInjury(ex, req.injuries)) continue;
 
       var score = ex.priority * 2.0;
+      // 주의 부위에 부담 가는 운동은 넣을 수는 있지만 덜 부담되는 운동을 먼저.
+      if (cautionHits(ex, req.cautions).isNotEmpty) score -= 2.5;
       // 부위마다 첫 운동은 복합운동, 이후엔 고립을 섞는다. 같은 부위 복합운동은 최대 2개.
       if (ex.compound && compoundCount >= 2) continue;
       // 두 번째 복합운동은 첫 번째와 주 타깃이 달라야 한다(덤벨 벤치 + 바벨 벤치 같은 중복 방지).
@@ -486,14 +491,25 @@ class SessionGenerator {
       reps = min(ex.repRange[1] + 2, reps + 2);
     }
 
+    // 주의 부위: 무게 60%, 횟수 ↑, 세트 -1 — 통증 없는 범위에서 재활 느낌으로.
+    final careful = cautionHits(ex, req.cautions);
+    if (careful.isNotEmpty && ex.loadType != LoadType.cardio) {
+      if (weight > 0) weight = max(step > 0 ? step : 0.0, LoadEstimator.roundTo(weight * 0.6, step));
+      if (ex.loadType != LoadType.bodyweight) reps = min(20, max(reps, ex.repRange[1]) + 3);
+      sets = max(2, sets - 1);
+    }
+
     final rest = ((ex.compound ? rule.compoundRestSec : rule.isolationRestSec) *
             LoadEstimator.restFactor(req.profile.goal))
         .round();
-    final note = prog == null
+    final baseNote = prog == null
         ? '처음 하는 운동 · ${ex.emphasis.join(', ')}'
         : prog.lastPerformed == null
             ? ex.emphasis.join(', ')
             : '마지막 수행 ${(req.now ?? DateTime.now()).difference(prog.lastPerformed!).inDays}일 전 · ${ex.emphasis.join(', ')}';
+    final note = careful.isEmpty
+        ? baseNote
+        : '⚠ ${careful.map((i) => i.label).join('·')} 주의 · 가볍게, 3초 천천히 내리기, 아프면 바로 중단 · $baseNote';
 
     return PlannedExercise(
       exerciseId: ex.id,

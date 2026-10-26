@@ -182,7 +182,10 @@ class AiCoach {
     if (p.skeletalMuscleKg != null) sb.writeln('골격근량 ${p.skeletalMuscleKg}kg');
     if (p.bodyFatPct != null) sb.writeln('체지방률 ${p.bodyFatPct}%');
     sb.writeln('1RM(실제 또는 추정): 스쿼트 ${est.oneRepMax(RefLift.squat).round()}, 벤치 ${est.oneRepMax(RefLift.bench).round()}, 데드 ${est.oneRepMax(RefLift.deadlift).round()}, OHP ${est.oneRepMax(RefLift.ohp).round()}');
-    if (p.injuries.isNotEmpty) sb.writeln('부상/주의: ${p.injuries.map((i) => i.label).join(', ')}');
+    if (p.injuries.isNotEmpty) sb.writeln('부상(해당 운동 제외됨): ${p.injuries.map((i) => i.label).join(', ')}');
+    if (p.cautions.isNotEmpty) {
+      sb.writeln('주의 부위(넣어도 되지만 무게 60% 이하·고반복으로 재활 느낌): ${p.cautions.map((i) => i.label).join(', ')}');
+    }
     sb.writeln('분할: ${p.splitDays}분할, 유산소 ${p.includeCardio ? '포함' : '제외'}');
     sb.writeln();
     sb.writeln('## 오늘 (${dateKey(now)})');

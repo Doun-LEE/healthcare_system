@@ -5,6 +5,7 @@ import '../engine/level_assessor.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'widgets/injury_chips.dart';
 
 /// 처음 계정을 만들었을 때 홈 전에 보여주는 초기 설정.
 /// 기본 정보 → 인바디·3대 기록 → 목표·루틴. 모든 항목은 건너뛸 수 있고 나중에 내 정보에서 바꿀 수 있다.
@@ -37,6 +38,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   double _minutes = 90;
   bool _cardio = true;
   final _injuries = <InjuryArea>{};
+  final _cautions = <InjuryArea>{};
 
   @override
   void initState() {
@@ -49,6 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _minutes = u.sessionMinutes.toDouble().clamp(30, 150);
       _cardio = u.includeCardio;
       _injuries.addAll(u.injuries);
+      _cautions.addAll(u.cautions);
     }
   }
 
@@ -87,6 +90,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         p.injuries
           ..clear()
           ..addAll(_injuries);
+        p.cautions
+          ..clear()
+          ..addAll(_cautions);
       }
       p.onboarded = true;
     });
@@ -219,15 +225,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       title: const Text('유산소 포함'),
                       onChanged: (v) => setState(() => _cardio = v),
                     ),
-                    Text('부상·주의 부위 (해당 운동 제외)', style: text.labelLarge),
-                    Wrap(spacing: 6, runSpacing: 4, children: [
-                      for (final i in InjuryArea.values)
-                        FilterChip(
-                          label: Text(i.label),
-                          selected: _injuries.contains(i),
-                          onSelected: (v) => setState(() => v ? _injuries.add(i) : _injuries.remove(i)),
-                        ),
-                    ]),
+                    Text('부상·주의 부위', style: text.labelLarge),
+                    InjuryChips(
+                      injuries: _injuries,
+                      cautions: _cautions,
+                      onChanged: (inj, cau) => setState(() {
+                        _injuries
+                          ..clear()
+                          ..addAll(inj);
+                        _cautions
+                          ..clear()
+                          ..addAll(cau);
+                      }),
+                    ),
                   ],
                 ),
               ],

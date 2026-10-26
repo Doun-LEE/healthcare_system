@@ -281,7 +281,9 @@ class UserProfile {
     this.ohp1rm,
     this.goal = TrainingGoal.hypertrophy,
     Set<InjuryArea>? injuries,
+    Set<InjuryArea>? cautions,
   })  : injuries = injuries ?? {},
+        cautions = cautions ?? {},
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
         exerciseRank = exerciseRank ?? {},
         groupRank = groupRank ?? {},
@@ -352,6 +354,9 @@ class UserProfile {
   TrainingGoal goal;
   final Set<InjuryArea> injuries;
 
+  /// 주의 부위: 빼지 않고 무게를 낮추고 횟수를 늘려 재활 느낌으로 넣는다.
+  final Set<InjuryArea> cautions;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -385,6 +390,7 @@ class UserProfile {
         'ohp1rm': ohp1rm,
         'goal': goal.name,
         'injuries': injuries.map((i) => i.name).toList(),
+        if (cautions.isNotEmpty) 'cautions': cautions.map((i) => i.name).toList(),
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -430,6 +436,10 @@ class UserProfile {
         ohp1rm: (j['ohp1rm'] as num?)?.toDouble(),
         goal: TrainingGoal.parse((j['goal'] as String?) ?? 'hypertrophy'),
         injuries: ((j['injuries'] as List?) ?? const [])
+            .map((v) => InjuryArea.tryParse(v as String))
+            .whereType<InjuryArea>()
+            .toSet(),
+        cautions: ((j['cautions'] as List?) ?? const [])
             .map((v) => InjuryArea.tryParse(v as String))
             .whereType<InjuryArea>()
             .toSet(),

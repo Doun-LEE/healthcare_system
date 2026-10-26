@@ -1935,6 +1935,10 @@ const Map<InjuryArea, Set<String>> injuryExclusions = {
 bool excludedByInjury(Exercise ex, Set<InjuryArea> injuries) =>
     injuries.any((i) => injuryExclusions[i]?.contains(ex.id) ?? false);
 
+/// 이 운동이 부담을 주는 주의 부위들.
+Set<InjuryArea> cautionHits(Exercise ex, Set<InjuryArea> cautions) =>
+    {for (final i in cautions) if (injuryExclusions[i]?.contains(ex.id) ?? false) i};
+
 final Map<String, Exercise> _byId = {
   for (final e in exerciseCatalog) e.id: e,
 };
