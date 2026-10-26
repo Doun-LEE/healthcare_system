@@ -314,7 +314,7 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
       if (pulled) {
         _initialSyncDone = true;
-        if (_pendingPush) _pushDebounce(_pushNow);
+        if (_pendingPush || _data.unsynced) _pushDebounce(_pushNow);
         _pendingPush = false;
         await _autoBackupDaily();
       } else {
@@ -351,6 +351,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> _save() async {
     _data.updatedAt = DateTime.now();
+    if (cloudSignedIn) _data.unsynced = true;
     _trackEdits();
     await _store.save(_data);
     notifyListeners();
@@ -406,6 +407,8 @@ class AppState extends ChangeNotifier {
         final i = dst.indexWhere((y) => id(y) == id(x));
         if (i < 0) {
           final del = into.deleted[key];
+          // 저장된 적 없는 임시 프로필(로그인 직후 자동 생성)은 옮기지 않는다.
+          if (prefix == 'profile' && fe == null && into.profiles.isNotEmpty) continue;
           if (del == null || (fe != null && fe.isAfter(del))) {
             dst.add(x);
             n++;
@@ -457,32 +460,65 @@ class AppState extends ChangeNotifier {
   bool get cloudSignedIn => cloudAvailable && CloudSync.instance.signedIn;
   String? get cloudEmail => cloudAvailable ? CloudSync.instance.email : null;
 
+  /// 이 기기 데이터 일부를 못 읽었을 때(옛 버전 앱 등): 덮어쓰면 그 부분이 사라지므로 올리지 않는다.
+  static const _updateNeeded = '이 앱 버전이 모르는 데이터가 있어 클라우드에 올리지 않았어요. 앱을 최신 버전으로 업데이트하세요.';
+
   Future<void> _pushNow() async {
+    if (_data.skippedItems > 0) {
+      syncError = _updateNeeded;
+      notifyListeners();
+      return;
+    }
     syncing = true;
     syncError = null;
     notifyListeners();
     try {
-      // 올리기 전에 클라우드 쪽 운동 기록·헬스장 수정을 먼저 합친다(다른 기기 것을 덮어쓰지 않게).
-      try {
-        final remote = await CloudSync.instance.pull().timeout(const Duration(seconds: 12));
-        if (remote != null) {
-          final (r, _) = remote;
-          if (_mergeSafe(from: r, into: _data) > 0) {
-            _mergeProgress(r);
-            _snapshotEntities();
-            await _store.save(_data);
-          }
+      // 1) 클라우드를 먼저 읽는다. 못 읽으면 올리지 않는다(나중에 다시).
+      final remote = await CloudSync.instance.pull().timeout(const Duration(seconds: 15));
+      if (remote != null) {
+        final (r, _) = remote;
+        if (r.skippedItems > 0) {
+          syncError = _updateNeeded;
+          return;
         }
-      } catch (_) {}
+        // 2) 다른 기기의 운동 기록·헬스장 수정을 먼저 합친다.
+        if (_mergeSafe(from: r, into: _data) > 0) {
+          _mergeProgress(r);
+          _snapshotEntities();
+          await _store.save(_data);
+          notifyListeners();
+        }
+        // 3) 그래도 클라우드 쪽이 더 많아 보이면(완료 기록·헬스장 수) 덮어쓰기 전에 클라우드 것을 따로 저장.
+        final rDone = r.plans.where((p) => p.isFinished).length;
+        final lDone = _data.plans.where((p) => p.isFinished).length;
+        if (rDone > lDone || r.gyms.length > _data.gyms.length) {
+          try {
+            await CloudSync.instance.saveBackup(r, label: '덮어쓰기 전 자동 저장', auto: true);
+          } catch (_) {}
+        }
+      }
       await CloudSync.instance.push(_data);
-      await _publishPublic();
+      _data.unsynced = false;
+      await _store.save(_data);
+      try {
+        await _publishPublic();
+      } catch (_) {}
       lastSyncedAt = DateTime.now();
     } catch (e) {
-      syncError = '업로드 실패: $e';
+      syncError = '업로드 대기 중(다음에 다시 올려요): $e';
     } finally {
       syncing = false;
       notifyListeners();
     }
+  }
+
+  /// 앱으로 돌아왔을 때: 다른 기기 변경을 받아 합치고, 못 올린 게 있으면 올린다.
+  Future<void> resumeSync() async {
+    if (!cloudSignedIn || !_initialSyncDone || syncing) return;
+    try {
+      await _pullIfNewer();
+    } catch (_) {}
+    if (_data.unsynced) await _pushNow();
   }
 
   /// 클라우드가 로컬보다 최신이면 내려받아 교체.
@@ -490,6 +526,12 @@ class AppState extends ChangeNotifier {
     final remote = await CloudSync.instance.pull();
     if (remote == null) return false;
     final (data, _) = remote;
+    if (data.skippedItems > 0) {
+      // 클라우드에 이 버전이 모르는 데이터가 있다 → 받지도 올리지도 않는다.
+      syncError = _updateNeeded;
+      notifyListeners();
+      return false;
+    }
     // 클라우드가 더 최신이면 그걸 기준으로 하되, 이 기기에만 있는 운동 기록·더 최근에 고친 헬스장/프로필은 지킨다.
     // (앱을 연 직후 자동으로 바뀐 것 때문에 이 기기가 '더 최신'으로 보이지 않게 [baseline]=불러온 시각과 비교)
     final base = baseline ?? _data.updatedAt;
@@ -542,6 +584,9 @@ class AppState extends ChangeNotifier {
     try {
       await auth();
       final remote = await CloudSync.instance.pull();
+      if (remote != null && remote.$1.skippedItems > 0) {
+        throw CloudException('계정 데이터에 이 앱 버전이 모르는 내용이 있어요. 앱을 최신 버전으로 업데이트한 뒤 로그인하세요.');
+      }
       String msg;
       if (remote != null && !remote.$1.isEmpty) {
         final local = _data;
@@ -555,11 +600,10 @@ class AppState extends ChangeNotifier {
       _ensureProfileForAccount();
       _authed = true;
       _data.updatedAt = DateTime.now();
+      _data.unsynced = true;
+      _initialSyncDone = true;
       await _store.save(_data);
-      await CloudSync.instance.push(_data);
-      try {
-        await _publishPublic();
-      } catch (_) {}
+      await _pushNow();
       lastSyncedAt = DateTime.now();
       notifyListeners();
       await refreshInbox();
@@ -662,9 +706,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final pulled = await _pullIfNewer();
-      if (!pulled) await CloudSync.instance.push(_data);
+      syncing = false;
+      await _pushNow();
+      if (syncError != null) return syncError!;
       lastSyncedAt = DateTime.now();
-      return pulled ? '다른 기기의 최신 데이터를 내려받았어요.' : '이 기기의 데이터를 올렸어요.';
+      return pulled ? '다른 기기의 최신 데이터를 받아 합치고 올렸어요.' : '이 기기의 데이터를 올렸어요.';
     } catch (e) {
       syncError = '동기화 실패: $e';
       return syncError!;

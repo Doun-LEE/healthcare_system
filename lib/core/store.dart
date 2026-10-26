@@ -40,6 +40,12 @@ class AppData {
   /// 등록한 운동 파트너(계정).
   final List<PartnerLink> partners;
 
+  /// 읽다가 건너뛴 항목 수(이 앱 버전이 모르는 새 형식 등). 0이 아니면 이 데이터로 덮어쓰지 않는다.
+  int skippedItems = 0;
+
+  /// 이 기기에서 바뀌었는데 아직 클라우드에 못 올린 내용이 있음.
+  bool unsynced = false;
+
   /// 마지막 변경 시각. 클라우드와 어느 쪽이 최신인지 비교할 때 쓴다.
   DateTime updatedAt;
 
@@ -58,6 +64,7 @@ class AppData {
 
   Map<String, dynamic> toJson() => {
         'version': 1,
+        if (unsynced) 'unsynced': true,
         'updatedAt': updatedAt.toIso8601String(),
         'accessCode': accessCode,
         'currentUserId': currentUserId,
@@ -73,34 +80,50 @@ class AppData {
         },
       };
 
-  factory AppData.fromJson(Map<String, dynamic> j) => AppData(
+  /// 항목 하나가 깨졌거나 모르는 형식이어도 나머지는 살린다(건너뛴 수는 [skippedItems]).
+  factory AppData.fromJson(Map<String, dynamic> j) {
+    _skipped = 0;
+    final d = AppData._fromJson(j);
+    d.skippedItems = _skipped;
+    d.unsynced = (j['unsynced'] as bool?) ?? false;
+    return d;
+  }
+
+  factory AppData._fromJson(Map<String, dynamic> j) => AppData(
         updatedAt: j['updatedAt'] == null ? null : DateTime.tryParse(j['updatedAt'] as String),
         accessCode: j['accessCode'] as String? ?? '23007344',
         currentUserId: j['currentUserId'] as String?,
-        profiles: ((j['profiles'] as List?) ?? [])
-            .map((p) => UserProfile.fromJson(p as Map<String, dynamic>))
-            .toList(),
-        gyms: ((j['gyms'] as List?) ?? [])
-            .map((g) => Gym.fromJson(g as Map<String, dynamic>))
-            .toList(),
-        plans: ((j['plans'] as List?) ?? [])
-            .map((p) => DayPlan.fromJson(p as Map<String, dynamic>))
-            .toList(),
+        profiles: _each(j['profiles'], UserProfile.fromJson),
+        gyms: _each(j['gyms'], Gym.fromJson),
+        plans: _each(j['plans'], DayPlan.fromJson),
         deleted: _times(j['deleted']),
         editedAt: _times(j['editedAt']),
-        partners: ((j['partners'] as List?) ?? [])
-            .map((p) => PartnerLink.fromJson(p as Map<String, dynamic>))
-            .toList(),
+        partners: _each(j['partners'], PartnerLink.fromJson),
         progress: {
           for (final e in ((j['progress'] as Map?) ?? {}).entries)
             e.key as String: {
               for (final p in (e.value as Map).entries)
-                p.key as String:
-                    ExerciseProgress.fromJson(p.value as Map<String, dynamic>),
+                p.key as String: ?_one(p.value, ExerciseProgress.fromJson),
             },
         },
       );
 }
+
+int _skipped = 0;
+
+T? _one<T>(Object? raw, T Function(Map<String, dynamic>) f) {
+  try {
+    return f((raw as Map).cast<String, dynamic>());
+  } catch (_) {
+    _skipped++;
+    return null;
+  }
+}
+
+List<T> _each<T>(Object? raw, T Function(Map<String, dynamic>) f) => [
+      for (final x in (raw as List?) ?? const [])
+        ?_one(x, f),
+    ];
 
 Map<String, DateTime> _times(Object? m) => {
       for (final e in ((m as Map?) ?? const {}).entries)
@@ -131,28 +154,46 @@ class LocalStore implements DataStore {
 
   final File file;
 
-  @override
-  Future<AppData> load() async {
-    if (!await file.exists()) return AppData();
+  File get _bak => File('${file.path}.bak');
+  File get _tmp => File('${file.path}.tmp');
+  bool _backedUp = false;
+
+  Future<AppData?> _read(File f) async {
     try {
-      final text = await file.readAsString();
-      if (text.trim().isEmpty) return AppData();
+      if (!await f.exists()) return null;
+      final text = await f.readAsString();
+      if (text.trim().isEmpty) return null;
       return AppData.fromJson(jsonDecode(text) as Map<String, dynamic>);
     } catch (_) {
-      // 깨진 파일은 백업해 두고 새로 시작한다.
+      return null;
+    }
+  }
+
+  /// 본 파일 → (저장 도중 꺼졌을 때) 임시 파일 → 이번 실행 전 백업 순서로 읽는다.
+  @override
+  Future<AppData> load() async {
+    final main = await _read(file);
+    if (main != null) return main;
+    if (await file.exists()) {
       try {
         await file.copy('${file.path}.corrupt');
       } catch (_) {}
-      return AppData();
     }
+    return await _read(_tmp) ?? await _read(_bak) ?? AppData();
   }
 
   @override
   Future<void> save(AppData data) async {
     await file.parent.create(recursive: true);
-    final tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(jsonEncode(data.toJson()), flush: true);
-    if (await file.exists()) await file.delete();
-    await tmp.rename(file.path);
+    // 앱을 켠 뒤 처음 저장할 때 직전 상태를 .bak으로 남긴다(실행마다 하나).
+    if (!_backedUp && await file.exists()) {
+      try {
+        await file.copy(_bak.path);
+      } catch (_) {}
+      _backedUp = true;
+    }
+    await _tmp.writeAsString(jsonEncode(data.toJson()), flush: true);
+    // 지우고 옮기면 그 사이에 꺼질 때 파일이 사라진다 → 바로 덮어쓰기(원자적 교체).
+    await _tmp.rename(file.path);
   }
 }

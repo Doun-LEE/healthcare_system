@@ -139,11 +139,19 @@ class CloudSync {
   Future<void> push(AppData data) async {
     final u = user;
     if (u == null) return;
-    // Firestore 문서 한도(1MB)를 넘지 않게 6개월 지난 완료 계획은 정리한다.
-    final cutoff = DateTime.now().subtract(const Duration(days: 180));
-    data.plans.removeWhere((p) => p.isFinished && p.date.isBefore(cutoff));
+    // Firestore 문서 한도(1MB): 넘을 때만 올리는 사본에서 오래된 완료 기록부터 뺀다(이 기기 데이터는 그대로).
+    var json = jsonEncode(data.toJson());
+    if (json.length > 900000) {
+      final copy = AppData.fromJson(jsonDecode(json) as Map<String, dynamic>);
+      final old = copy.plans.where((p) => p.isFinished).toList()..sort((a, b) => a.date.compareTo(b.date));
+      for (final p in old) {
+        copy.plans.remove(p);
+        if (copy.plans.length % 20 == 0 && jsonEncode(copy.toJson()).length <= 900000) break;
+      }
+      json = jsonEncode(copy.toJson());
+    }
     await _doc(u.uid).set({
-      'json': jsonEncode(data.toJson()),
+      'json': json,
       'updatedAt': FieldValue.serverTimestamp(),
       'email': u.email,
     });

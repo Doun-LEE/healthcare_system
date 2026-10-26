@@ -10,19 +10,33 @@ Future<DataStore> createStore() async => WebStore();
 class WebStore implements DataStore {
   static const _key = 'fit_routine_data';
 
-  @override
-  Future<AppData> load() async {
-    final text = web.window.localStorage.getItem(_key);
-    if (text == null || text.isEmpty) return AppData();
+  static const _bakKey = 'fit_routine_data_bak';
+  bool _backedUp = false;
+
+  AppData? _read(String key) {
+    final text = web.window.localStorage.getItem(key);
+    if (text == null || text.isEmpty) return null;
     try {
       return AppData.fromJson(jsonDecode(text) as Map<String, dynamic>);
     } catch (_) {
-      return AppData();
+      return null;
     }
   }
 
   @override
+  Future<AppData> load() async => _read(_key) ?? _read(_bakKey) ?? AppData();
+
+  @override
   Future<void> save(AppData data) async {
+    if (!_backedUp) {
+      final cur = web.window.localStorage.getItem(_key);
+      if (cur != null && cur.isNotEmpty) {
+        try {
+          web.window.localStorage.setItem(_bakKey, cur);
+        } catch (_) {}
+      }
+      _backedUp = true;
+    }
     web.window.localStorage.setItem(_key, jsonEncode(data.toJson()));
   }
 }
