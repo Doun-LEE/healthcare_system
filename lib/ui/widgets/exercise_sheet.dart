@@ -13,6 +13,7 @@ import 'body_view.dart';
 import 'equipment_look.dart';
 import 'equipment_3d.dart';
 import 'app_sheet.dart';
+import 'real_photos.dart';
 
 /// 운동 상세: 설명, 세부 타깃, 사용 기구의 3D 모델과 기구 특징.
 class ExerciseSheet extends StatelessWidget {
@@ -64,6 +65,10 @@ class ExerciseSheet extends StatelessWidget {
             const SizedBox(height: 12),
             Text(exercise.description, style: text.bodyLarge),
           ],
+          const SizedBox(height: 16),
+          Text('동작 보기', style: text.titleMedium),
+          const SizedBox(height: 8),
+          ExerciseMotion(exerciseId: exercise.id, name: exercise.name),
           const SizedBox(height: 20),
           Text('자극 부위', style: text.titleMedium),
           const SizedBox(height: 8),
@@ -105,7 +110,12 @@ class ExerciseSheet extends StatelessWidget {
                 ]),
               ]);
             }
-            return Equipment3DView(type: equipment, height: 230, style: styled == null ? ModelStyle.standard : styleForEquipment(styled));
+            final st = styled == null ? ModelStyle.standard : styleForEquipment(styled);
+            return Row(children: [
+              Expanded(child: EquipmentPhoto(type: equipment, height: 170, style: st, rounded: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: Equipment3DView(type: equipment, height: 170, style: st)),
+            ]);
           }),
           const SizedBox(height: 12),
           Text(info.summary, style: text.bodyMedium),

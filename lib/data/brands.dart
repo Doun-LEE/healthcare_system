@@ -31,6 +31,7 @@ class EquipmentBrand {
     required this.models,
     this.note = '',
     this.style = ModelStyle.standard,
+    this.color,
   });
   final String key;
   final String name;
@@ -40,6 +41,17 @@ class EquipmentBrand {
 
   /// 대표 색상·프레임 스타일(헬스장마다 색 옵션이 다를 수 있어 기구별로 바꿀 수 있다).
   final ModelStyle style;
+
+  /// 브랜드 배지 색(로고 대신 이름을 이 색 배지로 보여 준다).
+  final Color? color;
+
+  /// 배지에 쓰는 짧은 이름: 괄호 안 영문이 있으면 그것.
+  String get badgeName {
+    final m = RegExp(r'\(([^)]+)\)').firstMatch(name);
+    return (m?.group(1) ?? name).trim();
+  }
+
+  Color get badgeColor => color ?? style.frame;
 
   bool matches(String q) {
     final s = q.trim().toLowerCase();

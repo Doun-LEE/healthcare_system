@@ -8,6 +8,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/body_view.dart';
 import 'widgets/equipment_look.dart';
+import 'widgets/real_photos.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/app_sheet.dart';
 
@@ -347,6 +348,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
           ExpansionTile(
             key: ValueKey('${b.key}-${q.isNotEmpty}'),
             initiallyExpanded: q.isNotEmpty,
+            leading: BrandBadge(brand: b),
             title: Text(b.name),
             subtitle: Text(b.note.isEmpty ? '${b.models.length}개 모델' : '${b.models.length}개 모델 · ${b.note}', maxLines: 2, overflow: TextOverflow.ellipsis),
             children: [
@@ -354,6 +356,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                 CheckboxListTile(
                   dense: true,
                   value: _brandPicked.containsKey(m),
+                  secondary: EquipmentPhoto(type: m.type, size: 44),
                   title: Text(m.name),
                   subtitle: Text('${m.type.label} · ${m.mechanism.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
                   onChanged: (_) => setState(() => _brandPicked.containsKey(m) ? _brandPicked.remove(m) : _brandPicked[m] = b.key),
@@ -488,9 +491,22 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                       sel ? _selected.remove(info.type) : _selected.add(info.type);
                     }
                   }),
-                  secondary: has
-                      ? Icon(rem ? Icons.remove_circle_outline : Icons.check_circle, color: rem ? cs.error : cs.primary)
-                      : null,
+                  secondary: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Stack(children: [
+                      EquipmentPhoto(type: info.type, size: 52),
+                      if (has)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            decoration: BoxDecoration(color: cs.surface, shape: BoxShape.circle),
+                            child: Icon(rem ? Icons.remove_circle : Icons.check_circle, size: 18, color: rem ? cs.error : cs.primary),
+                          ),
+                        ),
+                    ]),
+                  ),
                   title: Text(info.type.label,
                       style: rem ? TextStyle(decoration: TextDecoration.lineThrough, color: cs.onSurfaceVariant) : null),
                   subtitle: Text(

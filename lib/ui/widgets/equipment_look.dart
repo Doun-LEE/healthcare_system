@@ -10,6 +10,8 @@ import '../../data/equipment_models.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import 'equipment_3d.dart';
+import 'real_photos.dart';
+import '../../data/exercise_photos.dart';
 
 /// 기구 썸네일: 실물 사진이 있으면 사진, 없으면 브랜드/사용자 스타일의 3D.
 class EquipmentThumb extends StatelessWidget {
@@ -19,18 +21,53 @@ class EquipmentThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = Equipment3DView(type: eq.type, height: size, autoRotate: false, style: styleForEquipment(eq));
-    if (!eq.hasPhoto) return SizedBox(width: size, height: size, child: fallback);
+    // 내가 찍은 사진 > 실제 사용 사진 > 3D
+    final fallback = EquipmentPhoto(type: eq.type, size: size, style: styleForEquipment(eq));
+    final brand = brandByKey(eq.brand);
+    final pic = !eq.hasPhoto
+        ? fallback
+        : SizedBox(
+            width: size,
+            height: size,
+            child: FutureBuilder<Uint8List?>(
+              future: photos.loadPhoto(eq.id),
+              builder: (c, snap) {
+                final b = snap.data;
+                if (b == null) return fallback;
+                return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(b, fit: BoxFit.cover, gaplessPlayback: true));
+              },
+            ),
+          );
+    if (brand == null || size < 40) return pic;
     return SizedBox(
       width: size,
       height: size,
-      child: FutureBuilder<Uint8List?>(
-        future: photos.loadPhoto(eq.id),
-        builder: (c, snap) {
-          final b = snap.data;
-          if (b == null) return fallback;
-          return ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(b, fit: BoxFit.cover, gaplessPlayback: true));
-        },
+      child: Stack(children: [
+        pic,
+        Positioned(left: 2, bottom: 2, right: 2, child: Align(alignment: Alignment.bottomLeft, child: BrandBadge(brand: brand, small: true))),
+      ]),
+    );
+  }
+}
+
+/// 브랜드 배지: 로고 대신 브랜드 이름을 브랜드 색으로.
+class BrandBadge extends StatelessWidget {
+  const BrandBadge({super.key, required this.brand, this.small = false});
+  final EquipmentBrand brand;
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = brand.badgeColor;
+    final fg = bg.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: small ? 4 : 8, vertical: small ? 1 : 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(small ? 4 : 6)),
+      child: Text(
+        brand.badgeName.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: fg, fontSize: small ? 8 : 11, fontWeight: FontWeight.w900, letterSpacing: small ? 0.2 : 0.6),
       ),
     );
   }
@@ -47,7 +84,7 @@ class EquipmentLookSection extends StatefulWidget {
 }
 
 class _EquipmentLookSectionState extends State<EquipmentLookSection> {
-  bool _show3d = false;
+  bool? _show3d;
   bool _busy = false;
 
   GymEquipment? _eq(AppState s) =>
@@ -78,23 +115,36 @@ class _EquipmentLookSectionState extends State<EquipmentLookSection> {
     final text = Theme.of(context).textTheme;
     final style = styleForEquipment(eq);
     final brand = brandByKey(eq.brand);
-    final showPhoto = eq.hasPhoto && !_show3d;
+    final example = equipmentPhotoUrl(eq.type) != null;
+    final show3d = _show3d ?? !(eq.hasPhoto || example);
+    final showPhoto = eq.hasPhoto && !show3d;
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (eq.hasPhoto)
+      if (brand != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: BrandBadge(brand: brand)),
+      if (eq.hasPhoto || example)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('실물 사진'), icon: Icon(Icons.photo_outlined)),
-              ButtonSegment(value: true, label: Text('3D'), icon: Icon(Icons.view_in_ar_outlined)),
+            segments: [
+              ButtonSegment(
+                  value: false,
+                  label: Text(eq.hasPhoto ? '내가 찍은 사진' : '실제 사용 모습'),
+                  icon: const Icon(Icons.photo_outlined)),
+              const ButtonSegment(value: true, label: Text('3D'), icon: Icon(Icons.view_in_ar_outlined)),
             ],
-            selected: {_show3d},
+            selected: {show3d},
             showSelectedIcon: false,
             onSelectionChanged: (s) => setState(() => _show3d = s.first),
           ),
         ),
-      if (showPhoto)
+      if (!show3d && !eq.hasPhoto)
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          EquipmentPhoto(type: eq.type, height: 240, style: style, rounded: 16),
+          const SizedBox(height: 4),
+          Text('예시 사진 · Free Exercise DB(퍼블릭 도메인). 내 헬스장 기구 사진을 찍으면 그걸로 바뀌어요.',
+              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+        ])
+      else if (showPhoto)
         FutureBuilder<Uint8List?>(
           future: photos.loadPhoto(eq.id),
           builder: (c, snap) => Container(

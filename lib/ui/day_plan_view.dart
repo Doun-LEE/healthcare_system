@@ -15,8 +15,8 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
-import 'widgets/equipment_3d.dart';
 import 'widgets/equipment_look.dart';
+import 'widgets/real_photos.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
@@ -869,13 +869,9 @@ class _ExerciseCard extends StatelessWidget {
                   onTap: () => ExerciseSheet.show(context, ex, pe.equipmentType),
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10, top: 2),
-                    child: myEq != null
+                    child: myEq != null && myEq.hasPhoto
                         ? EquipmentThumb(eq: myEq, size: 48)
-                        : SizedBox(
-                            width: 48,
-                            height: 48,
-                            child: Equipment3DView(type: pe.equipmentType, height: 48, autoRotate: false),
-                          ),
+                        : ExerciseThumb(exerciseId: ex.id, type: pe.equipmentType, size: 48),
                   ),
                 ),
                 Expanded(
