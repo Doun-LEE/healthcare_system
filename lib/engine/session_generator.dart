@@ -392,7 +392,7 @@ class SessionGenerator {
     Exercise? best;
     var bestScore = double.negativeInfinity;
     for (final ex in exercisesOf(g)) {
-      if (ex.warmupOnly || _reserved.contains(ex.id)) continue;
+      if (ex.warmupOnly || ex.activity || _reserved.contains(ex.id)) continue;
       if (pickedIds.contains(ex.id)) continue;
       // 전날·전전날 한 운동은 웬만하면 피한다(같은 자세·무게가 연일 겹치지 않게).
       final repeatPenalty = req.avoidIds.contains(ex.id) ? 6.0 : 0.0;

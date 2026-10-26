@@ -1384,6 +1384,9 @@ class AppState extends ChangeNotifier {
     if (u.restMode == 'shift') await rebalanceAround(t);
   }
 
+  /// 그 날 앞뒤 운동 id(교체 추천에서 연일 겹치지 않게).
+  Set<String> recentExerciseIds(DateTime d) => _neighborIds(d);
+
   /// 전날·다음날 운동 id(같은 운동이 연일 겹치지 않게).
   Set<String> _neighborIds(DateTime d) => {
         for (final off in [-2, -1, 1])

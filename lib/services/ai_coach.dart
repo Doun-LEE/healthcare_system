@@ -165,7 +165,7 @@ class AiCoach {
         : ctx.available;
     available.add(EquipmentType.bodyweight);
     return exerciseCatalog
-        .where((e) => e.canDoWith(available) && !excludedByInjury(e, injuries))
+        .where((e) => !e.activity && !e.warmupOnly && e.canDoWith(available) && !excludedByInjury(e, injuries))
         .toList();
   }
 

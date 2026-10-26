@@ -28,6 +28,7 @@ class Exercise {
     this.description = '',
     this.altGroups = const [],
     this.warmupOnly = false,
+    this.activity = false,
   });
 
   final String id;
@@ -61,8 +62,11 @@ class Exercise {
   /// 워밍업·스트레칭 전용(본 운동으로는 뽑지 않는다).
   final bool warmupOnly;
 
+  /// 축구·농구 같은 스포츠·활동. 기구 없이 언제든 직접 추가할 수 있고, 루틴 자동 생성엔 넣지 않는다.
+  final bool activity;
+
   bool canDoWith(Set<EquipmentType> available) =>
-      equipment.any(available.contains);
+      activity || equipment.any(available.contains);
 
   /// 주어진 기구 집합에서 실제로 쓸 기구 하나를 고른다(정의 순서 우선).
   EquipmentType pickEquipment(Set<EquipmentType> available) =>
@@ -1056,7 +1060,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'rear_delt_fly', name: '리어 델트 플라이', group: MuscleGroup.shoulder,
-    emphasis: ['후면 어깨'], equipment: [EquipmentType.pecDeck, EquipmentType.dumbbell, EquipmentType.cableMachine],
+    emphasis: ['후면 어깨'], equipment: [EquipmentType.dumbbell, EquipmentType.cableMachine],
     loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.4,
     repRange: [12, 20], priority: 2,
     description: '후면 어깨는 대부분 부족하다. 어깨 라운드와 자세 교정에 중요.',
@@ -1503,6 +1507,13 @@ const List<Exercise> exerciseCatalog = [
     repRange: [12, 20], priority: 3,
   ),
   Exercise(
+    id: 'reverse_pec_deck', name: '리버스 펙덱 플라이', group: MuscleGroup.shoulder,
+    emphasis: ['후면 어깨', '중부 승모·능형근'], equipment: [EquipmentType.pecDeck, EquipmentType.rearDeltMachine],
+    loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.45,
+    repRange: [12, 20], priority: 2,
+    description: '펙덱에 거꾸로(가슴을 패드에 대고) 앉아 팔을 뒤로 벌린다.',
+  ),
+  Exercise(
     id: 'rear_delt_m', name: '리어 델트 머신', group: MuscleGroup.shoulder,
     emphasis: ['후면 어깨'], equipment: [EquipmentType.rearDeltMachine],
     loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.45,
@@ -1725,8 +1736,100 @@ const List<Exercise> exerciseCatalog = [
     id: 'swim', name: '수영', group: MuscleGroup.cardio,
     emphasis: ['전신 저충격', '회복'], equipment: [EquipmentType.pool],
     loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
-    repRange: [20, 40], priority: 2,
+    repRange: [20, 40], priority: 2, activity: true,
   ),
+  // ── 스포츠·활동 (직접 추가용, 숫자는 분) ──
+  Exercise(
+    id: 'soccer', name: '축구', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '인터벌 달리기', '하체'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'futsal', name: '풋살', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '인터벌 달리기', '하체'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'basketball', name: '농구', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '점프·방향 전환', '하체'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'badminton', name: '배드민턴', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '순발력', '어깨'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'tennis', name: '테니스', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '순발력', '어깨·코어 회전'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'table_tennis', name: '탁구', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '순발력'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'volleyball', name: '배구', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '점프', '어깨'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'baseball', name: '야구', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '순발력', '코어 회전'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 180], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'squash', name: '스쿼시', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '고강도 인터벌'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [30, 60], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'climbing', name: '클라이밍 (실내 암벽)', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '등·전완 지구력', '악력'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'boxing', name: '복싱', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '고강도 인터벌', '어깨·코어'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [45, 90], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'jiujitsu', name: '주짓수·레슬링', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '전신 근지구력'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [60, 120], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'golf', name: '골프 (라운딩)', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '걷기', '코어 회전'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [120, 300], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'ski', name: '스키·스노보드', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '하체 지구력'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [120, 300], priority: 1, activity: true,
+  ),
+  Exercise(
+    id: 'dance', name: '댄스', group: MuscleGroup.cardio,
+    emphasis: ['스포츠', '심폐 지구력'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.cardio, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [45, 90], priority: 1, activity: true,
+  ),
+
   Exercise(
     id: 'mountain_climber', name: '마운틴 클라이머', group: MuscleGroup.cardio,
     emphasis: ['고강도 인터벌', '코어', '어디서나'], equipment: [EquipmentType.bodyweight],
@@ -1782,7 +1885,7 @@ const Map<String, CardioLevelSpec> cardioLevels = {
   'ski_erg': CardioLevelSpec(label: '댐퍼', unit: '', min: 1, max: 10, start: [4, 5, 6]),
   'elliptical': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
   'jacobs': CardioLevelSpec(label: '속도', unit: '', min: 1, max: 10, start: [3, 5, 7]),
-  'versa': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 10, start: [3, 5, 7]),
+  'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30]),
   'stair_run': CardioLevelSpec(label: '층', unit: '층', min: 5, max: 40, start: [8, 14, 20]),
 };
 

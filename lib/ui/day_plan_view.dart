@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
 import '../engine/session_generator.dart';
+import '../engine/substitute.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
@@ -1081,9 +1082,13 @@ class _ExerciseCard extends StatelessWidget {
   }
 
   Future<void> _swap(BuildContext context, AppState state, Exercise ex) async {
+    final available = state.availableFor(plan);
     final options = exercisesOf(ex.group)
-        .where((e) => e.id != ex.id && e.canDoWith(state.availableEquipment))
+        .where((e) => e.id != ex.id && !e.warmupOnly && (ex.activity || !e.activity) && e.canDoWith(available))
         .toList();
+    final picks = ex.activity
+        ? const <SwapPick>[]
+        : recommendSwaps(plan.exercises, plan.exercises.indexOf(pe), available, recent: state.recentExerciseIds(plan.date));
     final chosen = await showAppSheet<Exercise>(
       context: context,
       showDragHandle: true,
@@ -1093,11 +1098,28 @@ class _ExerciseCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text('${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
           ),
+          if (picks.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text('추천 · 앞뒤 운동을 보고 골랐어요',
+                  style: Theme.of(c).textTheme.labelLarge?.copyWith(color: Theme.of(c).colorScheme.primary)),
+            ),
+            for (final p in picks)
+              ListTile(
+                leading: Icon(Icons.auto_awesome, color: Theme.of(c).colorScheme.primary),
+                title: Text(p.exercise.name),
+                subtitle: Text(p.reasons.isEmpty ? p.exercise.emphasis.join(' · ') : p.reasons.join(' · ')),
+                trailing: Text(p.exercise.pickEquipment(available).label, style: Theme.of(c).textTheme.bodySmall),
+                onTap: () => Navigator.pop(c, p.exercise),
+              ),
+            const Divider(),
+            const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 4), child: Text('전체')),
+          ],
           for (final e in options)
             ListTile(
               title: Text(e.name),
               subtitle: Text(e.emphasis.join(' · ')),
-              trailing: Text(e.pickEquipment(state.availableEquipment).label,
+              trailing: Text(e.pickEquipment(available).label,
                   style: Theme.of(c).textTheme.bodySmall),
               onTap: () => Navigator.pop(c, e),
             ),

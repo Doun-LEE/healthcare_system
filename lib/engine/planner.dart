@@ -73,6 +73,28 @@ class Planner {
 
   static const int _maxIdleDaysPerGroup = 8;
 
+  /// 그 날이 분할의 몇 번째 날인지. 유산소만 한 날·전신(파트너 등)처럼 알 수 없으면 null.
+  static int? cycleIndexOf(DayPlan p, List<SplitDay> cycle) {
+    final t = (p.title ?? '').split(' + ').first.split(' · ').first.trim();
+    final byTitle = cycle.indexWhere((d) => d.title == t);
+    if (byTitle >= 0) return byTitle;
+    bool major(MuscleGroup g) => g != MuscleGroup.abs && g != MuscleGroup.cardio;
+    final focus = p.focus.where(major).toSet();
+    if (focus.isEmpty || focus.length >= 4) return null;
+    int? best;
+    var bestScore = 0;
+    for (var i = 0; i < cycle.length; i++) {
+      final day = cycle[i].groups.where(major).toSet();
+      if (day.isEmpty || !focus.contains(cycle[i].groups.first)) continue;
+      final score = day.intersection(focus).length * 2 - focus.difference(day).length - day.difference(focus).length;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    }
+    return best;
+  }
+
   /// 분할 수에 비례한 연속 운동일 한도. 3분할이면 3일 뒤 볼륨↓, 4일 뒤 자동 휴식.
   /// 6분할은 6일 연속(6 on / 1 off)까지 허용.
   static int deloadAfter(int splitDays) => splitDays.clamp(2, 4);
@@ -95,14 +117,27 @@ class Planner {
       }
     }
 
-    // 사이클 위치: 이력에서 마지막 운동일의 타이틀을 찾아 이어간다.
+    // 사이클 위치: 이력에서 분할의 어느 날인지 알 수 있는 가장 최근 운동일을 찾아 이어간다.
+    // (유산소만 한 날·파트너 전신 날·'+ 하체'처럼 덧붙은 제목 때문에 처음(가슴)으로 돌아가지 않게)
     var cycleIdx = 0;
-    final lastWorkout = input.history
-        .where((h) => !h.isRest && !h.skipped && h.date.isBefore(input.from))
-        .fold<DayPlan?>(null, (a, b) => a == null || b.date.isAfter(a.date) ? b : a);
-    if (lastWorkout != null) {
-      final i = cycle.indexWhere((d) => d.title == lastWorkout.title);
-      if (i >= 0) cycleIdx = (i + 1) % cycle.length;
+    final past = input.history.where((h) => !h.isRest && !h.skipped && h.date.isBefore(input.from)).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    int? found;
+    for (final h in past) {
+      found = cycleIndexOf(h, cycle);
+      if (found != null) break;
+    }
+    if (found != null) {
+      cycleIdx = (found + 1) % cycle.length;
+    } else if (past.isNotEmpty) {
+      // 알 수 없으면 주인공 부위를 가장 오래 쉰 날부터.
+      DateTime? lastOf(MuscleGroup g) => lastTrained[g];
+      var oldest = 0;
+      for (var k = 1; k < cycle.length; k++) {
+        final a = lastOf(cycle[k].groups.first), b = lastOf(cycle[oldest].groups.first);
+        if (a == null || (b != null && a.isBefore(b))) oldest = k;
+      }
+      cycleIdx = oldest;
     }
 
     var streak = _streakBefore(input.from);
@@ -132,16 +167,16 @@ class Planner {
           // '루틴 그대로' 모드면 그 날 순서는 지나간 것으로 보고 다음 날은 원래 계획대로 이어간다.
           streak = 0;
           if (input.profile.restMode == 'keep') {
-            final i = cycle.indexWhere((d) => d.groups.every(fixedDay.focus.contains));
-            if (i >= 0) cycleIdx = (i + 1) % cycle.length;
+            final i = cycleIndexOf(fixedDay, cycle);
+            if (i != null) cycleIdx = (i + 1) % cycle.length;
           }
         } else {
           for (final g in fixedDay.focus) {
             lastTrained[g] = date;
           }
           // 고정된 날이 분할의 어느 날과 같으면 사이클을 그 다음으로 넘긴다.
-          final i = cycle.indexWhere((d) => d.groups.every(fixedDay.focus.contains));
-          if (i >= 0) cycleIdx = (i + 1) % cycle.length;
+          final i = cycleIndexOf(fixedDay, cycle);
+          if (i != null) cycleIdx = (i + 1) % cycle.length;
           streak++;
         }
         continue;
