@@ -376,10 +376,23 @@ class DayPlanView extends StatelessWidget {
   }
 }
 
-/// 파트너 무게에 파트너가 입력한 컨디션 배율을 곱한 값(기구 단위로 반올림).
-double _partnerWeight(BuildContext context, DayPlan plan, PlannedExercise pe) {
-  final base = plan.partnerWeights[pe.exerciseId]!;
-  final pc = context.read<AppState>().partnerConditionOn(plan.date);
+/// 함께하는 사람별 (이름, 무게). 무게는 그 사람이 입력한 컨디션 배율을 곱한 값.
+List<(String, double)> _memberWeights(BuildContext context, DayPlan plan, PlannedExercise pe) {
+  final state = context.read<AppState>();
+  final members = state.membersOf(plan);
+  if (members.isEmpty || plan.memberWeights.isEmpty) {
+    final w = plan.partnerWeights[pe.exerciseId];
+    return w == null ? const [] : [(plan.partnerName ?? '', _partnerWeight(context, plan, pe, plan.partnerName ?? '', w))];
+  }
+  return [
+    for (final m in members)
+      if (plan.memberWeights[m.uid]?[pe.exerciseId] case final w?) (m.name, _partnerWeight(context, plan, pe, m.name, w)),
+  ];
+}
+
+/// 무게에 그 사람이 입력한 컨디션 배율을 곱한 값(기구 단위로 반올림).
+double _partnerWeight(BuildContext context, DayPlan plan, PlannedExercise pe, String name, double base) {
+  final pc = context.read<AppState>().conditionOf(plan.date, name) ?? context.read<AppState>().partnerConditionOn(plan.date);
   if (pc == null || pc.load == 1.0) return base;
   final inc = exerciseById(pe.exerciseId)!.loadType.increment;
   return max(inc, LoadEstimator.roundTo(base * pc.load, inc));
@@ -394,11 +407,23 @@ class _PartnerConditionLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final pc = context.watch<AppState>().partnerConditionOn(plan.date);
-    final msg = pc == null
-        ? '${plan.partnerName} 님은 아직 이 날 컨디션을 입력하지 않았어요. 입력하면 여기와 파트너 무게에 반영돼요.'
-        : '${pc.name} 님 컨디션 ${pc.condition}/10 · 무게 ${(pc.load * 100).round()}% 로 운동해요. 아래 파트너 무게에 반영됨.';
-    final link = context.read<AppState>().partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
+    final state = context.watch<AppState>();
+    final conds = state.partnerConditionsOn(plan.date);
+    final members = state.membersOf(plan);
+    final names = members.isEmpty ? [plan.partnerName ?? ''] : members.map((m) => m.name).toList();
+    final parts = [
+      for (final n in names)
+        if (conds.where((c) => c.name == n).firstOrNull case final c?)
+          '$n ${c.condition}/10(무게 ${(c.load * 100).round()}%)'
+        else
+          '$n 미입력',
+    ];
+    final msg = conds.isEmpty
+        ? '${plan.partnerName} 님은 아직 이 날 컨디션을 입력하지 않았어요. 입력하면 여기와 아래 무게에 반영돼요.'
+        : '컨디션 · ${parts.join(' · ')} — 아래 무게에 반영됨.';
+    final link = members.length == 1
+        ? state.partners.where((p) => p.uid == members.first.uid && !p.pending).firstOrNull
+        : state.partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
       child: Row(
@@ -910,17 +935,19 @@ class _ExerciseCard extends StatelessWidget {
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (pe.note != null && pe.note!.isNotEmpty)
                           Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
-                        if (plan.partnerName != null && plan.partnerWeights.containsKey(pe.exerciseId) && !isCardio)
+                        if (plan.partnerName != null && !isCardio && _memberWeights(context, plan, pe).isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Row(children: [
-                              Icon(Icons.group, size: 14, color: cs.secondary),
+                            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Icon(plan.members.length > 1 ? Icons.groups : Icons.group, size: 14, color: cs.secondary),
                               const SizedBox(width: 4),
-                              Text(
-                                isBw
-                                    ? '${plan.partnerName}: 같은 횟수'
-                                    : '${plan.partnerName}: ${_fmt(_partnerWeight(context, plan, pe))}kg',
-                                style: text.bodySmall?.copyWith(color: cs.secondary, fontWeight: FontWeight.w600),
+                              Expanded(
+                                child: Text(
+                                  isBw
+                                      ? '${plan.partnerName}: 같은 횟수'
+                                      : _memberWeights(context, plan, pe).map((w) => '${w.$1} ${_fmt(w.$2)}kg').join(' · '),
+                                  style: text.bodySmall?.copyWith(color: cs.secondary, fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ]),
                           ),

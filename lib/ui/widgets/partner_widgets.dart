@@ -234,7 +234,7 @@ class InboxBanner extends StatelessWidget {
   }
 }
 
-/// "파트너와 운동" 선택 시트. 파트너를 고르면 그 날짜의 공통 루틴을 만든다.
+/// "파트너와 운동" 선택 시트. 한 명 또는 여러 명(그룹)을 고르면 그 날짜의 공통 루틴을 만든다.
 Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   final state = context.read<AppState>();
   if (!state.cloudSignedIn) {
@@ -247,37 +247,57 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
     return;
   }
   final existing = state.planOn(date);
+  final already = {for (final m in state.membersOf(existing)) m.uid};
+  final picked = <String>{...already.where((u) => ready.any((p) => p.uid == u))};
   final chosen = await showAppSheet<Object>(
     context: context,
     showDragHandle: true,
-    builder: (c) => ListView(
-      shrinkWrap: true,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-          child: Text('${date.month}/${date.day} 누구와 같이 운동하나요?', style: Theme.of(c).textTheme.titleMedium),
+    isScrollControlled: true,
+    builder: (c) => StatefulBuilder(builder: (c, setState) {
+      return SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text('${date.month}/${date.day} 누구와 같이 운동하나요?', style: Theme.of(c).textTheme.titleMedium),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text('여러 명을 고르면 그룹 운동이에요. 모두의 그날 부위·보유 기구·부상을 맞춘 루틴을 만들고, 무게는 사람마다 따로 표시합니다. 모두의 앱에 같은 루틴이 전송돼요.',
+                  style: Theme.of(c).textTheme.bodySmall?.copyWith(color: Theme.of(c).colorScheme.onSurfaceVariant)),
+            ),
+            for (final p in ready)
+              CheckboxListTile(
+                value: picked.contains(p.uid),
+                secondary: CircleAvatar(child: Text(p.name.isEmpty ? '?' : p.name.characters.first)),
+                title: Text(p.display),
+                subtitle: Text(p.handle),
+                onChanged: (v) => setState(() => v == true ? picked.add(p.uid) : picked.remove(p.uid)),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: FilledButton.icon(
+                icon: Icon(picked.length > 1 ? Icons.groups : Icons.group),
+                label: Text(picked.isEmpty
+                    ? '함께할 사람을 고르세요'
+                    : picked.length == 1
+                        ? '이 파트너와 루틴 만들기'
+                        : '${picked.length + 1}명 그룹 루틴 만들기'),
+                onPressed: picked.isEmpty ? null : () => Navigator.pop(c, [for (final p in ready) if (picked.contains(p.uid)) p]),
+              ),
+            ),
+            if (existing != null && existing.partnerName != null)
+              ListTile(
+                leading: const Icon(Icons.person_off_outlined),
+                title: const Text('파트너 운동 해제 (혼자 하는 루틴으로)'),
+                onTap: () => Navigator.pop(c, 'clear'),
+              ),
+            const SizedBox(height: 12),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text('두 사람의 그날 부위와 보유 기구를 맞춘 루틴을 만들고, 무게는 각자 기준으로 표시합니다. 파트너 앱에도 같은 루틴이 전송돼요.',
-              style: Theme.of(c).textTheme.bodySmall?.copyWith(color: Theme.of(c).colorScheme.onSurfaceVariant)),
-        ),
-        for (final p in ready)
-          ListTile(
-            leading: CircleAvatar(child: Text(p.name.isEmpty ? '?' : p.name.characters.first)),
-            title: Text(p.display),
-            subtitle: Text(p.handle),
-            onTap: () => Navigator.pop(c, p),
-          ),
-        if (existing != null && existing.partnerName != null)
-          ListTile(
-            leading: const Icon(Icons.person_off_outlined),
-            title: const Text('파트너 운동 해제 (혼자 하는 루틴으로)'),
-            onTap: () => Navigator.pop(c, 'clear'),
-          ),
-        const SizedBox(height: 12),
-      ],
-    ),
+      );
+    }),
   );
   if (chosen == null || !context.mounted) return;
   if (chosen == 'clear') {
@@ -285,23 +305,27 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('혼자 하는 루틴으로 되돌렸어요.')));
     return;
   }
-  final partner = chosen as PartnerLink;
-  // 어디서 운동할지: 내 헬스장 / 파트너 헬스장 / 각자 헬스장 공통 기구
-  PartnerProfile? pp;
+  final partners = (chosen as List).cast<PartnerLink>();
+  final who = partners.map((p) => p.display).join('·');
+  // 어디서 운동할지: 내 헬스장 / 누군가의 헬스장 / 모두의 헬스장 공통 기구
+  final profiles = <String, PartnerProfile>{};
   final loading = showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const AlertDialog(
+    builder: (_) => AlertDialog(
       content: Row(children: [
-        CircularProgressIndicator(),
-        SizedBox(width: 16),
-        Expanded(child: Text('파트너 헬스장 정보 받는 중…')),
+        const CircularProgressIndicator(),
+        const SizedBox(width: 16),
+        Expanded(child: Text(partners.length == 1 ? '파트너 헬스장 정보 받는 중…' : '${partners.length}명 헬스장 정보 받는 중…')),
       ]),
     ),
   );
-  try {
-    pp = await CloudSync.instance.fetchPartner(partner.uid);
-  } catch (_) {}
+  await Future.wait([
+    for (final p in partners)
+      CloudSync.instance.fetchPartner(p.uid).then((pp) {
+        if (pp != null) profiles[p.uid] = pp;
+      }).catchError((_) {}),
+  ]);
   if (context.mounted) Navigator.pop(context);
   await loading;
   if (!context.mounted) return;
@@ -309,14 +333,15 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   final options = <(String, SharedVenue?)>[
     for (final g in state.gyms)
       ('내 헬스장 · ${g.name}', SharedVenue(owner: myUid, gymId: g.id, name: g.name, types: g.availableTypes.toList())),
-    for (final g in pp?.gyms ?? const <PartnerGym>[])
-      ('${partner.name} 헬스장 · ${g.name}', SharedVenue(owner: partner.uid, gymId: g.id, name: g.name, types: g.types.toList())),
-    ('각자 헬스장 공통 기구로', null),
+    for (final p in partners)
+      for (final g in profiles[p.uid]?.gyms ?? const <PartnerGym>[])
+        ('${p.name} 헬스장 · ${g.name}', SharedVenue(owner: p.uid, gymId: g.id, name: g.name, types: g.types.toList())),
+    (partners.length == 1 ? '각자 헬스장 공통 기구로' : '모두의 헬스장 공통 기구로', null),
   ];
   final pickedIndex = await showDialog<int>(
     context: context,
     builder: (c) => SimpleDialog(
-      title: Text('${partner.display}와 어디서 운동해요?'),
+      title: Text('$who와 어디서 운동해요?'),
       children: [
         for (var i = 0; i < options.length; i++)
           SimpleDialogOption(
@@ -327,10 +352,10 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
               Expanded(child: Text(options[i].$1)),
             ]),
           ),
-        if ((pp?.gyms ?? const []).isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
-            child: Text('${partner.name} 님 헬스장 목록은 상대가 새 버전으로 앱을 한 번 열면 보여요.', style: const TextStyle(fontSize: 12)),
+        if (partners.any((p) => (profiles[p.uid]?.gyms ?? const []).isEmpty))
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 4),
+            child: Text('헬스장 목록이 안 보이는 사람은 새 버전으로 앱을 한 번 열면 보여요.', style: TextStyle(fontSize: 12)),
           ),
       ],
     ),
@@ -351,11 +376,11 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   );
   String msg;
   try {
-    msg = await state.generateJointSession(
+    msg = await state.generateGroupSession(
       date,
-      partner,
+      [for (final p in partners) GroupMember(p.uid, p.name)],
       venue: venue,
-      prefetched: pp,
+      prefetched: profiles,
       onStep: (s) => step.value = s,
     );
   } catch (e) {
@@ -377,8 +402,8 @@ class PartnerDayButton extends StatelessWidget {
     final has = plan?.partnerName != null;
     return TextButton.icon(
       onPressed: () => showPartnerPicker(context, date),
-      icon: Icon(has ? Icons.group : Icons.group_add_outlined),
-      label: Text(has ? '${plan!.partnerName}와 파트너 운동 · 변경' : '파트너 운동일로 지정'),
+      icon: Icon(has ? ((plan!.members.length > 1) ? Icons.groups : Icons.group) : Icons.group_add_outlined),
+      label: Text(has ? '${plan!.partnerName}와 ${plan!.members.length > 1 ? '그룹' : '파트너'} 운동 · 변경' : '파트너 운동일로 지정'),
     );
   }
 }

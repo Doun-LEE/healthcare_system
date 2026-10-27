@@ -21,7 +21,10 @@ class SharedVenue {
 }
 
 class SharedRoutine {
-  SharedRoutine({required this.title, required this.focus, required this.items, this.from, this.venue, this.at});
+  SharedRoutine({required this.title, required this.focus, required this.items, this.from, this.venue, this.at, this.group = const []});
+
+  /// 그룹 운동이면 참가자 전원(보낸 사람 포함). 1:1이면 비어 있을 수 있다.
+  final List<GroupMember> group;
   final SharedVenue? venue;
 
   /// 보낸 쪽에서 이 루틴을 마지막으로 바꾼 시각(UTC).
@@ -43,9 +46,10 @@ class SharedItem {
 }
 
 /// [venue]: 파트너 운동 장소(누구의 어떤 헬스장). 받는 쪽이 같은 장소 기준으로 맞춘다.
-String encodeRoutine(DayPlan plan, {String? from, SharedVenue? venue, DateTime? at}) {
+String encodeRoutine(DayPlan plan, {String? from, SharedVenue? venue, DateTime? at, List<GroupMember> group = const []}) {
   final j = {
     if (at != null) 'a': at.toUtc().toIso8601String(),
+    if (group.isNotEmpty) 'g': group.map((m) => m.toJson()).toList(),
     't': plan.title ?? '',
     'f': plan.focus.map((g) => g.name).toList(),
     'u': from,
@@ -105,6 +109,10 @@ SharedRoutine? decodeRoutine(String code) {
       from: j['u'] as String?,
       venue: _venue(j['v']),
       at: j['a'] == null ? null : DateTime.tryParse(j['a'] as String),
+      group: [
+        for (final m in (j['g'] as List?) ?? const [])
+          if (m is Map && m['u'] is String) GroupMember(m['u'] as String, (m['n'] as String?) ?? ''),
+      ],
     );
   } catch (_) {
     return null;

@@ -1244,10 +1244,10 @@ class AppState extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
     PartnerProfile? partner;
     if (existing?.partnerName != null && cloudSignedIn) {
-      final link = _data.partners.where((p) => p.name == existing!.partnerName).firstOrNull;
-      if (link != null) {
+      final first = membersOf(existing).firstOrNull;
+      if (first != null) {
         try {
-          partner = await CloudSync.instance.fetchPartner(link.uid);
+          partner = await CloudSync.instance.fetchPartner(first.uid);
         } catch (_) {}
       }
     }
@@ -1286,6 +1286,8 @@ class AppState extends ChangeNotifier {
       loadFactor: existing?.loadFactor ?? 1.0,
       condition: existing?.condition,
       title: '${ai.title} ✨',
+      members: List.of(existing?.members ?? const <GroupMember>[]),
+      memberWeights: {...?existing?.memberWeights},
       partnerName: existing?.partnerName,
       partnerWeights: {
         if (existing != null)
@@ -1313,9 +1315,9 @@ class AppState extends ChangeNotifier {
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return existing;
     if (existing != null && existing.partnerName != null) {
-      final link = _data.partners.where((p) => p.name == existing.partnerName && !p.pending).firstOrNull;
-      if (link != null && cloudSignedIn) {
-        await generateJointSession(d, link, venue: venueOf(existing));
+      final people = membersOf(existing);
+      if (people.isNotEmpty && cloudSignedIn) {
+        await generateGroupSession(d, people, venue: venueOf(existing));
         return planOn(d);
       }
       // 파트너 정보를 지금 못 쓰면(오프라인 등) 파트너 날은 그대로 두고 같은 부위로만 다시 짠다.
@@ -1683,6 +1685,8 @@ class AppState extends ChangeNotifier {
       title: existing.title,
       partnerName: existing.partnerName,
       partnerWeights: existing.partnerWeights,
+      members: List.of(existing.members),
+      memberWeights: existing.memberWeights,
     );
     _copyVenue(existing, plan);
     _data.plans.remove(existing);
@@ -1850,7 +1854,7 @@ class AppState extends ChangeNotifier {
           // 두 사람이 엇갈려 보냈으면(서로 공유) 더 최근에 바뀐 루틴 하나만 남긴다.
           final existing = planOn(it.date!);
           final started = existing != null && (existing.isFinished || existing.exercises.any((e) => e.anyCompleted));
-          if (existing != null && existing.partnerName == it.fromName) {
+          if (existing != null && _isMember(existing, it.fromUid, it.fromName)) {
             final incomingAt = decodeRoutine(it.code!)?.at;
             final newer = existing.jointAt == null || incomingAt == null || incomingAt.isAfter(existing.jointAt!);
             if (started) {
@@ -1890,24 +1894,27 @@ class AppState extends ChangeNotifier {
   /// 마지막 파트너 관련 알림(수락/거절). 화면에서 한 번 보여주고 지운다.
   String? lastPartnerNotice;
 
-  /// 파트너 운동일(dateKey) → 파트너가 입력한 컨디션. 받은편지함 갱신 때 같이 가져온다.
-  Map<String, PartnerCondition> partnerConditions = {};
+  /// 파트너 운동일(dateKey) → 함께하는 사람들이 입력한 컨디션. 받은편지함 갱신 때 같이 가져온다.
+  Map<String, List<PartnerCondition>> partnerConditions = {};
 
-  PartnerCondition? partnerConditionOn(DateTime d) => partnerConditions[dateKey(d)];
+  PartnerCondition? partnerConditionOn(DateTime d) => partnerConditions[dateKey(d)]?.firstOrNull;
+  List<PartnerCondition> partnerConditionsOn(DateTime d) => partnerConditions[dateKey(d)] ?? const [];
+  PartnerCondition? conditionOf(DateTime d, String name) =>
+      partnerConditionsOn(d).where((c) => c.name == name).firstOrNull;
 
   Future<void> _refreshPartnerConditions() async {
     final today = this.today;
     final days = myPlans.where((p) =>
         p.partnerName != null && !p.isFinished && !p.date.isBefore(today) && p.date.difference(today).inDays <= 7);
     final cache = <String, PartnerProfile?>{};
-    final next = <String, PartnerCondition>{};
+    final next = <String, List<PartnerCondition>>{};
     for (final p in days) {
-      final link = _data.partners.where((l) => l.name == p.partnerName && !l.pending).firstOrNull;
-      if (link == null) continue;
-      final pp = cache[link.uid] ??= await CloudSync.instance.fetchPartner(link.uid);
-      final key = dateKey(p.date);
-      final c = pp?.dayCondition[key];
-      if (c != null) next[key] = PartnerCondition(name: pp!.name, condition: c, load: pp.dayLoad[key] ?? 1.0);
+      for (final m in membersOf(p)) {
+        final pp = cache[m.uid] ??= await CloudSync.instance.fetchPartner(m.uid);
+        final key = dateKey(p.date);
+        final c = pp?.dayCondition[key];
+        if (c != null) (next[key] ??= []).add(PartnerCondition(name: pp!.name, condition: c, load: pp.dayLoad[key] ?? 1.0));
+      }
     }
     partnerConditions = next;
   }
@@ -1975,57 +1982,96 @@ class AppState extends ChangeNotifier {
   /// [venue]: 운동 장소(내 헬스장 또는 파트너 헬스장). null이면 두 사람 헬스장의 공통 기구로.
   /// [prefetched]: 장소 고를 때 이미 받아온 파트너 정보(다시 받지 않는다).
   /// [onStep]: 진행 단계 문구(화면 표시용).
+  /// 1:1 파트너 운동(그룹 운동의 한 명짜리).
   Future<String> generateJointSession(
     DateTime date,
     PartnerLink partner, {
     SharedVenue? venue,
     PartnerProfile? prefetched,
     void Function(String step)? onStep,
+  }) {
+    if (partner.pending) return Future.value('${partner.display} 님이 아직 요청을 수락하지 않았어요.');
+    return generateGroupSession(
+      date,
+      [GroupMember(partner.uid, partner.name)],
+      venue: venue,
+      prefetched: prefetched == null ? null : {partner.uid: prefetched},
+      onStep: onStep,
+    );
+  }
+
+  /// 여러 사람(나 + [people])이 같은 루틴으로 운동한다. 모두의 그날 부위·기구·부상을 맞추고,
+  /// 무게는 사람마다 따로 계산해 표시한다. 모든 사람 앱에 같은 루틴을 보낸다.
+  Future<String> generateGroupSession(
+    DateTime date,
+    List<GroupMember> people, {
+    SharedVenue? venue,
+    Map<String, PartnerProfile>? prefetched,
+    void Function(String step)? onStep,
   }) async {
     final u = currentUser;
     if (u == null || !cloudSignedIn) return '계정 로그인이 필요해요.';
-    onStep?.call('파트너 정보 받는 중…');
-    PartnerProfile? pp = prefetched;
-    if (pp == null) {
-      try {
-        pp = await CloudSync.instance.fetchPartner(partner.uid);
-      } on TimeoutException {
-        return '연결이 느려서 ${partner.name} 님 정보를 받지 못했어요. 잠시 뒤 다시 해주세요.';
+    if (people.isEmpty) return '함께할 사람을 골라 주세요.';
+    onStep?.call(people.length == 1 ? '파트너 정보 받는 중…' : '${people.length}명 정보 받는 중…');
+    final profiles = <String, PartnerProfile>{};
+    for (final m in people) {
+      var pp = prefetched?[m.uid];
+      if (pp == null) {
+        try {
+          pp = await CloudSync.instance.fetchPartner(m.uid);
+        } on TimeoutException {
+          return '연결이 느려서 ${m.name} 님 정보를 받지 못했어요. 잠시 뒤 다시 해주세요.';
+        } catch (_) {}
       }
+      if (pp == null) return '${m.name} 님의 정보를 아직 받을 수 없어요. 상대가 앱을 한 번 열면 됩니다.';
+      profiles[m.uid] = pp;
     }
-    if (pp == null) return '${partner.name} 님의 정보를 아직 받을 수 없어요. 상대가 앱을 한 번 열면 됩니다.';
-    partner.name = pp.name;
-    onStep?.call('두 사람 일정·기구로 루틴 맞추는 중…');
+    final others = [for (final m in people) GroupMember(m.uid, profiles[m.uid]!.name)];
+    for (final l in _data.partners) {
+      final pp = profiles[l.uid];
+      if (pp != null) l.name = pp.name;
+    }
+    final names = others.map((m) => m.name).join('·');
+    onStep?.call('${people.length == 1 ? '두 사람' : '${people.length + 1}명'} 일정·기구로 루틴 맞추는 중…');
 
     final d = dateOnly(date);
     final key = dateKey(d);
-    if (partner.pending) return '${partner.display} 님이 아직 요청을 수락하지 않았어요.';
     final mine = planOn(d);
     if (mine != null && mine.isFinished) return '그날 운동은 이미 완료했어요.';
     final myFocus = (mine != null && !mine.isRest) ? mine.focus : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
-    final theirs = pp.planFocus[key] ?? const <MuscleGroup>[];
-    var groups = myFocus.where(theirs.contains).toList();
-    String note;
-    if (groups.isEmpty) {
-      groups = List.of(myFocus);
-      note = theirs.isEmpty ? '${pp.name} 님은 오늘 계획이 없어 내 부위로 맞췄어요.' : '겹치는 부위가 없어 내 부위(${myFocus.map((g) => g.label).join('·')})로 맞췄어요.';
-    } else {
-      note = '공통 부위 ${groups.map((g) => g.label).join('·')}로 맞췄어요.';
+    // 모두의 그날 부위가 겹치는 곳. 누군가와 전혀 안 겹치면 그 사람은 건너뛰고 맞춘다.
+    var groups = List.of(myFocus);
+    final skipped = <String>[];
+    for (final m in others) {
+      final theirs = profiles[m.uid]!.planFocus[key] ?? const <MuscleGroup>[];
+      if (theirs.isEmpty) continue;
+      final both = groups.where(theirs.contains).toList();
+      if (both.isEmpty) {
+        skipped.add(m.name);
+      } else {
+        groups = both;
+      }
     }
+    if (groups.isEmpty) groups = List.of(myFocus);
+    var note = '공통 부위 ${groups.map((g) => g.label).join('·')}로 맞췄어요.';
+    if (skipped.isNotEmpty) note += ' (${skipped.join('·')} 님과는 겹치는 부위가 없어 이 부위로 맞췄어요)';
+
     final myUid = CloudSync.instance.user!.uid;
-    final Set<EquipmentType> available;
+    Set<EquipmentType> available;
     if (venue != null && venue.owner == myUid && gymById(venue.gymId) != null) {
       available = {EquipmentType.bodyweight, ...gymById(venue.gymId)!.availableTypes};
     } else if (venue != null) {
       available = {EquipmentType.bodyweight, ...venue.types};
     } else {
-      final mineAvail = availableFor(planOn(d));
-      available = pp.available.isEmpty
-          ? mineAvail
-          : (mineAvail.where(pp.available.contains).toSet()..add(EquipmentType.bodyweight));
+      available = availableFor(planOn(d));
+      for (final pp in profiles.values) {
+        if (pp.available.isNotEmpty) available = available.where(pp.available.contains).toSet();
+      }
+      available.add(EquipmentType.bodyweight);
     }
 
-    final minutes = min(u.sessionMinutes, pp.profile.sessionMinutes);
+    final all = profiles.values.toList();
+    final minutes = all.fold<int>(u.sessionMinutes, (a, pp) => min(a, pp.profile.sessionMinutes));
     final exercises = SessionGenerator(SessionRequest(
       groups: groups,
       available: available,
@@ -2036,20 +2082,22 @@ class AppState extends ChangeNotifier {
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
-      extraInjuries: pp.profile.injuries, // 상대 부상 부위도 제외
-      cardioOverride: u.includeCardio && pp.profile.includeCardio, // 둘 다 원할 때만 유산소
+      extraInjuries: {for (final pp in all) ...pp.profile.injuries}, // 누구라도 다친 부위는 뺀다
+      cardioOverride: u.includeCardio && all.every((pp) => pp.profile.includeCardio), // 모두 원할 때만 유산소
     )).generate();
-    if (exercises.isEmpty) return '두 헬스장에 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
+    if (exercises.isEmpty) return '모두에게 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
 
-    // 파트너 무게
-    final est = LoadEstimator(pp.profile);
-    final pw = <String, double>{};
-    for (final pe in exercises) {
-      final ex = exerciseById(pe.exerciseId)!;
-      final w = pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
-      pw[ex.id] = w;
+    final weights = <String, Map<String, double>>{};
+    for (final m in others) {
+      final pp = profiles[m.uid]!;
+      final est = LoadEstimator(pp.profile);
+      weights[m.uid] = {
+        for (final pe in exercises)
+          pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
+      };
     }
-    final title = '${mine?.title ?? groups.map((g) => g.label).join('·')} · ${pp.name}와 함께';
+    final base = (mine?.title ?? groups.map((g) => g.label).join('·')).split(' · ').first;
+    final title = '$base · $names와 함께';
     final plan = DayPlan(
       id: mine?.id ?? newId(),
       userId: u.id,
@@ -2060,8 +2108,10 @@ class AppState extends ChangeNotifier {
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
       intensityFactor: mine?.intensityFactor ?? 1.0,
       title: title,
-      partnerName: pp.name,
-      partnerWeights: pw,
+      partnerName: names,
+      partnerWeights: Map.of(weights[others.first.uid]!),
+      members: others,
+      memberWeights: weights,
     );
     if (venue != null) {
       _applyVenue(plan, venue);
@@ -2073,28 +2123,43 @@ class AppState extends ChangeNotifier {
     if (mine != null) _data.plans.remove(mine);
     _data.plans.add(plan);
     await _save();
-    onStep?.call('${pp.name} 님에게 보내는 중…');
+    onStep?.call('$names 님에게 보내는 중…');
     final where = venue == null ? '' : ' · 장소: ${venue.name}';
-    var sent = '$note$where ${pp.name} 님 앱에도 같은 루틴을 보냈어요.';
-    try {
-      // 서버 확인을 오래 기다리지 않는다. 시간이 넘어도 전송은 뒤에서 계속돼 연결되면 도착한다.
-      await CloudSync.instance
-          .sendJointRoutine(
-            toUid: partner.uid,
-            date: d,
-            code: encodeRoutine(plan, from: u.name, venue: venueOf(plan), at: plan.jointAt),
-            title: title,
-            fromName: u.name,
-          )
-          .timeout(const Duration(seconds: 8));
-    } on TimeoutException {
-      sent = '$note$where 연결이 느려 전송이 조금 늦어요. 잠시 뒤 ${pp.name} 님 앱에 도착해요.';
-    } catch (_) {
-      return '$note 파트너에게 보내기는 실패했어요(네트워크).';
-    }
+    final failed = await _sendToMembers(plan);
     // 이후 날짜 재배치는 화면을 붙잡지 않고 뒤에서 한다.
     if (focusChanged) unawaited(rebalanceAround(d));
-    return sent;
+    if (failed.length == others.length) return '$note 보내기는 실패했어요(네트워크). 잠시 뒤 다시 해주세요.';
+    if (failed.isNotEmpty) return '$note$where ${failed.join('·')} 님에게는 아직 못 보냈어요(연결이 느림, 뒤에서 계속 보내요).';
+    return '$note$where $names 님 앱에도 같은 루틴을 보냈어요.';
+  }
+
+  /// 그 날 함께 운동하는 사람들(나 제외). 예전 1:1 파트너 날은 파트너 목록에서 찾는다.
+  List<GroupMember> membersOf(DayPlan? p) {
+    if (p == null) return const [];
+    if (p.members.isNotEmpty) return p.members;
+    if (p.partnerName == null) return const [];
+    final link = _data.partners.where((l) => l.name == p.partnerName && !l.pending).firstOrNull;
+    return link == null ? const [] : [GroupMember(link.uid, link.name)];
+  }
+
+  bool _isMember(DayPlan p, String uid, String name) => membersOf(p).any((m) => m.uid == uid) || p.partnerName == name;
+
+  /// 그 날 멤버 모두에게 루틴을 보낸다. 못 보낸 사람 이름 목록을 돌려준다.
+  Future<List<String>> _sendToMembers(DayPlan plan) async {
+    final others = membersOf(plan);
+    final me = CloudSync.instance.user;
+    if (others.isEmpty || me == null) return const [];
+    final group = [GroupMember(me.uid, currentUser?.name ?? ''), ...others];
+    final code = encodeRoutine(plan, from: currentUser?.name, venue: venueOf(plan), at: plan.jointAt, group: group);
+    final failed = <String>[];
+    await Future.wait([
+      for (final m in others)
+        CloudSync.instance
+            .sendJointRoutine(toUid: m.uid, date: plan.date, code: code, title: plan.title ?? '파트너 루틴', fromName: currentUser?.name ?? '')
+            .timeout(const Duration(seconds: 8))
+            .catchError((_) => failed.add(m.name)),
+    ]);
+    return failed;
   }
 
   /// 루틴 가져오기 + 파트너 무게 붙이기 (알림·수락 전송 없음). 자동 동기화에 쓴다.
@@ -2103,19 +2168,36 @@ class AppState extends ChangeNotifier {
     final beforeFocus = before == null || before.isRest ? const <MuscleGroup>[] : before.focus;
     final plan = await importRoutine(item.code!, item.date!);
     if (plan == null) return null;
-    plan.partnerName = item.fromName;
-    plan.jointAt = decodeRoutine(item.code!)?.at ?? DateTime.now().toUtc();
+    final shared = decodeRoutine(item.code!);
+    final myUid = CloudSync.instance.user?.uid;
+    // 그룹이면 보낸 사람이 담아 보낸 참가자 전원(나 빼고), 1:1이면 보낸 사람.
+    final others = (shared?.group.isNotEmpty ?? false)
+        ? [for (final m in shared!.group) if (m.uid != myUid) m]
+        : [GroupMember(item.fromUid, item.fromName)];
+    plan.members
+      ..clear()
+      ..addAll(others);
+    plan.partnerName = others.map((m) => m.name).join('·');
+    plan.title = '${(plan.title ?? '').split(' · ').first} · ${plan.partnerName}와 함께';
+    plan.jointAt = shared?.at ?? DateTime.now().toUtc();
     if (!_sameGroups(beforeFocus, plan.focus)) await rebalanceAround(plan.date);
-    try {
-      final pp = await CloudSync.instance.fetchPartner(item.fromUid);
-      if (pp != null) {
+    for (final m in others) {
+      try {
+        final pp = await CloudSync.instance.fetchPartner(m.uid);
+        if (pp == null) continue;
         final est = LoadEstimator(pp.profile);
-        for (final pe in plan.exercises) {
-          final ex = exerciseById(pe.exerciseId)!;
-          plan.partnerWeights[ex.id] = pp.workingWeights[ex.id] ?? est.initialWeight(ex, pe.sets.first.targetReps);
-        }
-      }
-    } catch (_) {}
+        plan.memberWeights[m.uid] = {
+          for (final pe in plan.exercises)
+            pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
+        };
+      } catch (_) {}
+    }
+    final first = plan.memberWeights[others.first.uid];
+    if (first != null) {
+      plan.partnerWeights
+        ..clear()
+        ..addAll(first);
+    }
     await _save();
     try {
       await CloudSync.instance.deleteInbox(item.id);
@@ -2148,19 +2230,10 @@ class AppState extends ChangeNotifier {
   /// 상대 앱은 아직 시작 전이면 자동으로 같은 루틴으로 맞춘다.
   Future<void> resyncPartnerDay(DayPlan plan) async {
     if (plan.partnerName == null || !cloudSignedIn) return;
-    final link = _data.partners.where((p) => p.name == plan.partnerName && !p.pending).firstOrNull;
-    if (link == null) return;
+    if (membersOf(plan).isEmpty) return;
     plan.jointAt = DateTime.now().toUtc();
     await _save();
-    try {
-      await CloudSync.instance.sendJointRoutine(
-        toUid: link.uid,
-        date: plan.date,
-        code: encodeRoutine(plan, from: currentUser?.name, venue: venueOf(plan), at: plan.jointAt),
-        title: plan.title ?? '파트너 루틴',
-        fromName: currentUser?.name ?? '',
-      );
-    } catch (_) {}
+    await _sendToMembers(plan);
   }
 
   /// 날짜의 계획을 삭제한다(과거·완료 포함). 완료 기록도 함께 사라진다.

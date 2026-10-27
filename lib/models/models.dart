@@ -890,13 +890,24 @@ class DayPlan {
     List<EquipmentType>? venueTypes,
     this.partnerName,
     Map<String, double>? partnerWeights,
+    List<GroupMember>? members,
+    Map<String, Map<String, double>>? memberWeights,
   })  : exercises = exercises ?? [],
         partnerWeights = partnerWeights ?? {},
+        members = members ?? [],
+        memberWeights = memberWeights ?? {},
         venueTypes = venueTypes ?? [];
 
-  /// 파트너 운동이면 파트너 이름과 운동별 파트너 무게(kg).
+  /// 파트너 운동이면 함께하는 사람 이름(여러 명이면 '·'로 이음)과 운동별 파트너 무게(kg, 첫 사람).
   String? partnerName;
   final Map<String, double> partnerWeights;
+
+  /// 함께 운동하는 사람들(나 제외). 1:1이면 한 명, 그룹이면 여러 명.
+  /// 비어 있는데 partnerName만 있으면 예전 버전에서 만든 1:1 파트너 날.
+  final List<GroupMember> members;
+
+  /// 사람(uid)별 운동별 무게(kg).
+  final Map<String, Map<String, double>> memberWeights;
 
   final String id;
   final String userId;
@@ -919,7 +930,7 @@ class DayPlan {
 
   /// 운동 후 체감 강도 1~10 (애플워치식: 1~3 쉬움, 4~6 보통, 7~9 어려움, 10 전력투구).
   int? rpe;
-  final String? title;
+  String? title;
   DateTime? finishedAt;
 
   bool get isRest => kind == DayKind.rest;
@@ -999,6 +1010,8 @@ class DayPlan {
         if (venueTypes.isNotEmpty) 'venueTypes': venueTypes.map((t) => t.name).toList(),
         'partnerName': partnerName,
         'partnerWeights': partnerWeights,
+        if (members.isNotEmpty) 'members': members.map((m) => m.toJson()).toList(),
+        if (memberWeights.isNotEmpty) 'memberWeights': memberWeights,
       };
 
   factory DayPlan.fromJson(Map<String, dynamic> j) => DayPlan(
@@ -1020,6 +1033,13 @@ class DayPlan {
         partnerName: j['partnerName'] as String?,
         partnerWeights: {
           for (final e in ((j['partnerWeights'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble(),
+        },
+        members: [for (final m in (j['members'] as List?) ?? const []) GroupMember.fromJson((m as Map).cast<String, dynamic>())],
+        memberWeights: {
+          for (final e in ((j['memberWeights'] as Map?) ?? const {}).entries)
+            e.key as String: {
+              for (final w in (e.value as Map).entries) w.key as String: (w.value as num).toDouble(),
+            },
         },
         title: j['title'] as String?,
         finishedAt: j['finishedAt'] == null
@@ -1101,3 +1121,15 @@ DateTime parseDateKey(String k) {
 }
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+
+/// 함께 운동하는 사람 한 명(계정 uid와 이름).
+class GroupMember {
+  const GroupMember(this.uid, this.name);
+  final String uid;
+  final String name;
+
+  Map<String, dynamic> toJson() => {'u': uid, 'n': name};
+
+  factory GroupMember.fromJson(Map<String, dynamic> j) => GroupMember(j['u'] as String, (j['n'] as String?) ?? '');
+}
