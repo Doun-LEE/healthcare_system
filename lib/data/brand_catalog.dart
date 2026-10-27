@@ -132,9 +132,11 @@ const List<BrandData> researchedBrands = [
     BrandModel('해머 그리퍼 (Plate Loaded Gripper)', EquipmentType.bicepCurlMachine, _plate),
     BrandModel('해머 복근/사선 크런치 (Abdominal / Oblique Crunch)', EquipmentType.abCrunchMachine, _plate, extra: [EquipmentType.torsoRotation]),
     BrandModel('해머 4웨이 넥 (Plate Loaded 4-Way Neck)', EquipmentType.shrugMachine, _plate),
-    BrandModel('해머 리니어 레그 프레스 (Plate Loaded Linear Leg Press)', EquipmentType.legPress, _plate),
-    BrandModel('해머 핵 스쿼트 (Plate Loaded Hack Squat)', EquipmentType.hackSquat, _plate),
+    // emptyKg: Life Fitness 공식 스펙의 '시작 저항(starting resistance)' 값(2026-10 확인).
+    BrandModel('해머 리니어 레그 프레스 (Plate Loaded Linear Leg Press)', EquipmentType.legPress, _plate, emptyKg: 53),
+    BrandModel('해머 핵 스쿼트 (Plate Loaded Hack Squat)', EquipmentType.hackSquat, _plate, emptyKg: 57),
     BrandModel('해머 슈퍼 스쿼트 프레스 (Plate Loaded Super Squat Press)', EquipmentType.vSquat, _plate),
+    BrandModel('해머 V 스쿼트 (Plate Loaded V-Squat)', EquipmentType.vSquat, _plate, emptyKg: 24.5),
     BrandModel('해머 리버스 V 스쿼트 (Plate Loaded Reverse V-Squat)', EquipmentType.vSquat, _plate),
     BrandModel('해머 펜듈럼-X 스쿼트 (Plate Loaded Pendulum-X Squat)', EquipmentType.pendulumSquat, _plate),
     BrandModel('해머 벨트 스쿼트 (Plate Loaded Belt Squat)', EquipmentType.beltSquat, _plate),

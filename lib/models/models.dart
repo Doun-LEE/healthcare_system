@@ -550,6 +550,8 @@ class GymEquipment {
     this.hasPhoto = false,
     this.dualStack = false,
     this.weightBasis,
+    this.plateBasis,
+    this.emptyKg,
   })  : mechanism = mechanism ?? LoadMechanism.defaultFor(type),
         extraTypes = extraTypes ?? [];
 
@@ -618,9 +620,39 @@ class GymEquipment {
     return def == 'perSide' ? 2 : 0.5;
   }
 
-  String get basisLabel => effectiveBasis == 'perSide'
-      ? (perSideByDefault(type) ? '한 손' : '한쪽')
-      : (perSideByDefault(type) ? '양손 합' : '');
+  /// 원판 머신의 무게 기준: 'plates'(끼운 원판만, 기본) / 'full'(빈 기구·슬레드 무게 포함).
+  /// 내부 무게 값은 그대로 두고 표기와 안내에만 쓴다.
+  String? plateBasis;
+
+  /// 빈 기구(슬레드·캐리지·암) 무게. 모르면 null.
+  double? emptyKg;
+
+  /// 원판을 끼우는 머신(바벨·덤벨 제외)이라 빈 기구 무게가 따로 있는 기구.
+  bool get sledMatters =>
+      mechanism == LoadMechanism.plate &&
+      !const {
+        EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.kettlebell, EquipmentType.ezBar,
+        EquipmentType.trapBar, EquipmentType.safetySquatBar, EquipmentType.fixedBarbell, EquipmentType.squatRack,
+        EquipmentType.halfRack, EquipmentType.landmine, EquipmentType.sled,
+      }.contains(type);
+
+  String get effectivePlateBasis => plateBasis ?? 'plates';
+
+  /// 원판 기준 무게 → 기구 포함 무게(빈 기구 무게를 알 때만). 한쪽 기준이면 빈 기구도 반으로 본다.
+  double? withSled(double shown) =>
+      emptyKg == null ? null : shown + (effectiveBasis == 'perSide' ? emptyKg! / 2 : emptyKg!);
+
+  double? withoutSled(double shown) =>
+      emptyKg == null ? null : (shown - (effectiveBasis == 'perSide' ? emptyKg! / 2 : emptyKg!)).clamp(0, double.infinity);
+
+  String get basisLabel {
+    final side = effectiveBasis == 'perSide'
+        ? (perSideByDefault(type) ? '한 손' : '한쪽')
+        : (perSideByDefault(type) ? '양손 합' : '');
+    if (!sledMatters) return side;
+    final plate = effectivePlateBasis == 'full' ? '기구 포함' : '원판';
+    return side.isEmpty ? plate : '$side $plate';
+  }
 
   String get displayName =>
       (customName == null || customName!.isEmpty) ? type.label : customName!;
@@ -641,6 +673,8 @@ class GymEquipment {
         if (hasPhoto) 'hasPhoto': true,
         if (weightBasis != null) 'weightBasis': weightBasis,
         if (dualStack) 'dualStack': true,
+        if (plateBasis != null) 'plateBasis': plateBasis,
+        if (emptyKg != null) 'emptyKg': emptyKg,
       };
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
@@ -662,6 +696,8 @@ class GymEquipment {
         hasPhoto: (j['hasPhoto'] as bool?) ?? false,
         weightBasis: j['weightBasis'] as String?,
         dualStack: (j['dualStack'] as bool?) ?? false,
+        plateBasis: j['plateBasis'] as String?,
+        emptyKg: (j['emptyKg'] as num?)?.toDouble(),
       );
 }
 

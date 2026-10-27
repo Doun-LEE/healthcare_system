@@ -12,10 +12,13 @@ import 'brand_catalog.dart';
 import 'equipment_models.dart';
 
 class BrandModel {
-  const BrandModel(this.name, this.type, this.mechanism, {this.extra = const [], this.perSide = false});
+  const BrandModel(this.name, this.type, this.mechanism, {this.extra = const [], this.perSide = false, this.emptyKg});
   final String name;
   final EquipmentType type;
   final LoadMechanism mechanism;
+
+  /// 빈 기구(슬레드·암) 무게(kg). 제조사가 공개한 시작 저항값이 있는 모델만 넣는다.
+  final double? emptyKg;
 
   /// 한 기구로 되는 다른 운동 종류(다기능 머신).
   final List<EquipmentType> extra;
@@ -145,10 +148,11 @@ final _legacyBrands = <EquipmentBrand>[
       BrandModel('해머 아이소래터럴 하이 로우', EquipmentType.highRow, _plate),
       BrandModel('해머 아이소래터럴 로우 로우', EquipmentType.lowRow, _plate),
       BrandModel('해머 아이소래터럴 로우', EquipmentType.chestSupportedRow, _plate),
-      BrandModel('해머 아이소래터럴 레그 프레스', EquipmentType.legPress, _plate),
-      BrandModel('해머 리니어 레그 프레스', EquipmentType.legPress, _plate),
-      BrandModel('해머 핵 스쿼트', EquipmentType.hackSquat, _plate),
-      BrandModel('해머 V 스쿼트', EquipmentType.vSquat, _plate),
+      // emptyKg: Life Fitness 공식 시작 저항값. 아이소래터럴 레그 프레스는 암 하나 6.3kg × 2.
+      BrandModel('해머 아이소래터럴 레그 프레스', EquipmentType.legPress, _plate, emptyKg: 12.7),
+      BrandModel('해머 리니어 레그 프레스', EquipmentType.legPress, _plate, emptyKg: 53),
+      BrandModel('해머 핵 스쿼트', EquipmentType.hackSquat, _plate, emptyKg: 57),
+      BrandModel('해머 V 스쿼트', EquipmentType.vSquat, _plate, emptyKg: 24.5),
       BrandModel('해머 그라운드베이스 스쿼트 런지', EquipmentType.beltSquat, _plate),
       BrandModel('해머 시티드 카프', EquipmentType.seatedCalfRaise, _plate),
       BrandModel('해머 닐링 레그 컬', EquipmentType.lyingLegCurl, _plate),

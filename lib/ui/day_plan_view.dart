@@ -939,6 +939,20 @@ class _ExerciseCard extends StatelessWidget {
                         ]),
                         Text('${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}${myEq != null && myEq.displayName != pe.equipmentType.label ? ' · ${pe.equipmentType.label}' : ''}',
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        if (!isCardio && !isBw && myEq != null && myEq.sledMatters && pe.sets.isNotEmpty)
+                          Builder(builder: (_) {
+                            final shown = pe.sets.first.effectiveWeight * myEq.displayFactor;
+                            final side = myEq.effectiveBasis == 'perSide' ? '한쪽 ' : '';
+                            final String line;
+                            if (myEq.emptyKg == null) {
+                              line = '$side원판 기준 · 빈 기구 무게는 기구 수정에서';
+                            } else if (myEq.effectivePlateBasis == 'full') {
+                              line = '$side기구 포함 ${_fmt(shown)}kg = 원판 ${_fmt(myEq.withoutSled(shown)!)}kg + 빈 기구 ${_fmt(myEq.emptyKg!)}kg';
+                            } else {
+                              line = '$side원판 ${_fmt(shown)}kg + 빈 기구 ${_fmt(myEq.emptyKg!)}kg = 기구 포함 ${_fmt(myEq.withSled(shown)!)}kg';
+                            }
+                            return Text(line, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant));
+                          }),
                         if (pe.note != null && pe.note!.isNotEmpty)
                           Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
                         if (plan.partnerName != null && !isCardio && _memberWeights(context, plan, pe).isNotEmpty)

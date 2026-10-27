@@ -820,7 +820,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand, String? weightBasis}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand, String? weightBasis, double? emptyKg}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
     // 같은 종류·같은 이름 기구가 이미 있으면 또 넣지 않는다(중복 방지).
@@ -828,7 +828,7 @@ class AppState extends ChangeNotifier {
     if (g.equipment.any((e) => e.type == type && e.displayName == label)) return;
     g.equipment.add(GymEquipment(
         id: newId(), type: type, customName: name, maxWeightKg: maxWeight, note: note, mechanism: mechanism, stepKg: stepKg,
-        extraTypes: extraTypes, brand: brand, weightBasis: weightBasis));
+        extraTypes: extraTypes, brand: brand, weightBasis: weightBasis, emptyKg: emptyKg));
     await _save();
   }
 

@@ -150,7 +150,8 @@ class GymScreen extends StatelessWidget {
           mechanism: p.model.mechanism,
           brand: p.brandKey,
           extraTypes: p.model.extra.isEmpty ? null : List.of(p.model.extra),
-          weightBasis: p.model.perSide ? 'perSide' : null);
+          weightBasis: p.model.perSide ? 'perSide' : null,
+          emptyKg: p.model.emptyKg);
     }
     if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty) {
       if (context.mounted) {
@@ -635,6 +636,8 @@ class _EquipmentList extends StatelessWidget {
                       equipmentInfo(e.type).strengths.take(2).join(' · '),
                       if (e.mechanism != LoadMechanism.none) '${e.mechanism.label.split(' ').first} ${e.effectiveStep}kg',
                       if (e.maxWeightKg != null) '최대 ${e.maxWeightKg!.toInt()}kg',
+                      if (e.sledMatters && e.emptyKg != null) '빈 기구 ${e.emptyKg!.toInt()}kg',
+                      if (e.sledMatters && e.effectivePlateBasis == 'full') '기구 포함 기준',
                     ].join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -744,8 +747,10 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
   late final TextEditingController _max;
   late final TextEditingController _note;
   late final TextEditingController _step;
+  late final TextEditingController _empty;
   late LoadMechanism _mech;
   String? _basis;
+  String? _plateBasis;
   late bool _dual;
   late List<EquipmentType> _extra;
 
@@ -757,6 +762,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     _note = TextEditingController(text: widget.existing?.note ?? '');
     _mech = widget.existing?.mechanism ?? LoadMechanism.defaultFor(widget.type);
     _basis = widget.existing?.weightBasis;
+    _plateBasis = widget.existing?.plateBasis;
+    _empty = TextEditingController(text: widget.existing?.emptyKg == null ? '' : _fmt(widget.existing!.emptyKg!));
     _dual = widget.existing?.dualStack ?? false;
     _extra = List.of(widget.existing?.extraTypes ?? const <EquipmentType>[]);
     _step = TextEditingController(text: widget.existing?.stepKg == null ? '' : _fmt(widget.existing!.stepKg!));
@@ -770,6 +777,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
     _max.dispose();
     _note.dispose();
     _step.dispose();
+    _empty.dispose();
     super.dispose();
   }
 
@@ -834,6 +842,33 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
             ),
+            if (_mech == LoadMechanism.plate) ...[
+              const SizedBox(height: 10),
+              Align(alignment: Alignment.centerLeft, child: Text('원판 머신 무게 기준', style: Theme.of(context).textTheme.labelLarge)),
+              const SizedBox(height: 4),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'plates', label: Text('끼운 원판만')),
+                  ButtonSegment(value: 'full', label: Text('빈 기구 포함')),
+                ],
+                selected: {_plateBasis ?? 'plates'},
+                showSelectedIcon: false,
+                onSelectionChanged: (v) => setState(() => _plateBasis = v.first),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _empty,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: '빈 기구(슬레드·암) 무게 kg (선택)', hintText: '모르면 비워 두세요'),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '레그 프레스·핵 스쿼트 같은 원판 머신은 빈 슬레드 무게가 브랜드마다 달라요. 모르면 "끼운 원판만" 기준으로 두고, 알면 넣어 두면 카드에 기구 포함 무게도 같이 보여요. 공식 값이 알려진 브랜드 모델은 자동으로 채워요.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: 10),
           Align(alignment: Alignment.centerLeft, child: Text('무게 표시 기준', style: Theme.of(context).textTheme.labelLarge)),
@@ -907,6 +942,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               hasPhoto: widget.existing?.hasPhoto ?? false,
               weightBasis: _basis,
               dualStack: _dual,
+              plateBasis: isMachine && _mech == LoadMechanism.plate ? _plateBasis : null,
+              emptyKg: isMachine && _mech == LoadMechanism.plate ? double.tryParse(_empty.text) : null,
             ),
           ),
           child: const Text('저장'),
