@@ -3,9 +3,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../engine/muscle_stats.dart';
 import '../engine/stats.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'widgets/muscle_heat.dart';
 
 /// 기록 탭: 완료한 세션으로 부위별 밸런스, 주간 빈도, 주요 운동 무게 추이.
 class StatsScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final state = context.watch<AppState>();
     final (from, to) = Stats.rangeFor(_period, DateTime.now());
     final s = Stats.summarize(state.myPlans, from: from, to: to);
+    final ms = MuscleStats.compute(state.myPlans, from: from, to: to);
     final days = s.days;
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
@@ -87,6 +90,19 @@ class _StatsScreenState extends State<StatsScreen> {
                   subtitleWarn: s.underTrained.isNotEmpty,
                   child: _BalanceBars(summary: s),
                 ),
+
+                // 근육별 열지도(해부도)
+                _Card(
+                  title: '근육별 자극 · 해부도',
+                  subtitle: '주동근 1.0 · 보조근 0.4 세트 가중으로 근육 22개를 따로 집계. 유산소는 워치 심박으로 강도 보정.',
+                  child: MuscleHeatSection(stats: ms),
+                ),
+                if (!ms.watch.isEmpty)
+                  _Card(
+                    title: '워치·러닝 앱 기록',
+                    subtitle: '기록 사진으로 읽어 들인 ${ms.watch.sessions}개 유산소 기록의 합계예요.',
+                    child: WatchSummaryCard(watch: ms.watch),
+                  ),
 
                 // 주간 세션
                 _Card(

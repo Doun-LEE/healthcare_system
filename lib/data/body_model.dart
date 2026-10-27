@@ -212,12 +212,16 @@ const _short = Color(0xFF3E4A5C);
 const _hair = Color(0xFF2E2622);
 
 /// 인체 전체 프리미티브. [primary]는 빨강, [secondary]는 주황, 나머지 근육은 살색 음영.
-List<Prim> bodyModel(MuscleMap map) {
-  Color c(Muscle m) => map.primary.contains(m)
-      ? _primaryColor
-      : map.secondary.contains(m)
-          ? _secondaryColor
-          : _muscleIdle;
+/// [heat]를 주면(근육 → 0~1) 주동/보조 색 대신 살색→주황→빨강 열지도로 칠한다.
+List<Prim> bodyModel(MuscleMap map, {Map<Muscle, double>? heat}) {
+  Color c(Muscle m) {
+    if (heat != null) return heatColor(heat[m] ?? 0);
+    return map.primary.contains(m)
+        ? _primaryColor
+        : map.secondary.contains(m)
+            ? _secondaryColor
+            : _muscleIdle;
+  }
 
   final prims = <Prim>[
     // 머리·목
@@ -282,7 +286,15 @@ List<Prim> bodyModel(MuscleMap map) {
   return prims;
 }
 
-List<Face> bodyFaces(MuscleMap map) => [for (final p in bodyModel(map)) ...p.faces()];
+List<Face> bodyFaces(MuscleMap map, {Map<Muscle, double>? heat}) => [for (final p in bodyModel(map, heat: heat)) ...p.faces()];
+
+/// 열지도 색: 0 = 쉬는 근육(살색), 0.5 = 주황, 1 = 빨강.
+Color heatColor(double v) {
+  final t = v.clamp(0.0, 1.0);
+  if (t == 0) return _muscleIdle;
+  if (t < 0.5) return Color.lerp(_muscleIdle, _secondaryColor, t * 2)!;
+  return Color.lerp(_secondaryColor, _primaryColor, (t - 0.5) * 2)!;
+}
 
 /// 주동근 위치에 따라 앞/뒤 초기 시점.
 double bodyInitialYaw(MuscleMap map) => map.preferBack ? pi : 0;
