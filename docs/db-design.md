@@ -24,50 +24,67 @@
 4. **폴링**: 받은편지함을 2분마다 읽는다. 사용자가 많아지면 읽기 비용의 대부분이 이것이다.
 5. 파트너 공개 프로필에 앞뒤 2주 루틴 전체가 들어가 크다(파트너가 많을수록 상대가 읽는 양이 늘어난다).
 
-## 2. 목표 구조
+## 2. 결정: 관계형(Postgres) — Supabase 로 간다
 
-핵심: **작게 쪼개고, 바뀐 것만 쓰고, 필요한 것만 읽는다.** 경로는 지금 규칙·코드와 호환되게 `users/{uid}` 아래에 둔다.
+| 후보 | 장점 | 단점 | 판단 |
+|---|---|---|---|
+| Firestore 재설계(문서 쪼개기) | 지금 코드·규칙 재활용, 오프라인 캐시, 실시간 | 집계·분석이 약함(조인 없음), 읽기 과금이 쿼리 모양에 민감 | 분석 요구가 커지면 결국 옮기게 됨 |
+| **Supabase (Postgres)** | 진짜 SQL(조인·집계·뷰·파티션), RLS 로 "본인 것만", 실시간 구독, Flutter SDK, 무료 플랜(DB 500MB·MAU 5만), 표준 Postgres 라 나중에 RDS·Neon 등으로 **덤프만 옮기면 됨** | 기본 오프라인 캐시 없음(지금 로컬 JSON 캐시 유지하면 됨), 무료 프로젝트는 **1주 미사용 시 일시정지**(매일 쓰면 안 걸림, 걸리면 대시보드에서 복구) | **채택** |
+| AWS RDS 직접 | ERP 와 같은 운영 방식, 완전한 통제 | 클라이언트가 DB 에 직접 못 붙어 **서버 API 필수**, 무료 없음(월 1.5~3만 원부터), 패치·백업 직접 | 지금 단계엔 과함. Postgres 라 나중에 Supabase 에서 이사 가능 |
+| 로컬 우선 동기화(PowerSync·ElectricSQL + Postgres) | 오프라인 완벽, 충돌 자동 | 구성 요소 하나 더, 요금·학습 비용 | 2단계에서 필요하면 추가 |
+
+인증은 **Firebase Auth 를 그대로** 쓰고 Supabase 의 third-party auth(Firebase JWT)로 붙인다(Supabase 공식 지원). 로그인·구글 연동·웹 호스팅은 바뀌지 않는다.
+데이터만 Firestore → Postgres 로 옮긴다.
+
+## 3. 스키마
+
+`supabase/schema.sql` 에 전체 DDL + RLS 가 있다. 핵심 테이블:
 
 ```
-users/{uid}
-  profile            (문서)  UserProfile 그대로 + updatedAt
-  gyms/{gymId}       (컬렉션) 헬스장 1개 = 문서 1개 (기구 목록 포함, 보통 수 KB)
-  plans/{yyyy-MM-dd} (컬렉션) 하루 루틴 = 문서 1개 (운동·세트·컨디션·완료)
-  progress/{exerciseId}      운동별 진행 상태(작업 중량, 성공/실패 연속)
-  partners/{partnerUid}      파트너 링크(이름, 공개 ID, 대기 여부, 읽은 시각)
-  settings/app               접근 코드, 활성 헬스장 등 기기 공통 설정
-  public/profile             지금과 같되 '계획'은 날짜·부위만(운동 상세 제외) → 수 KB
-  inbox/{id}                 그대로
-chats/{pair}/messages/{id}   그대로 (+ chats/{pair} 문서에 lastAt, lastText 요약)
-handles/{key}, emails/{key}  그대로
-errors/{id}                  그대로
+users              사용자 프로필(공개 ID handle, 이메일은 키만)
+gyms, gym_equipment 헬스장·기구(무게 기준·빈 기구 무게 포함)
+plans              하루 1행 (user_id, date) unique
+plan_exercises     루틴의 운동 1행 (순서·휴식·워밍업·고정·한쪽씩·나만)
+sets               세트 1행 = 사실(fact) 테이블. 월/연 파티션. 모든 볼륨·PR·근육 집계의 원천
+cardio_stats       워치 기록(운동당 0~1행)
+exercise_progress  운동별 작업 중량·성공/실패 연속
+partners           파트너 링크 + 채팅 읽은 시각
+inbox              파트너 요청·루틴 제안
+chat_rooms, messages 채팅(방 요약 + 메시지)
+error_reports, ai_usage 운영
 ```
 
-### 왜 이렇게
-- `plans/{날짜}`: 한 문서가 그날 하나뿐이라 1MB 한도와 무관하다. 세트 체크 = 그 날짜 문서 하나만 `update`.
-- 읽기: 달력은 월 단위 쿼리(`where date >= … <= …`), 홈·오늘은 오늘 ±7일만. 통계는 기간 쿼리. 몇 년 치가 있어도 읽는 양은 일정하다.
-- 오프라인: Firestore 오프라인 캐시를 켜면 지금의 "로컬 JSON 파일" 역할을 SDK가 한다. 비행기 모드에서도 체크되고 연결되면 올라간다.
-- 충돌: 문서가 작아 "마지막 쓰기 승"으로 충분하다. 같은 날을 두 기기에서 동시에 고치는 일만 드물게 충돌하는데, 세트별 필드 업데이트로 좁히면 거의 사라진다.
-- `chats/{pair}` 요약 문서: 친구 목록이 메시지 30개씩 구독하지 않고 문서 1개만 구독하면 된다(읽기 1/30).
-- 받은편지함: 폴링 대신 `inbox` 컬렉션 `snapshots()` 한 개를 구독. 변경될 때만 읽는다.
+"빅데이터" 대비 포인트:
+- 세트를 행으로 저장하니 `sum(weight*reps) group by user, date, exercise` 같은 집계가 SQL 한 줄. 근육별 가중 집계도 `exercise_id → muscles` 참조표를 넣으면 SQL 로 가능.
+- `sets` 는 날짜 파티션. 수억 행이 돼도 월별로 잘려 인덱스가 작다.
+- 분석이 무거워지면 Postgres 를 읽기 전용 복제본이나 BigQuery/ClickHouse 로 내보낸다(표준 Postgres 라 도구가 다 있다).
+- 모든 행에 `updated_at`(+ `deleted_at`) → 기기 간 증분 동기화는 "마지막 동기화 이후 바뀐 행만".
 
-### 비용 감(사용자 1,000명, 1인 하루 1세션 기준)
-- 세트 체크 30회 × 쓰기 1회 = 30 쓰기/일/인 → 3만 쓰기/일 (무료 2만, Blaze 약 $0.02/일)
-- 읽기: 앱 열 때 ±7일 15문서 + 친구 요약 5 + 받은편지함 1 ≈ 25 → 2.5만/일 (무료 5만 안)
-- 지금 구조의 폴링(72만/일)과 비교하면 30배 이상 적다.
+## 4. 앱 쪽 구조 변경
 
-## 3. 이전(마이그레이션) 계획
-1. 새 구조 읽기/쓰기 계층(`CloudSync2`)을 만들고 **둘 다 쓰기**(dual write) 한 달.
-2. 앱 시작 시 `data/app` 이 있고 `plans/` 가 비어 있으면 한 번 쪼개서 올린다(기기에서, 사용자별로).
-3. 모든 기기가 새 버전으로 올라오면 `data/app` 읽기를 끊는다. 문서는 백업으로 남겨 둔다.
-4. 이 사이 옛 앱 버전이 `data/app` 을 덮어쓰지 않게, 옛 버전은 `skippedItems>0` 가드로 업로드를 멈춘다(이미 있음).
+- `DataStore` 추상화를 유지하되, 클라우드 계층을 `CloudSync`(Firestore) → `SupaSync`(Postgres) 로 교체. 로컬 JSON 캐시는 그대로(오프라인용).
+- 쓰기: 지금처럼 전체 JSON 이 아니라 **바뀐 행만** upsert(세트 체크 = `sets` 1행 update).
+- 읽기: 앱 시작 시 `plans`/`plan_exercises`/`sets` 를 오늘 ±14일만, 달력은 월 단위, 통계는 기간 쿼리. 나머지(프로필·헬스장·진행)는 전부(작다).
+- 실시간: `inbox`·`messages`·`chat_rooms` 는 Supabase Realtime 구독(폴링 제거).
 
-## 4. 그대로 두는 것
-- 인증: Firebase Auth(이메일·구글). 5만 MAU 까지 무료.
+## 5. 이전(마이그레이션) 순서
+1. Supabase 프로젝트 생성(무료), `schema.sql` 적용, Firebase third-party auth 설정. 비밀값은 앱에 `anon key`(공개 가능)만.
+2. 앱에 `SupaSync` 추가: 로그인 시 Firestore `data/app` 을 읽어 Postgres 로 **한 번 쪼개 올리는** 변환기(사용자별, 기기에서 실행).
+3. 한동안 **이중 쓰기**(Firestore + Postgres). 읽기는 Postgres 우선.
+4. 모든 테스트 사용자(10명)가 새 버전이면 Firestore 쓰기 중단. 채팅·받은편지함도 옮긴다.
+5. Firestore 는 백업으로 남기고 규칙을 읽기 전용으로.
+
+예상 작업량: 2~4단계가 며칠(동기화 계층 다시 쓰기). 1단계는 도운 님이 Supabase 가입·프로젝트 생성(10분)만 하면 된다. **카드 등록 없음.**
+
+## 6. 그대로 두는 것
+- 인증: Firebase Auth(이메일·구글). 호스팅: Firebase Hosting. APK: GitHub Releases.
 - 사진·OCR: 기기 안 ML Kit/Tesseract, 서버 없음. 사진 원본은 올리지 않는다.
-- AI(Gemini): 사용자별 하루 한도(코치 5회, 사진 보충 8회)로 비용 상한.
+- AI(Gemini): 사용자별 하루 한도(코치 5회, 사진 보충 8회).
 
-## 5. 보안 규칙 요약(2026-10-27 감사 결과 반영)
+## 7. (참고) 이전 Firestore 분할안
+사용자 수가 적고 분석 요구가 없다면 `users/{uid}/plans/{날짜}` 로 문서만 쪼개는 방법도 있었다. 관계형으로 가기로 해서 보류.
+
+## 8. 보안 규칙 요약(Firestore, 이전 전까지 유효)(2026-10-27 감사 결과 반영)
 - 검색표(`handles`, `emails`)는 `get` 만 허용, `list` 금지 → 이메일·ID 전체 수집 불가. 남의 항목 덮어쓰기(ID 가로채기) 금지.
 - 공개 프로필도 `list` 금지(사용자 명단 수집 방지).
 - 받은편지함·채팅은 보낸 사람 검증 + 필드 종류·길이 상한.
