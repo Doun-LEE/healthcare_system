@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/body_model.dart';
 import '../../engine/muscle_stats.dart';
 import 'equipment_3d.dart';
+import 'muscle_thumb.dart';
 
 /// 기록 탭: 근육 22개 열지도 3D 인체 + 근육별 유효 세트(주동/보조/유산소) 표.
 class MuscleHeatSection extends StatefulWidget {
@@ -247,5 +248,80 @@ class WatchSummaryCard extends StatelessWidget {
         style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
     ]);
+  }
+}
+
+/// 근육별 회복 상태 목록: 썸네일 · 이름 · 마지막 운동 · 회복 %.
+class MuscleRecoveryList extends StatefulWidget {
+  const MuscleRecoveryList({super.key, required this.items});
+  final List<MuscleRecovery> items;
+
+  @override
+  State<MuscleRecoveryList> createState() => _MuscleRecoveryListState();
+}
+
+class _MuscleRecoveryListState extends State<MuscleRecoveryList> {
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final shown = _all ? widget.items : widget.items.take(8).toList();
+    final tired = widget.items.where((r) => r.percent < 100).length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(
+        tired == 0 ? '모든 근육이 회복됐어요. 뭐든 들 수 있는 날!' : '회복 중인 근육 $tired개. 100%가 아닌 근육은 오늘 가볍게 가거나 다른 부위를 추천해요.',
+        style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      const SizedBox(height: 6),
+      for (final r in shown)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            MuscleThumb(muscle: r.muscle, size: 52),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(r.muscle.label, style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                Text(
+                  r.lastExercise != null && r.lastAt != null ? '${r.lastLabel} · ${r.lastExercise}' : r.lastLabel,
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ]),
+            ),
+            _Pct(percent: r.percent),
+          ]),
+        ),
+      if (widget.items.length > 8)
+        TextButton.icon(
+          onPressed: () => setState(() => _all = !_all),
+          icon: Icon(_all ? Icons.unfold_less : Icons.unfold_more, size: 18),
+          label: Text(_all ? '접기' : '나머지 ${widget.items.length - 8}개 보기'),
+        ),
+      Text('회복 % = 마지막 자극 후 지난 시간 ÷ 부위 권장 회복 시간(하체 72h · 가슴/등/어깨/팔 48h · 복근 24h). 보조근으로 쓰인 날은 절반만 쳐요.',
+          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+    ]);
+  }
+}
+
+class _Pct extends StatelessWidget {
+  const _Pct({required this.percent});
+  final int percent;
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final color = percent >= 100
+        ? cs.primary
+        : percent >= 60
+            ? const Color(0xFFF57C00)
+            : cs.error;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+      child: Text('$percent%', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+    );
   }
 }

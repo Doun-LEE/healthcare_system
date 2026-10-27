@@ -189,3 +189,85 @@ enum MuscleStatus {
   const MuscleStatus(this.label);
   final String label;
 }
+
+/// 근육별 회복 상태: 마지막으로 자극한 시각과 부위 권장 회복 시간으로 0~100%.
+class MuscleRecovery {
+  MuscleRecovery(this.muscle, {this.lastAt, this.lastPrimary = false, required this.percent, this.lastExercise});
+  final Muscle muscle;
+  final DateTime? lastAt;
+  final bool lastPrimary;
+
+  /// 0 = 방금 자극(피로), 100 = 완전 회복.
+  final int percent;
+  final String? lastExercise;
+
+  /// '최근 운동 없음' · '17시간 전 운동 완료' · '3일 전 운동 완료'.
+  String get lastLabel {
+    final at = lastAt;
+    if (at == null) return '최근 운동 없음';
+    final d = DateTime.now().difference(at);
+    if (d.inHours < 1) return '방금 운동 완료';
+    if (d.inHours < 48) return '${d.inHours}시간 전 운동 완료${lastPrimary ? '' : ' (보조)'}';
+    return '${d.inDays}일 전 운동 완료${lastPrimary ? '' : ' (보조)'}';
+  }
+
+  /// 최근 [days]일의 완료 세션으로 계산. 보조근은 회복에 절반만 필요하다고 본다.
+  static List<MuscleRecovery> compute(List<DayPlan> plans, {DateTime? now, int days = 30}) {
+    final t = now ?? DateTime.now();
+    final since = t.subtract(Duration(days: days));
+    final lastP = <Muscle, DateTime>{}, lastS = <Muscle, DateTime>{};
+    final lastEx = <Muscle, String>{};
+    for (final p in plans) {
+      if (!p.isFinished || p.isRest || p.date.isBefore(since)) continue;
+      final at = p.endedAt ?? p.finishedAt ?? p.date;
+      for (final pe in p.exercises) {
+        if (pe.warmup || !pe.sets.any((s) => s.completed)) continue;
+        final ex = exerciseById(pe.exerciseId);
+        if (ex == null) continue;
+        final map = musclesFor(ex);
+        for (final m in map.primary) {
+          if (lastP[m] == null || at.isAfter(lastP[m]!)) {
+            lastP[m] = at;
+            lastEx[m] = ex.name;
+          }
+        }
+        for (final m in map.secondary) {
+          if (lastS[m] == null || at.isAfter(lastS[m]!)) lastS[m] = at;
+        }
+      }
+    }
+    final out = <MuscleRecovery>[];
+    for (final m in Muscle.values) {
+      final need = restRules[m.group]!.recoveryHours.toDouble();
+      double ratio = 2;
+      DateTime? last;
+      var primary = false;
+      final lp = lastP[m], ls = lastS[m];
+      if (lp != null) {
+        ratio = min(ratio, t.difference(lp).inMinutes / 60 / need);
+        last = lp;
+        primary = true;
+      }
+      if (ls != null) {
+        final r = t.difference(ls).inMinutes / 60 / (need * 0.5);
+        if (r < ratio) {
+          ratio = r;
+          if (lp == null || ls.isAfter(lp)) {
+            last = ls;
+            primary = false;
+          }
+        }
+      }
+      out.add(MuscleRecovery(
+        m,
+        lastAt: last,
+        lastPrimary: primary,
+        percent: (ratio * 100).clamp(0, 100).round(),
+        lastExercise: lastEx[m],
+      ));
+    }
+    // 피로한 근육(회복 낮음)부터, 같으면 부위 순.
+    out.sort((a, b) => a.percent != b.percent ? a.percent.compareTo(b.percent) : a.muscle.index.compareTo(b.muscle.index));
+    return out;
+  }
+}

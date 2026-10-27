@@ -91,6 +91,13 @@ class _StatsScreenState extends State<StatsScreen> {
                   child: _BalanceBars(summary: s),
                 ),
 
+                // 근육별 회복 상태(지금 기준)
+                _Card(
+                  title: '근육별 회복 상태',
+                  subtitle: '지금 기준. 피로한 근육부터 보여줘요.',
+                  child: MuscleRecoveryList(items: MuscleRecovery.compute(state.myPlans)),
+                ),
+
                 // 근육별 열지도(해부도)
                 _Card(
                   title: '근육별 자극 · 해부도',

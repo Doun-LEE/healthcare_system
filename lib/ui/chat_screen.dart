@@ -122,7 +122,16 @@ class _PartnerChatScreenState extends State<PartnerChatScreen> with TickerProvid
                   reverse: true,
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                   itemCount: msgs.length,
-                  itemBuilder: (c, i) => _Bubble(m: msgs[i], mine: msgs[i].fromUid == _me),
+                  itemBuilder: (c, i) {
+                    // 목록이 거꾸로라(최신이 0) 그 날의 첫 메시지(i+1이 다른 날)에 날짜 칩을 붙인다.
+                    final m = msgs[i];
+                    final prev = i + 1 < msgs.length ? msgs[i + 1] : null;
+                    final newDay = prev == null || prev.at.year != m.at.year || prev.at.month != m.at.month || prev.at.day != m.at.day;
+                    return Column(children: [
+                      if (newDay) _DateChip(date: m.at),
+                      _Bubble(m: m, mine: m.fromUid == _me),
+                    ]);
+                  },
                 );
               },
             ),
@@ -142,6 +151,35 @@ class _PartnerChatScreenState extends State<PartnerChatScreen> with TickerProvid
         ]),
         for (final b in _bursts) Positioned.fill(child: IgnorePointer(child: _BurstView(run: b))),
       ]),
+    );
+  }
+}
+
+/// 날짜 구분 칩: 오늘 · 어제 · 10월 25일 (토).
+class _DateChip extends StatelessWidget {
+  const _DateChip({required this.date});
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(date.year, date.month, date.day);
+    const wd = ['월', '화', '수', '목', '금', '토', '일'];
+    final diff = today.difference(d).inDays;
+    final label = diff == 0
+        ? '오늘'
+        : diff == 1
+            ? '어제'
+            : '${date.year != now.year ? '${date.year}년 ' : ''}${date.month}월 ${date.day}일 (${wd[date.weekday - 1]})';
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(12)),
+        child: Text(label, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+      ),
     );
   }
 }
