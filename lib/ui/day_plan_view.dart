@@ -1031,8 +1031,8 @@ class _ExerciseCard extends StatelessWidget {
                             child: Text('${pe.effectiveGroup == g ? '✓ ' : ''}타깃: ${g.label}'),
                           ),
                       PopupMenuItem(value: 'pin', child: Text(pe.pinned ? '📌 고정 해제' : '📌 고정 (다시 짜도 유지)')),
-                      if (pe.oneSide || (state.equipmentFor(plan, pe.equipmentType)?.independentSides ?? false))
-                        PopupMenuItem(value: 'oneSide', child: Text(pe.oneSide ? '양쪽 같이 하기' : '한쪽씩 하기 (좌우 각각)')),
+                      if (!isCardio && !ex.activity)
+                        PopupMenuItem(value: 'oneSide', child: Text(pe.oneSide ? '양쪽 같이 하기' : '한쪽씩 하기 (원레그·원암, 좌우 각각)')),
                       if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
                       if (isCardio) const PopupMenuItem(value: 'photo', child: Text('📷 기록 사진으로 채우기')),
                       if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) const PopupMenuItem(value: 'clearCardio', child: Text('세부 기록 지우기')),
