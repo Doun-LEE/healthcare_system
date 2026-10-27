@@ -21,7 +21,7 @@ String makeHandle(String name, String uid) {
 String normalizeHandle(String s) => s.trim().toLowerCase().replaceAll(' ', '');
 
 class PartnerLink {
-  PartnerLink({required this.uid, required this.name, this.handle = '', this.pending = false});
+  PartnerLink({required this.uid, required this.name, this.handle = '', this.pending = false, this.readAt});
   final String uid;
   String name;
 
@@ -31,14 +31,24 @@ class PartnerLink {
   /// 내가 요청을 보냈지만 상대가 아직 수락하지 않음.
   bool pending;
 
+  /// 이 친구와의 채팅을 마지막으로 읽은 시각(안 읽은 메시지 수 계산용). 기기 간 동기화된다.
+  DateTime? readAt;
+
   String get display => name.isEmpty ? (handle.isEmpty ? uid.substring(0, 6) : handle) : name;
 
-  Map<String, dynamic> toJson() => {'uid': uid, 'name': name, 'handle': handle, 'pending': pending};
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'name': name,
+        'handle': handle,
+        'pending': pending,
+        if (readAt != null) 'readAt': readAt!.toIso8601String(),
+      };
   factory PartnerLink.fromJson(Map<String, dynamic> j) => PartnerLink(
         uid: j['uid'] as String,
         name: (j['name'] as String?) ?? '',
         handle: (j['handle'] as String?) ?? '',
         pending: (j['pending'] as bool?) ?? false,
+        readAt: j['readAt'] == null ? null : DateTime.tryParse(j['readAt'] as String),
       );
 }
 

@@ -12,7 +12,7 @@ import 'app_theme.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/injury_chips.dart';
 import 'widgets/backup_section.dart';
-import 'widgets/partner_widgets.dart';
+import 'friends_screen.dart';
 import 'widgets/version_section.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
@@ -352,8 +352,17 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 12),
           const _Section(title: '기록 저장 · 불러오기', children: [BackupSection()]),
 
-          // 파트너
-          const _Section(title: '운동 파트너', children: [PartnerSection()]),
+          // 친구(파트너)는 홈 상단 친구 목록으로 옮겼다.
+          _Section(title: '친구 · 운동 파트너', children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.people_outline),
+              title: const Text('친구 목록 · 채팅'),
+              subtitle: Text(state.myHandle == null ? '로그인하면 ID로 친구를 추가할 수 있어요' : '내 ID ${state.myHandle} · 홈 상단에서도 바로 열려요'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => FriendsScreen.open(context),
+            ),
+          ]),
 
           // 앱 정보 / 업데이트
           const _Section(title: '앱 정보', children: [VersionSection()]),

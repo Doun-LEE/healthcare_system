@@ -12,6 +12,7 @@ import 'partner_profile_screen.dart';
 import 'widgets/level_card.dart';
 import 'widgets/place.dart';
 import 'widgets/partner_widgets.dart';
+import 'friends_screen.dart';
 
 // 하단 탭 순서: 오늘 · 달력 · 홈 · 기록 · 헬스장 · 내 정보
 const _tabToday = 0, _tabCalendar = 1, _tabStats = 3, _tabProfile = 5;
@@ -43,12 +44,23 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('$greet, ${user.name}님'),
         actions: [
+          IconButton(
+            tooltip: '친구 · 채팅',
+            icon: Badge(
+              isLabelVisible: state.unreadTotal > 0,
+              label: Text('${state.unreadTotal}'),
+              child: const Icon(Icons.people_outline),
+            ),
+            onPressed: () => FriendsScreen.open(context),
+          ),
           IconButton(tooltip: '동기화', icon: Icon(state.cloudSignedIn ? Icons.cloud_done_outlined : Icons.cloud_off_outlined), onPressed: state.cloudSignedIn ? () => state.syncNow() : () => onGoToTab(_tabProfile)),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
+          // 친구 목록(상단): 누르면 채팅, 안 읽은 메시지는 배지
+          const FriendsStrip(),
           QuoteBanner(quote: quoteFor(now)),
           const SizedBox(height: 4),
           const InboxBanner(),
@@ -178,40 +190,6 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-          // 파트너
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Text('운동 파트너', style: text.titleMedium),
-                    const Spacer(),
-                    TextButton(onPressed: () => onGoToTab(_tabProfile), child: const Text('관리')),
-                  ]),
-                  if (!state.cloudSignedIn)
-                    Text('계정에 로그인하면 파트너와 같은 루틴으로 운동할 수 있어요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant))
-                  else if (state.partners.isEmpty)
-                    Text('아직 파트너가 없어요. 내 정보 → 운동 파트너에서 ID로 요청하세요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant))
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        for (final p in state.partners)
-                          ActionChip(
-                            avatar: CircleAvatar(child: Text(p.display.characters.first)),
-                            label: Text(p.pending ? '${p.display} (대기)' : p.display),
-                            backgroundColor: p.pending ? cs.surfaceContainerHighest : null,
-                            onPressed: p.pending ? null : () => PartnerProfileScreen.open(context, p),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );

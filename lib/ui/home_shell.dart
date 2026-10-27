@@ -67,7 +67,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       const GymScreen(),
       const ProfileScreen(),
     ];
-    final inboxCount = context.select<AppState, int>((s) => s.inbox.length);
+    // 홈 배지: 파트너 요청·루틴 제안 + 안 읽은 채팅
+    final inboxCount = context.select<AppState, int>((s) => s.inbox.length + s.unreadTotal);
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(

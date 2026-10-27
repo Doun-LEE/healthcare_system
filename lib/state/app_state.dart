@@ -19,6 +19,7 @@ import '../engine/level_assessor.dart';
 import '../engine/load_estimator.dart';
 import '../engine/stats.dart';
 import '../services/ai_coach.dart';
+import '../services/chat.dart';
 import '../services/cloud_sync.dart';
 import '../services/partner.dart';
 import '../services/record_code.dart';
@@ -694,6 +695,11 @@ class AppState extends ChangeNotifier {
   Future<void> cloudSignOut() async {
     if (!cloudAvailable) return;
     _pushDebounce.cancel();
+    for (final s in _chatSubs.values) {
+      s.cancel();
+    }
+    _chatSubs.clear();
+    _chatLatest.clear();
     await CloudSync.instance.signOut();
     _authed = false; // 로그인 화면으로
     notifyListeners();
@@ -1805,6 +1811,66 @@ class AppState extends ChangeNotifier {
   List<PartnerLink> get partners => _data.partners;
   List<InboxItem> inbox = const [];
 
+  // ───────── 친구 채팅 안 읽음 ─────────
+
+  final _chatSubs = <String, StreamSubscription<List<ChatMessage>>>{};
+  final _chatLatest = <String, List<ChatMessage>>{};
+
+  String? get _myUid => cloudSignedIn ? CloudSync.instance.user?.uid : null;
+
+  /// 친구별 최근 메시지 구독을 파트너 목록에 맞춘다(추가된 친구는 구독, 삭제된 친구는 해제).
+  void watchChats() {
+    final me = _myUid;
+    final want = <String, PartnerLink>{
+      if (me != null)
+        for (final p in _data.partners)
+          if (!p.pending) chatPairId(me, p.uid): p,
+    };
+    for (final k in _chatSubs.keys.toList()) {
+      if (!want.containsKey(k)) {
+        _chatSubs.remove(k)?.cancel();
+        _chatLatest.remove(k);
+      }
+    }
+    for (final k in want.keys) {
+      if (_chatSubs.containsKey(k)) continue;
+      try {
+        _chatSubs[k] = CloudSync.instance.chatLatestStream(k).listen((msgs) {
+          _chatLatest[k] = msgs;
+          notifyListeners();
+        }, onError: (_) {});
+      } catch (_) {}
+    }
+  }
+
+  List<ChatMessage> _chatOf(PartnerLink p) {
+    final me = _myUid;
+    if (me == null) return const [];
+    return _chatLatest[chatPairId(me, p.uid)] ?? const [];
+  }
+
+  /// 마지막 메시지(미리보기용). 없으면 null.
+  ChatMessage? lastChat(PartnerLink p) => _chatOf(p).firstOrNull;
+
+  /// 안 읽은 메시지 수. 읽은 적이 없으면(앱 업데이트 직후) 최근 하루치만 센다.
+  int unreadFor(PartnerLink p) {
+    final me = _myUid;
+    if (me == null) return 0;
+    final since = p.readAt ?? DateTime.now().subtract(const Duration(hours: 24));
+    return _chatOf(p).where((m) => m.fromUid != me && m.at.isAfter(since)).length;
+  }
+
+  int get unreadTotal => _data.partners.fold(0, (n, p) => n + unreadFor(p));
+
+  /// 채팅 화면을 열거나 새 메시지를 본 시점으로 읽음 표시.
+  Future<void> markChatRead(PartnerLink p) async {
+    final now = DateTime.now();
+    if (unreadFor(p) == 0 && p.readAt != null && now.difference(p.readAt!).inMinutes < 1) return;
+    p.readAt = now;
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> _publishPublic() async {
     final u = currentUser;
     if (u == null || !cloudSignedIn) return;
@@ -1820,6 +1886,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshInbox() async {
+    watchChats();
     if (!cloudSignedIn) return;
     try {
       final raw = await CloudSync.instance.readInbox();
@@ -1988,6 +2055,7 @@ class AppState extends ChangeNotifier {
         _data.partners.add(PartnerLink(uid: item.fromUid, name: item.fromName, handle: item.fromHandle));
       }
       await _save();
+      watchChats();
       return '${item.fromName} 님과 파트너가 됐어요.';
     }
     notifyListeners();
@@ -1996,6 +2064,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> removePartner(String uid) async {
     _data.partners.removeWhere((p) => p.uid == uid);
+    watchChats();
     await _save();
   }
 

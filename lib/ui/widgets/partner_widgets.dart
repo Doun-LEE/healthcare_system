@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/models.dart';
@@ -7,152 +6,7 @@ import '../../services/partner.dart';
 import '../../services/routine_share.dart';
 import '../../services/cloud_sync.dart';
 import '../../state/app_state.dart';
-import '../chat_screen.dart';
-import '../partner_profile_screen.dart';
 import 'app_sheet.dart';
-
-/// 내 정보 화면의 파트너 섹션: 이메일로 요청, 목록(대기중 표시), 삭제.
-class PartnerSection extends StatelessWidget {
-  const PartnerSection({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final cs = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-
-    if (!state.cloudSignedIn) {
-      return Text('계정에 로그인하면 파트너를 등록해 같이 운동할 루틴을 만들 수 있어요.',
-          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant));
-    }
-    final requests = state.inbox.where((i) => i.type == InboxType.partnerRequest).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (state.myHandle != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: cs.surfaceContainerHigh, borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              Icon(Icons.badge_outlined, size: 18, color: cs.primary),
-              const SizedBox(width: 8),
-              Expanded(child: Text('내 ID: ${state.myHandle}', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
-              IconButton(
-                tooltip: 'ID 복사',
-                icon: const Icon(Icons.copy, size: 18),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: state.myHandle!));
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID를 복사했어요. 친구에게 보내세요.')));
-                },
-              ),
-            ]),
-          ),
-        Text('친구에게 내 ID를 알려주고, 친구 ID로 요청을 보내세요. 이메일은 서로 보이지 않습니다.',
-            style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-        const SizedBox(height: 6),
-        for (final r in requests) _RequestTile(item: r),
-        for (final p in state.partners)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              backgroundColor: p.pending ? cs.surfaceContainerHighest : null,
-              child: Text(p.name.isEmpty ? '?' : p.name.characters.first),
-            ),
-            title: Text(p.display),
-            subtitle: Text(p.pending ? '${p.handle} · 수락 대기 중' : p.handle,
-                style: TextStyle(color: p.pending ? cs.tertiary : null)),
-            onTap: p.pending ? null : () => PartnerProfileScreen.open(context, p),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (!p.pending)
-                IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  tooltip: '채팅',
-                  onPressed: () => PartnerChatScreen.open(context, p),
-                ),
-              IconButton(
-                icon: Icon(p.pending ? Icons.cancel_outlined : Icons.person_remove_outlined),
-                tooltip: p.pending ? '요청 취소' : '파트너 삭제',
-                onPressed: () => state.removePartner(p.uid),
-              ),
-            ]),
-          ),
-        OutlinedButton.icon(
-          onPressed: () => _add(context, state),
-          icon: const Icon(Icons.person_add_alt),
-          label: const Text('ID로 파트너 요청'),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _add(BuildContext context, AppState state) async {
-    final c = TextEditingController();
-    final email = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('파트너 ID'),
-        content: TextField(
-          controller: c,
-          autofocus: true,
-          decoration: const InputDecoration(hintText: '예: 용현#4821 (또는 이메일)'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('요청 보내기')),
-        ],
-      ),
-    );
-    if (email == null || email.trim().isEmpty || !context.mounted) return;
-    final msg = await state.addPartner(email);
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-}
-
-class _RequestTile extends StatelessWidget {
-  const _RequestTile({required this.item});
-  final InboxItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<AppState>();
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
-      decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(Icons.person_add, color: cs.onPrimaryContainer),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${item.fromName} 님의 파트너 요청', style: TextStyle(fontWeight: FontWeight.w600, color: cs.onPrimaryContainer)),
-                Text(item.fromHandle, style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              final m = await state.answerPartnerRequest(item, accept: false);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-            },
-            child: const Text('거절'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final m = await state.answerPartnerRequest(item, accept: true);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-            },
-            child: const Text('수락'),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// 오늘 화면 상단: 파트너 요청과 루틴 제안.
 class InboxBanner extends StatelessWidget {
@@ -243,7 +97,7 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   }
   final ready = state.partners.where((p) => !p.pending).toList();
   if (ready.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('수락된 파트너가 없어요. 내 정보 → 운동 파트너에서 요청하세요.')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('수락된 파트너가 없어요. 홈 상단 친구에서 요청하세요.')));
     return;
   }
   final existing = state.planOn(date);

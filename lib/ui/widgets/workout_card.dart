@@ -23,11 +23,19 @@ class WorkoutSummaryCard extends StatelessWidget {
   /// 운동에 쓴 기구 이름(내 헬스장 등록 이름). 없으면 표시 안 함.
   final String Function(PlannedExercise)? equipmentLabel;
 
+  static const _bg = Color(0xFF16201A);
+  static const _bg2 = Color(0xFF2E4231);
+  static const _fg = Colors.white;
+  static const _accent = Color(0xFFC5E383);
+
   @override
   Widget build(BuildContext context) {
     final d = plan.date;
     final done = plan.exercises.where((e) => e.anyCompleted).toList();
     var sets = 0, volume = 0.0, cardioMin = 0;
+    double bestW = 0;
+    int bestR = 0;
+    String? bestName;
     for (final e in plan.exercises) {
       final ex = exerciseById(e.exerciseId);
       for (final s in e.sets) {
@@ -36,70 +44,123 @@ class WorkoutSummaryCard extends StatelessWidget {
           cardioMin += s.doneReps ?? s.targetReps;
         } else {
           sets++;
-          volume += (s.doneWeight ?? s.targetWeight) * (s.doneReps ?? s.targetReps);
+          final w = s.doneWeight ?? s.targetWeight;
+          final r = s.doneReps ?? s.targetReps;
+          volume += w * r;
+          if (w > bestW || (w == bestW && w > 0 && r > bestR)) {
+            bestW = w;
+            bestR = r;
+            bestName = ex?.name;
+          }
         }
       }
     }
-    const bg = Color(0xFF1F2A1E);
-    const fg = Colors.white;
-    const accent = Color(0xFFB7D77A);
+    final shown = showAll ? done : done.take(8).toList();
+    const wd = ['월', '화', '수', '목', '금', '토', '일'];
     return Container(
       width: 340,
-      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [bg, Color(0xFF3A4D33)]),
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_bg, _bg2]),
+        borderRadius: BorderRadius.circular(22),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(children: [
-            const Icon(Icons.fitness_center, color: accent, size: 20),
-            const SizedBox(width: 6),
-            const Text('FitRoutine', style: TextStyle(color: accent, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-            const Spacer(),
-            Text('${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}',
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          ]),
-          const SizedBox(height: 14),
-          Text(plan.title ?? '운동 완료', style: const TextStyle(color: fg, fontSize: 22, fontWeight: FontWeight.bold)),
-          Text('$userName · ${(plan.completionRatio * 100).round()}% 수행${plan.rpe != null ? ' · 체감 ${plan.rpe}/10' : ''}',
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 14),
-          Row(children: [
-            _Stat(label: '운동', value: '${done.length}개'),
-            _Stat(label: '세트', value: '$sets'),
-            _Stat(label: '볼륨', value: volume >= 1000 ? '${(volume / 1000).toStringAsFixed(1)}t' : '${volume.round()}kg'),
-            if (cardioMin > 0) _Stat(label: '유산소', value: '$cardioMin분'),
-          ]),
-          const SizedBox(height: 14),
-          for (final e in showAll ? done : done.take(8))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(children: [
-                const Icon(Icons.check, color: accent, size: 14),
-                const SizedBox(width: 6),
-                Expanded(
-                  flex: 4,
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(exerciseById(e.exerciseId)?.name ?? '', style: const TextStyle(color: fg, fontSize: 13), overflow: TextOverflow.ellipsis),
-                    if (equipmentLabel != null)
-                      Text(equipmentLabel!(e), style: const TextStyle(color: Colors.white54, fontSize: 10.5), overflow: TextOverflow.ellipsis),
+      child: Stack(children: [
+        // 은은한 빛
+        Positioned(
+          right: -60,
+          top: -60,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [_accent.withValues(alpha: 0.22), _accent.withValues(alpha: 0)]),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                _Pill(
+                  color: _accent,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                    Icon(Icons.fitness_center, color: _bg, size: 13),
+                    SizedBox(width: 4),
+                    Text('FitRoutine', style: TextStyle(color: _bg, fontWeight: FontWeight.w800, fontSize: 11.5, letterSpacing: 0.3)),
                   ]),
                 ),
+                const SizedBox(width: 8),
                 Expanded(
-                  flex: 6,
-                  child: Text(_setsText(e), textAlign: TextAlign.right, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  child: Text('${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')} (${wd[d.weekday - 1]})',
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
                 ),
               ]),
-            ),
-          if (!showAll && done.length > 8)
-            Text('외 ${done.length - 8}개', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        ],
-      ),
+              const SizedBox(height: 16),
+              Text(plan.title ?? '운동 완료', style: const TextStyle(color: _fg, fontSize: 25, fontWeight: FontWeight.w800, height: 1.15)),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  userName,
+                  '${(plan.completionRatio * 100).round()}% 수행',
+                  if (plan.actualMinutes != null) '${plan.actualMinutes}분',
+                  if (plan.rpe != null) '체감 ${plan.rpe}/10',
+                  if (plan.partnerName != null) '${plan.partnerName}와 함께',
+                ].join(' · '),
+                style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                _Stat(label: '운동', value: '${done.length}'),
+                const SizedBox(width: 6),
+                _Stat(label: '세트', value: '$sets'),
+                const SizedBox(width: 6),
+                _Stat(label: '볼륨', value: volume >= 1000 ? '${(volume / 1000).toStringAsFixed(1)}t' : '${volume.round()}kg'),
+                if (cardioMin > 0) ...[const SizedBox(width: 6), _Stat(label: '유산소', value: '$cardioMin분')],
+              ]),
+              if (bestName != null && bestW > 0) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  const Text('🏆', style: TextStyle(fontSize: 13)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        children: [
+                          const TextSpan(text: '오늘의 최고  '),
+                          TextSpan(text: bestName, style: const TextStyle(color: _fg, fontWeight: FontWeight.w600)),
+                          TextSpan(text: '  ${_kg(bestW)}kg × $bestR', style: const TextStyle(color: _accent, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ]),
+              ],
+              const SizedBox(height: 12),
+              Container(height: 1, color: Colors.white.withValues(alpha: 0.12)),
+              const SizedBox(height: 8),
+              for (var i = 0; i < shown.length; i++) _ExerciseLine(index: i + 1, e: shown[i], equipment: equipmentLabel?.call(shown[i]), setsText: _setsText(shown[i])),
+              if (!showAll && done.length > 8)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, left: 30),
+                  child: Text('외 ${done.length - 8}개 더', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+      ]),
     );
   }
+
+  static String _kg(double w) => w % 1 == 0 ? w.toInt().toString() : w.toString();
 
   /// 세트별 실제 수행을 그대로. 같은 세트가 이어지면 "50kg×15 ×2"처럼 묶는다.
   String _setsText(PlannedExercise e) {
@@ -116,7 +177,7 @@ class WorkoutSummaryCard extends StatelessWidget {
     for (final s in doneSets) {
       final w = s.doneWeight ?? s.targetWeight;
       final r = s.doneReps ?? s.targetReps;
-      parts.add(w > 0 ? '${w % 1 == 0 ? w.toInt() : w}kg×$r' : '$r회');
+      parts.add(w > 0 ? '${_kg(w)}kg×$r' : '$r회');
     }
     final out = <String>[];
     var k = 0;
@@ -128,8 +189,20 @@ class WorkoutSummaryCard extends StatelessWidget {
       out.add(n > 1 ? '${parts[k]} ×$n' : parts[k]);
       k += n;
     }
-    return out.join(', ');
+    return out.join(' · ');
   }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.child, required this.color});
+  final Widget child;
+  final Color color;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
+        child: child,
+      );
 }
 
 class _Stat extends StatelessWidget {
@@ -137,11 +210,62 @@ class _Stat extends StatelessWidget {
   final String label, value;
   @override
   Widget build(BuildContext context) => Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(color: Colors.white60, fontSize: 11)),
-        ]),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1)),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(color: Colors.white60, fontSize: 10.5)),
+          ]),
+        ),
       );
+}
+
+/// 운동 한 줄: 번호 · 이름(한 줄) / 기구 · 세트(줄바꿈 허용) — 이름이 잘리지 않게 세트는 아래 줄에.
+class _ExerciseLine extends StatelessWidget {
+  const _ExerciseLine({required this.index, required this.e, required this.equipment, required this.setsText});
+  final int index;
+  final PlannedExercise e;
+  final String? equipment;
+  final String setsText;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = exerciseById(e.exerciseId)?.name ?? '';
+    final eq = (equipment ?? '').trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3.5),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          width: 20,
+          height: 20,
+          margin: const EdgeInsets.only(top: 1),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: WorkoutSummaryCard._accent.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(7)),
+          child: Text('$index', style: const TextStyle(color: WorkoutSummaryCard._accent, fontSize: 10.5, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: WorkoutSummaryCard._fg, fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.2)),
+            const SizedBox(height: 1),
+            RichText(
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                style: const TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
+                children: [
+                  if (eq.isNotEmpty) TextSpan(text: '$eq  ', style: const TextStyle(color: Colors.white38)),
+                  TextSpan(text: setsText),
+                ],
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 }
 
 /// 완료 카드를 보여주고 이미지로 공유/저장한다.

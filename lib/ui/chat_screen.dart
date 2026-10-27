@@ -65,14 +65,29 @@ class _PartnerChatScreenState extends State<PartnerChatScreen> with TickerProvid
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // 열자마자 읽음 처리(친구 목록의 안 읽음 배지가 사라진다).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<AppState>().markChatRead(widget.partner);
+    });
+  }
+
   void _onMessages(List<ChatMessage> msgs) {
     // 처음 열 때는 과거 폭탄을 재생하지 않는다. 그 뒤 새로 온 폭탄만.
+    var fresh = false;
     for (final m in msgs) {
-      if (_seen.add(m.id) && !_first && m.isEmoji && m.burst > 1) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _playBurst(m.emoji, m.burst));
+      if (_seen.add(m.id) && !_first) {
+        if (m.fromUid != _me) fresh = true;
+        if (m.isEmoji && m.burst > 1) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _playBurst(m.emoji, m.burst));
+        }
       }
     }
     _first = false;
+    // 보고 있는 동안 온 메시지도 읽은 것으로.
+    if (fresh) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? context.read<AppState>().markChatRead(widget.partner) : null);
   }
 
   @override

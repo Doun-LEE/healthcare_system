@@ -305,6 +305,14 @@ class CloudSync {
       .snapshots()
       .map((s) => [for (final d in s.docs) ChatMessage.fromJson(d.id, d.data())]);
 
+  /// 친구 목록용: 최근 메시지 몇 개만(안 읽은 수·마지막 메시지 미리보기).
+  Stream<List<ChatMessage>> chatLatestStream(String pairId, {int limit = 30}) => _db
+      .collection('chats/$pairId/messages')
+      .orderBy('at', descending: true)
+      .limit(limit)
+      .snapshots()
+      .map((s) => [for (final d in s.docs) ChatMessage.fromJson(d.id, d.data())]);
+
   Future<void> sendChat(String pairId, {String text = '', String emoji = '', int burst = 0, String? fromName}) async {
     final u = user;
     if (u == null) throw StateError('로그인이 필요해요.');
