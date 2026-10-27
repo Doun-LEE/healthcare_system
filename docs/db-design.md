@@ -67,7 +67,23 @@ error_reports, ai_usage 운영
 - 읽기: 앱 시작 시 `plans`/`plan_exercises`/`sets` 를 오늘 ±14일만, 달력은 월 단위, 통계는 기간 쿼리. 나머지(프로필·헬스장·진행)는 전부(작다).
 - 실시간: `inbox`·`messages`·`chat_rooms` 는 Supabase Realtime 구독(폴링 제거).
 
-## 5. 이전(마이그레이션) 순서
+## 5. 구현 상태(2026-10-27)
+
+- `lib/services/supa_rows.dart`: 모델 ↔ 행 변환(순수 Dart, 테스트 `test/supa_rows_test.dart`). 분석용 열 + `extra` jsonb 원본으로 손실 없음.
+- `lib/services/supa_sync.dart`: `SupaSync.init()`(Firebase ID 토큰을 third-party auth 로 전달), `push`(행 묶음 upsert, 빠진 운동·세트 행 정리), `pull`, `softDeletePlans`, `lookupUser`.
+- `lib/state/app_state.dart`: 저장할 때마다 3초 디바운스로 **바뀐 것만**(계획은 날짜 단위 해시 비교) Postgres 에 올린다. 로그인·앱 시작 시 Postgres 에 데이터가 없으면 전부 올린다(첫 이전). `supabasePrimary`(supa_sync.dart) 를 켜면 계획을 Postgres 에서도 읽어 합친다.
+- `lib/supabase_options.dart`: URL·anon(publishable) key 자리. 비어 있으면 전부 꺼진다.
+- Firebase JWT 에는 `role` 클레임이 없어 요청이 `anon` 역할로 실행된다(role 을 넣으려면 Cloud Functions=Blaze). 그래서 RLS 는 `auth.uid()` 대신 `auth_uid()`(우리 Firebase 프로젝트가 발급한 JWT 의 sub) 로 쓴다. 토큰이 없으면 전부 거부.
+- 아직 안 한 것: 받은편지함·채팅의 Realtime 전환(지금은 Firestore 그대로), Postgres 를 유일한 기준으로 쓰는 컷오버.
+
+### 설정 방법(사용자가 할 것, 카드 등록 없음)
+1. supabase.com 가입 → New project(무료) → 리전 Northeast Asia(Seoul 또는 Tokyo).
+2. SQL Editor 에 `supabase/schema.sql` 전체를 붙여 넣고 실행.
+3. Authentication → Sign In / Providers → Third-Party Auth → Firebase 추가, Firebase 프로젝트 ID `healthcare-system-b55c0`.
+4. Project Settings → API 의 Project URL 과 publishable(anon) key 를 `lib/supabase_options.dart` 에 넣고 커밋.
+5. 앱을 열고 로그인하면 첫 이전이 자동으로 돌고, 이후엔 바뀐 것만 올라간다. Table Editor 에서 `plans`·`sets` 행이 쌓이는지 확인.
+
+## 6. 이전(마이그레이션) 순서
 1. Supabase 프로젝트 생성(무료), `schema.sql` 적용, Firebase third-party auth 설정. 비밀값은 앱에 `anon key`(공개 가능)만.
 2. 앱에 `SupaSync` 추가: 로그인 시 Firestore `data/app` 을 읽어 Postgres 로 **한 번 쪼개 올리는** 변환기(사용자별, 기기에서 실행).
 3. 한동안 **이중 쓰기**(Firestore + Postgres). 읽기는 Postgres 우선.
@@ -76,15 +92,15 @@ error_reports, ai_usage 운영
 
 예상 작업량: 2~4단계가 며칠(동기화 계층 다시 쓰기). 1단계는 도운 님이 Supabase 가입·프로젝트 생성(10분)만 하면 된다. **카드 등록 없음.**
 
-## 6. 그대로 두는 것
+## 7. 그대로 두는 것
 - 인증: Firebase Auth(이메일·구글). 호스팅: Firebase Hosting. APK: GitHub Releases.
 - 사진·OCR: 기기 안 ML Kit/Tesseract, 서버 없음. 사진 원본은 올리지 않는다.
 - AI(Gemini): 사용자별 하루 한도(코치 5회, 사진 보충 8회).
 
-## 7. (참고) 이전 Firestore 분할안
+## 8. (참고) 이전 Firestore 분할안
 사용자 수가 적고 분석 요구가 없다면 `users/{uid}/plans/{날짜}` 로 문서만 쪼개는 방법도 있었다. 관계형으로 가기로 해서 보류.
 
-## 8. 보안 규칙 요약(Firestore, 이전 전까지 유효)(2026-10-27 감사 결과 반영)
+## 9. 보안 규칙 요약(Firestore, 이전 전까지 유효)(2026-10-27 감사 결과 반영)
 - 검색표(`handles`, `emails`)는 `get` 만 허용, `list` 금지 → 이메일·ID 전체 수집 불가. 남의 항목 덮어쓰기(ID 가로채기) 금지.
 - 공개 프로필도 `list` 금지(사용자 명단 수집 방지).
 - 받은편지함·채팅은 보낸 사람 검증 + 필드 종류·길이 상한.

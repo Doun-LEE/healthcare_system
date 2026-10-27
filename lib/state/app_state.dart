@@ -24,6 +24,8 @@ import '../services/cloud_sync.dart';
 import '../services/partner.dart';
 import '../services/record_code.dart';
 import '../services/routine_share.dart';
+import '../services/supa_rows.dart';
+import '../services/supa_sync.dart';
 
 String newId() {
   final r = Random();
@@ -330,6 +332,7 @@ class AppState extends ChangeNotifier {
       try {
         await _publishPublic();
       } catch (_) {}
+      unawaited(_supaOnStart());
     }
     notifyListeners();
   }
@@ -363,9 +366,134 @@ class AppState extends ChangeNotifier {
     if (cloudSignedIn) {
       if (_initialSyncDone) {
         _pushDebounce(_pushNow);
+        _supaDebounce(_supaPush);
       } else {
         _pendingPush = true;
       }
+    }
+  }
+
+  // ───────── Supabase(Postgres) 이중 쓰기 ─────────
+
+  final _supaDebounce = Debouncer(const Duration(seconds: 3));
+
+  /// 마지막으로 올린 행의 내용 해시('plan:id' 등 → 해시). 바뀐 것만 다시 올린다.
+  final Map<String, String> _supaHashes = {};
+  bool _supaBusy = false;
+  DateTime? supaLastPushAt;
+  String? supaError;
+  bool get supaEnabled => SupaSync.enabled && cloudSignedIn;
+
+  String? get _supaUid => cloudSignedIn ? CloudSync.instance.user?.uid : null;
+
+  /// 바뀐 행만 Postgres 에 올린다. 처음(해시 없음)엔 전부 올라가므로 첫 이전도 이걸로 된다.
+  Future<void> _supaPush({bool all = false}) async {
+    final uid = _supaUid;
+    final u = currentUser;
+    if (!SupaSync.enabled || uid == null || u == null || _supaBusy) return;
+    _supaBusy = true;
+    try {
+      final b = RowBundle.fromData(_data, uid, userId: u.id);
+      String planOf(Map<String, dynamic> r) => (r['plan_exercise_id'] as String).split(':').first;
+      final peByPlan = <String, List<Map<String, dynamic>>>{};
+      for (final e in b.planExercises) {
+        peByPlan.putIfAbsent(e['plan_id'] as String, () => []).add(e);
+      }
+      final setsByPlan = <String, List<Map<String, dynamic>>>{};
+      for (final s in b.sets) {
+        setsByPlan.putIfAbsent(planOf(s), () => []).add(s);
+      }
+      final cardioByPlan = <String, List<Map<String, dynamic>>>{};
+      for (final c in b.cardio) {
+        cardioByPlan.putIfAbsent(planOf(c), () => []).add(c);
+      }
+      final changedPlans = <Map<String, dynamic>>[];
+      final newHashes = <String, String>{};
+      for (final p in b.plans) {
+        final id = p['id'] as String;
+        final h = contentHash([p, peByPlan[id] ?? const [], setsByPlan[id] ?? const [], cardioByPlan[id] ?? const []]);
+        newHashes['plan:$id'] = h;
+        if (all || _supaHashes['plan:$id'] != h) changedPlans.add(p);
+      }
+      final changedIds = {for (final p in changedPlans) p['id'] as String};
+      final userH = b.user == null ? null : contentHash(b.user!);
+      final gymsH = contentHash([b.gyms, b.equipment]);
+      final progH = contentHash(b.progress);
+      final partH = contentHash(b.partners);
+      if (userH != null) newHashes['user'] = userH;
+      newHashes['gyms'] = gymsH;
+      newHashes['progress'] = progH;
+      newHashes['partners'] = partH;
+      final sendUser = userH != null && (all || _supaHashes['user'] != userH);
+      final sendGyms = all || _supaHashes['gyms'] != gymsH;
+      final sendProg = all || _supaHashes['progress'] != progH;
+      final sendPart = all || _supaHashes['partners'] != partH;
+      if (changedPlans.isNotEmpty || sendUser || sendGyms || sendProg || sendPart) {
+        await SupaSync.instance.push(RowBundle(
+          user: sendUser ? b.user : null,
+          gyms: sendGyms ? b.gyms : const [],
+          equipment: sendGyms ? b.equipment : const [],
+          plans: changedPlans,
+          planExercises: [for (final e in b.planExercises) if (changedIds.contains(e['plan_id'])) e],
+          sets: [for (final s in b.sets) if (changedIds.contains(planOf(s))) s],
+          cardio: [for (final c in b.cardio) if (changedIds.contains(planOf(c))) c],
+          progress: sendProg ? b.progress : const [],
+          partners: sendPart ? b.partners : const [],
+        ));
+        // 로컬에서 지운 날짜는 소프트 삭제
+        final deletedDates = [
+          for (final k in _data.deleted.keys)
+            if (k.startsWith('${u.id}|')) k.split('|').last,
+        ];
+        if (deletedDates.isNotEmpty) await SupaSync.instance.softDeletePlans(uid, deletedDates);
+        _supaHashes
+          ..clear()
+          ..addAll(newHashes);
+        supaLastPushAt = DateTime.now();
+      }
+      supaError = null;
+    } catch (e) {
+      supaError = e.toString();
+    } finally {
+      _supaBusy = false;
+      notifyListeners();
+    }
+  }
+
+  /// 로그인·앱 시작 시: Postgres 에 아직 데이터가 없으면 전부 올린다(첫 이전).
+  /// [supabasePrimary] 면 계획을 Postgres 에서 읽어 로컬과 합친다(더 진행된 쪽을 남김).
+  Future<void> _supaOnStart() async {
+    final uid = _supaUid;
+    final u = currentUser;
+    if (!SupaSync.enabled || uid == null || u == null) return;
+    try {
+      final has = await SupaSync.instance.hasUser(uid);
+      if (!has) {
+        await _supaPush(all: true);
+        return;
+      }
+      if (supabasePrimary) {
+        final snap = await SupaSync.instance.pull(uid, localUserId: u.id);
+        var changed = 0;
+        for (final rp in snap.plans) {
+          final i = _data.plans.indexWhere((p) => p.userId == u.id && dateKey(p.date) == dateKey(rp.date));
+          if (i < 0) {
+            _data.plans.add(rp);
+            changed++;
+          } else if (_progressRank(rp) > _progressRank(_data.plans[i])) {
+            _data.plans[i] = rp;
+            changed++;
+          }
+        }
+        if (changed > 0) {
+          await _store.save(_data);
+          notifyListeners();
+        }
+      }
+      await _supaPush();
+    } catch (e) {
+      supaError = e.toString();
+      notifyListeners();
     }
   }
 
@@ -523,6 +651,7 @@ class AppState extends ChangeNotifier {
       await _pullIfNewer();
     } catch (_) {}
     if (_data.unsynced) await _pushNow();
+    if (SupaSync.enabled) unawaited(_supaPush());
   }
 
   /// 클라우드가 로컬보다 최신이면 내려받아 교체.
@@ -611,6 +740,7 @@ class AppState extends ChangeNotifier {
       lastSyncedAt = DateTime.now();
       notifyListeners();
       await refreshInbox();
+      unawaited(_supaOnStart());
       return msg;
     } finally {
       syncing = false;
@@ -695,6 +825,8 @@ class AppState extends ChangeNotifier {
   Future<void> cloudSignOut() async {
     if (!cloudAvailable) return;
     _pushDebounce.cancel();
+    _supaDebounce.cancel();
+    _supaHashes.clear();
     for (final s in _chatSubs.values) {
       s.cancel();
     }
@@ -1608,12 +1740,21 @@ class AppState extends ChangeNotifier {
   /// 그 날 앞뒤 운동 id(교체 추천에서 연일 겹치지 않게).
   Set<String> recentExerciseIds(DateTime d) => _neighborIds(d);
 
-  /// 전날·다음날 운동 id(같은 운동이 연일 겹치지 않게).
-  Set<String> _neighborIds(DateTime d) => {
-        for (final off in [-2, -1, 1])
-          for (final e in planOn(d.add(Duration(days: off)))?.exercises ?? const <PlannedExercise>[])
-            if (!e.warmup) e.exerciseId,
-      };
+  /// 직전 운동일 2회 + 다음 운동일의 운동 id(쉬는 날을 건너뛰고 "운동한 날끼리" 같은 운동이 연달아 오지 않게).
+  Set<String> _neighborIds(DateTime d) {
+    final mine = myPlans.where((p) => !p.isRest && !p.skipped && p.exercises.isNotEmpty).toList()..sort((a, b) => a.date.compareTo(b.date));
+    final before = mine.where((p) => p.date.isBefore(d)).toList();
+    final after = mine.where((p) => p.date.isAfter(d)).toList();
+    final near = [
+      ...before.reversed.take(2),
+      ...after.take(1),
+    ];
+    return {
+      for (final p in near)
+        for (final e in p.exercises)
+          if (!e.warmup) e.exerciseId,
+    };
+  }
 
   /// 좌우 독립 머신: 한쪽씩 하기 / 양쪽 같이.
   Future<void> toggleOneSide(DayPlan plan, PlannedExercise pe) async {

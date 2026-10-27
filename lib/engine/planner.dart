@@ -188,10 +188,18 @@ class Planner {
     final idsByDay = <String, Set<String>>{
       for (final h in input.history) dateKey(h.date): {for (final e in h.exercises) if (!e.warmup) e.exerciseId},
     };
-    Set<String> recentIds(DateTime d) => {
-          ...?idsByDay[dateKey(d.subtract(const Duration(days: 1)))],
-          ...?idsByDay[dateKey(d.subtract(const Duration(days: 2)))],
-        };
+    // 직전 운동일 2회의 운동(쉬는 날은 건너뛴다 → "운동한 날끼리" 같은 운동이 연달아 오지 않게).
+    Set<String> recentIds(DateTime d) {
+      final out = <String>{};
+      var found = 0;
+      for (var k = 1; k <= 14 && found < 2; k++) {
+        final ids = idsByDay[dateKey(d.subtract(Duration(days: k)))];
+        if (ids == null || ids.isEmpty) continue;
+        out.addAll(ids);
+        found++;
+      }
+      return out;
+    }
     final totalDays = input.to.difference(input.from).inDays + 1;
 
     for (var i = 0; i < totalDays; i++) {
