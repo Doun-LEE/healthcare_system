@@ -76,9 +76,8 @@ class Planner {
   /// 그 날이 분할의 몇 번째 날인지. 유산소만 한 날·전신(파트너 등)처럼 알 수 없으면 null.
   static int? cycleIndexOf(DayPlan p, List<SplitDay> cycle) {
     final t = (p.title ?? '').split(' + ').first.split(' · ').first.trim();
-    // 괄호 설명은 빼고 비교한다(예전 '전신 A' 제목도 '전신 A (하체 먼저)'와 맞는다).
-    String base(String s) => s.replaceAll(RegExp(r'\s*\(.*\)$'), '').trim();
-    final byTitle = cycle.indexWhere((d) => d.title == t || base(d.title) == base(t));
+    // 예전 '전신 A'·'전신 B' 제목도 '전신' 날로 본다.
+    final byTitle = cycle.indexWhere((d) => d.title == t || (d.title == '전신' && t.startsWith('전신')));
     if (byTitle >= 0) return byTitle;
     bool major(MuscleGroup g) => g != MuscleGroup.abs && g != MuscleGroup.cardio;
     final focus = p.focus.where(major).toSet();

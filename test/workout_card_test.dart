@@ -25,7 +25,7 @@ void main() {
       date: DateTime(2026, 10, 25),
       kind: DayKind.workout,
       focus: [MuscleGroup.legs, MuscleGroup.chest, MuscleGroup.back],
-      title: '전신 A (하체 먼저)',
+      title: '전신',
       finishedAt: DateTime(2026, 10, 25, 20),
       exercises: [
         pe('stairs', EquipmentType.stairClimber, [(0, 20)]),
@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull); // RenderFlex overflow 등 없음
-    expect(find.text('전신 A (하체 먼저)'), findsOneWidget);
+    expect(find.text('전신'), findsOneWidget);
     expect(find.textContaining('100% 수행'), findsOneWidget);
     expect(find.textContaining('체감 6/10'), findsOneWidget);
     // 최고 기록: 140kg × 1

@@ -33,9 +33,8 @@ const List<SplitTemplate> splitTemplates = [
 /// 세션 내 부위 순서는 큰 근육 → 작은 근육. 복근·유산소는 마지막.
 const Map<int, List<SplitDay>> splitCycles = {
   1: [
-    // 무분할은 매번 전신이지만, 먼저 하는 부위(가장 힘 있을 때 하는 부위)를 번갈아 바꾼다.
-    SplitDay('전신 A (하체 먼저)', [MuscleGroup.legs, MuscleGroup.chest, MuscleGroup.back, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs]),
-    SplitDay('전신 B (등 먼저)', [MuscleGroup.back, MuscleGroup.legs, MuscleGroup.chest, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs]),
+    // 무분할은 매번 전신 하나. 부위 순서는 내 정보에서 정한 순서(groupRank)를 따른다.
+    SplitDay('전신', [MuscleGroup.legs, MuscleGroup.chest, MuscleGroup.back, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs]),
   ],
   2: [
     SplitDay('상체', [MuscleGroup.chest, MuscleGroup.back, MuscleGroup.shoulder, MuscleGroup.arms]),
