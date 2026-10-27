@@ -194,9 +194,9 @@ class DayPlanView extends StatelessWidget {
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-      children: [
+    // 운동 목록이 스크롤 주체(ReorderableListView)여야 손잡이를 끌어 화면 끝에 대면 자동으로 스크롤된다.
+    // 위·아래 내용은 header/footer 로 붙인다.
+    final head = <Widget>[
         _Header(plan: plan),
         if (plan.skipped)
           Card(
@@ -244,26 +244,8 @@ class DayPlanView extends StatelessWidget {
           _WorkoutClock(plan: plan, onStart: () => state.startWorkout(plan)),
         if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
         const SizedBox(height: 8),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          itemCount: plan.exercises.length,
-          onReorderItem: (o, n) => state.reorderExercise(plan, o, n),
-          proxyDecorator: (child, i, anim) => Material(color: Colors.transparent, elevation: 6, child: child),
-          itemBuilder: (c, i) {
-            final pe = plan.exercises[i];
-            final sectionStart = i == 0 || SessionGenerator.sectionOf(pe) != SessionGenerator.sectionOf(plan.exercises[i - 1]);
-            return Column(
-              key: ObjectKey(pe),
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (sectionStart) _SectionLabel(SessionGenerator.sectionLabel(SessionGenerator.sectionOf(pe))),
-                _ExerciseCard(plan: plan, pe: pe, index: i, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
-              ],
-            );
-          },
-        ),
+    ];
+    final tail = <Widget>[
         if (editable && !plan.isFinished && plan.exercises.length > 1)
           Padding(
             padding: const EdgeInsets.only(left: 6, top: 2),
@@ -330,7 +312,27 @@ class DayPlanView extends StatelessWidget {
                 ),
             ]),
           ]),
-      ],
+    ];
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: head),
+      footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: tail),
+      buildDefaultDragHandles: false,
+      itemCount: plan.exercises.length,
+      onReorderItem: (o, n) => state.reorderExercise(plan, o, n),
+      proxyDecorator: (child, i, anim) => Material(color: Colors.transparent, elevation: 6, child: child),
+      itemBuilder: (c, i) {
+        final pe = plan.exercises[i];
+        final sectionStart = i == 0 || SessionGenerator.sectionOf(pe) != SessionGenerator.sectionOf(plan.exercises[i - 1]);
+        return Column(
+          key: ObjectKey(pe),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (sectionStart) _SectionLabel(SessionGenerator.sectionLabel(SessionGenerator.sectionOf(pe))),
+            _ExerciseCard(plan: plan, pe: pe, index: i, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
+          ],
+        );
+      },
     );
   }
 
