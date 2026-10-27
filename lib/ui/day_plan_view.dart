@@ -16,6 +16,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/equipment_look.dart';
 import 'widgets/real_photos.dart';
@@ -302,6 +303,8 @@ class DayPlanView extends StatelessWidget {
           Column(children: [
             if (themeStyleOf(context) == AppThemeStyle.cute)
               const Padding(padding: EdgeInsets.only(bottom: 4), child: Mascot(mood: MascotMood.cheer, size: 84)),
+            if (themeStyleOf(context) == AppThemeStyle.marine)
+              const Padding(padding: EdgeInsets.only(bottom: 4), child: MarineMascot(mood: MascotMood.cheer, size: 90)),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.check_circle, color: cs.primary),
               const SizedBox(width: 8),
@@ -1289,7 +1292,7 @@ class ThemedQuoteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = themeStyleOf(context);
     final quote = style.quoteFor(date);
-    if (style != AppThemeStyle.cute) return QuoteBanner(quote: quote);
+    if (style != AppThemeStyle.cute && style != AppThemeStyle.marine) return QuoteBanner(quote: quote);
     final hour = DateTime.now().hour;
     final mood = plan != null && plan!.isFinished
         ? MascotMood.cheer
@@ -1300,7 +1303,11 @@ class ThemedQuoteBanner extends StatelessWidget {
                 : MascotMood.happy;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-      child: MascotSays(text: quote, mood: mood),
+      child: MascotSays(
+        text: quote,
+        mood: mood,
+        avatar: style == AppThemeStyle.marine ? MarineMascot(mood: mood, size: 68) : null,
+      ),
     );
   }
 }

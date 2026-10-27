@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/injury_chips.dart';
+import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/backup_section.dart';
 import 'friends_screen.dart';
@@ -552,13 +553,7 @@ class _ThemeCard extends StatelessWidget {
                 if (style == AppThemeStyle.cute)
                   const Mascot(size: 30, bob: false)
                 else if (style == AppThemeStyle.marine)
-                  Container(
-                    height: 22,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: pcs.secondary, borderRadius: BorderRadius.circular(style.radius / 2)),
-                    child: Text('악!', style: preview.textTheme.labelLarge?.copyWith(color: pcs.onSecondary, fontSize: 12)),
-                  )
+                  const MarineEmblem(size: 28)
                 else
                   Container(
                     width: 22,

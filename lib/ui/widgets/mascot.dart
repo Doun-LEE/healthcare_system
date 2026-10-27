@@ -286,11 +286,14 @@ class _MascotPainter extends CustomPainter {
 
 /// 마스코트 + 말풍선 한 줄. 귀여운 테마의 홈·완료 화면에서 쓴다.
 class MascotSays extends StatelessWidget {
-  const MascotSays({super.key, required this.text, this.mood = MascotMood.happy, this.size = 64, this.onTap});
+  const MascotSays({super.key, required this.text, this.mood = MascotMood.happy, this.size = 64, this.onTap, this.avatar});
   final String text;
   final MascotMood mood;
   final double size;
   final VoidCallback? onTap;
+
+  /// 말하는 캐릭터. 비우면 뭉치.
+  final Widget? avatar;
 
   @override
   Widget build(BuildContext context) {
@@ -302,7 +305,7 @@ class MascotSays extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Mascot(mood: mood, size: size),
+          avatar ?? Mascot(mood: mood, size: size),
           const SizedBox(width: 4),
           // 말풍선 꼬리
           CustomPaint(
