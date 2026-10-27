@@ -30,6 +30,52 @@ class _CalendarScreenState extends State<CalendarScreen> {
     _selected = dateOnly(n);
   }
 
+  /// 연·월 직접 고르기: 연도 좌우 이동 + 12개월 버튼. '오늘'로 바로 가기도.
+  Future<void> _pickMonth(BuildContext context) async {
+    var year = _month.year;
+    final now = DateTime.now();
+    final picked = await showDialog<DateTime>(
+      context: context,
+      builder: (c) => StatefulBuilder(builder: (c, setDialog) {
+        final cs = Theme.of(c).colorScheme;
+        return AlertDialog(
+          title: Row(children: [
+            IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setDialog(() => year--)),
+            Expanded(child: Text('$year년', textAlign: TextAlign.center)),
+            IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => setDialog(() => year++)),
+          ]),
+          content: SizedBox(
+            width: 300,
+            child: GridView.count(
+              crossAxisCount: 4,
+              shrinkWrap: true,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+              childAspectRatio: 1.6,
+              children: [
+                for (var m = 1; m <= 12; m++)
+                  FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: year == _month.year && m == _month.month ? cs.primary : (year == now.year && m == now.month ? cs.tertiaryContainer : null),
+                      foregroundColor: year == _month.year && m == _month.month ? cs.onPrimary : null,
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: () => Navigator.pop(c, DateTime(year, m)),
+                    child: Text('$m월'),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, DateTime(now.year, now.month)), child: const Text('오늘')),
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('취소')),
+          ],
+        );
+      }),
+    );
+    if (picked != null && mounted) setState(() => _month = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -41,7 +87,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${_month.year}년 ${_month.month}월'),
+        // 제목을 누르면 연·월을 직접 고른다(멀리 있는 달로 바로 이동).
+        title: InkWell(
+          onTap: () => _pickMonth(context),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('${_month.year}년 ${_month.month}월'),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_drop_down, size: 22),
+            ]),
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.chevron_left),
           onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
