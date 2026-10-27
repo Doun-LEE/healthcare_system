@@ -5,6 +5,7 @@ import 'core/store_io.dart' if (dart.library.js_interop) 'core/store_web.dart';
 import 'firebase_options.dart';
 import 'services/cloud_sync.dart';
 import 'state/app_state.dart';
+import 'ui/app_theme.dart';
 import 'ui/home_shell.dart';
 import 'ui/login_screen.dart';
 import 'ui/onboarding_screen.dart';
@@ -29,31 +30,21 @@ class FitRoutineApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: state,
-      child: MaterialApp(
-        title: 'FitRoutine',
-        debugShowCheckedModeBanner: false,
-        theme: _theme(Brightness.light),
-        darkTheme: _theme(Brightness.dark),
-        themeMode: ThemeMode.system,
-        home: Consumer<AppState>(
-          builder: (_, s, _) => !s.authed
-              ? const LoginScreen()
-              : (s.currentUser!.onboarded ? const HomeShell() : const OnboardingScreen()),
-        ),
-      ),
-    );
-  }
-
-  ThemeData _theme(Brightness b) {
-    final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF7CB342), brightness: b);
-    return ThemeData(
-      colorScheme: scheme,
-      useMaterial3: true,
-      inputDecorationTheme: const InputDecorationTheme(border: OutlineInputBorder()),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        color: scheme.surfaceContainerLow,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Consumer<AppState>(
+        builder: (_, s, _) {
+          // 프로필에 저장된 앱 디자인(기본·귀여운·상남자)을 루트에서 ThemeData 로 만든다.
+          final style = AppThemeStyle.parse(s.currentUser?.theme);
+          return MaterialApp(
+            title: 'FitRoutine',
+            debugShowCheckedModeBanner: false,
+            theme: buildAppTheme(style, Brightness.light),
+            darkTheme: buildAppTheme(style, Brightness.dark),
+            themeMode: ThemeMode.system,
+            home: !s.authed
+                ? const LoginScreen()
+                : (s.currentUser!.onboarded ? const HomeShell() : const OnboardingScreen()),
+          );
+        },
       ),
     );
   }

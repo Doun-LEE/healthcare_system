@@ -283,6 +283,7 @@ class UserProfile {
     this.goal = TrainingGoal.hypertrophy,
     Set<InjuryArea>? injuries,
     Set<InjuryArea>? cautions,
+    this.theme = 'basic',
   })  : injuries = injuries ?? {},
         cautions = cautions ?? {},
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
@@ -358,6 +359,9 @@ class UserProfile {
   /// 주의 부위: 빼지 않고 무게를 낮추고 횟수를 늘려 재활 느낌으로 넣는다.
   final Set<InjuryArea> cautions;
 
+  /// 앱 디자인: 'basic'(기본) · 'cute'(귀여운) · 'tough'(상남자). 프로필에 저장돼 기기 간 동기화.
+  String theme;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -392,6 +396,7 @@ class UserProfile {
         'goal': goal.name,
         'injuries': injuries.map((i) => i.name).toList(),
         if (cautions.isNotEmpty) 'cautions': cautions.map((i) => i.name).toList(),
+        'theme': theme,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> j) => UserProfile(
@@ -444,6 +449,7 @@ class UserProfile {
             .map((v) => InjuryArea.tryParse(v as String))
             .whereType<InjuryArea>()
             .toSet(),
+        theme: (j['theme'] as String?) ?? 'basic',
       );
 }
 

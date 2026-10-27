@@ -8,6 +8,7 @@ import '../engine/session_generator.dart';
 import '../models/models.dart';
 import 'widgets/level_card.dart';
 import '../state/app_state.dart';
+import 'app_theme.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/injury_chips.dart';
 import 'widgets/backup_section.dart';
@@ -327,6 +328,25 @@ class ProfileScreen extends StatelessWidget {
               ),
           ]),
 
+          // 앱 디자인
+          _Section(title: '앱 디자인', children: [
+            Text('고르면 바로 바뀌고, 이 계정으로 로그인한 다른 기기에도 똑같이 적용돼요. 라이트/다크는 기기 설정을 따라요.',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            const SizedBox(height: 10),
+            Row(children: [
+              for (final s in AppThemeStyle.values) ...[
+                if (s != AppThemeStyle.values.first) const SizedBox(width: 8),
+                Expanded(
+                  child: _ThemeCard(
+                    style: s,
+                    selected: AppThemeStyle.parse(u.theme) == s,
+                    onTap: () => _edit(state, (p) => p.theme = s.id),
+                  ),
+                ),
+              ],
+            ]),
+          ]),
+
           // 계정
           const _Section(title: '계정 · 동기화', children: [AccountSection()]),
           const SizedBox(height: 12),
@@ -465,6 +485,72 @@ class _Stat extends StatelessWidget {
             Text(value, style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             Text(label, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// 앱 디자인 고르기 카드: 그 테마의 색·모서리로 자기 모습을 미리 보여준다.
+class _ThemeCard extends StatelessWidget {
+  const _ThemeCard({required this.style, required this.selected, required this.onTap});
+  final AppThemeStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    final preview = buildAppTheme(style, brightness);
+    final pcs = preview.colorScheme;
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final radius = BorderRadius.circular(style.radius);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '앱 디자인 ${style.label}',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+          decoration: BoxDecoration(
+            color: pcs.surfaceContainerLow,
+            borderRadius: radius,
+            border: Border.all(color: selected ? cs.primary : pcs.outlineVariant, width: selected ? 2.5 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 미리보기: 그 테마 색의 버튼·칩 모양.
+              Row(children: [
+                Container(
+                  width: 34,
+                  height: 22,
+                  decoration: BoxDecoration(color: pcs.primary, borderRadius: BorderRadius.circular(style.radius / 2)),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '12',
+                    style: preview.textTheme.labelLarge?.copyWith(color: pcs.onPrimary, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(color: pcs.secondaryContainer, borderRadius: BorderRadius.circular(style.radius / 2)),
+                ),
+                const Spacer(),
+                if (selected) Icon(Icons.check_circle, size: 18, color: cs.primary) else Icon(style.icon, size: 18, color: pcs.onSurfaceVariant),
+              ]),
+              const SizedBox(height: 10),
+              Text(style.label, style: preview.textTheme.titleSmall?.copyWith(color: pcs.onSurface)),
+              const SizedBox(height: 2),
+              Text(style.description, style: text.bodySmall?.copyWith(color: pcs.onSurfaceVariant, fontSize: 11), maxLines: 3, overflow: TextOverflow.ellipsis),
+            ],
+          ),
         ),
       ),
     );
