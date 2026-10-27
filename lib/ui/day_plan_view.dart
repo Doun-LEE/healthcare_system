@@ -146,7 +146,7 @@ Future<void> changeDayFocusDialog(BuildContext context, DayPlan plan) async {
 Future<void> shareRoutine(BuildContext context, DayPlan plan) async {
   final state = context.read<AppState>();
   final code = state.shareCode(plan);
-  final text = '[FitRoutine] ${plan.title ?? '루틴'} · ${plan.exercises.length}개 운동\n'
+  final text = '[FitRoutine] ${plan.displayTitle} · ${plan.exercises.length}개 운동\n'
       '앱에서 "루틴 불러오기"에 아래 코드를 붙여넣으세요.\n$code';
   await Clipboard.setData(ClipboardData(text: text));
   try {
@@ -186,7 +186,7 @@ class DayPlanView extends StatelessWidget {
             const SizedBox(height: 12),
             Text('휴식일', style: text.headlineSmall),
             const SizedBox(height: 4),
-            Text(plan.title ?? '', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+            Text(plan.displayTitle, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 8),
             const Text('잘 쉬는 것도 운동입니다. 스트레칭·수면·단백질.'),
           ],
@@ -566,7 +566,7 @@ class _Header extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(plan.title ?? '운동',
+                  child: Text(plan.displayTitle,
                       style: text.titleLarge?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
                 ),
                 if (!plan.isFinished)
@@ -768,6 +768,7 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
   final dayGym = plan.atOtherGym ? null : state.gymOf(plan);
   var query = '';
   MuscleGroup? group;
+  String? kind; // 맨몸·프리·머신·케이블·유산소
   var personal = plan.partnerName != null;
   final picked = await showAppSheet<(Exercise, bool)>(
     context: context,
@@ -776,8 +777,10 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
     useSafeArea: true,
     builder: (c) => StatefulBuilder(builder: (c, setState) {
       final available = state.availableFor(plan);
+      EquipmentType eqOf(Exercise e) => e.canDoWith(available) ? e.pickEquipment(available) : e.equipment.first;
       final list = exerciseCatalog
           .where((e) => group == null || e.group == group)
+          .where((e) => kind == null || _equipKind(eqOf(e)) == kind)
           .where((e) => exerciseMatches(e, query))
           .toList()
         ..sort((a, b) {
@@ -808,6 +811,23 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(label: Text(g.label), selected: group == g, onSelected: (_) => setState(() => group = g)),
+                ),
+            ]),
+          ),
+          // 기구 종류: 맨몸 / 프리(바벨·덤벨·케틀벨…) / 머신 / 케이블 / 유산소
+          SizedBox(
+            height: 40,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+              for (final k in [null, ..._equipKinds])
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(k ?? '전체 기구'),
+                    selected: kind == k,
+                    visualDensity: VisualDensity.compact,
+                    avatar: k == null ? null : Icon(_equipKindIcon(k), size: 16),
+                    onSelected: (_) => setState(() => kind = k),
+                  ),
                 ),
             ]),
           ),
@@ -854,6 +874,7 @@ Future<void> addExerciseDialog(BuildContext context, DayPlan plan) async {
                 return ListTile(
                   dense: true,
                   enabled: can,
+                  leading: Opacity(opacity: can ? 1 : 0.45, child: ExerciseThumb(exerciseId: e.id, type: eqOf(e), size: 44)),
                   title: Text(e.name, style: can ? null : TextStyle(color: Theme.of(c).colorScheme.onSurfaceVariant)),
                   subtitle: Text(
                     '${e.group.label} · ${e.emphasis.take(2).join(' · ')}${can ? (added ? ' · ${dayGym?.name ?? ''}에 기구 추가됨' : '') : ' · 보유 기구 없음'}',
@@ -1176,50 +1197,147 @@ class _ExerciseCard extends StatelessWidget {
     final picks = ex.activity || pe.warmup
         ? const <SwapPick>[]
         : recommendSwaps(plan.exercises, plan.exercises.indexOf(pe), available, recent: state.recentExerciseIds(plan.date));
+    // 필터: 기구 종류(맨몸·프리·머신·케이블·유산소) · 부위(워밍업 칸만) · 검색.
+    String? kind;
+    MuscleGroup? group;
+    var query = '';
     final chosen = await showAppSheet<Exercise>(
       context: context,
       showDragHandle: true,
-      builder: (c) => ListView(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(pe.warmup ? '워밍업 교체 (가볍게 처방돼요)' : '${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
-          ),
-          if (picks.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-              child: Text('추천 · 앞뒤 운동을 보고 골랐어요',
-                  style: Theme.of(c).textTheme.labelLarge?.copyWith(color: Theme.of(c).colorScheme.primary)),
-            ),
-            for (final p in picks)
-              ListTile(
-                leading: Stack(clipBehavior: Clip.none, children: [
-                  ExerciseThumb(exerciseId: p.exercise.id, type: p.exercise.pickEquipment(available), size: 44),
-                  Positioned(right: -4, top: -4, child: Icon(Icons.auto_awesome, size: 16, color: Theme.of(c).colorScheme.primary)),
-                ]),
-                title: Text(p.exercise.name),
-                subtitle: Text(p.reasons.isEmpty ? p.exercise.emphasis.join(' · ') : p.reasons.join(' · ')),
-                trailing: Text(p.exercise.pickEquipment(available).label, style: Theme.of(c).textTheme.bodySmall),
-                onTap: () => Navigator.pop(c, p.exercise),
+      isScrollControlled: true,
+      builder: (c) => StatefulBuilder(builder: (c, setSheet) {
+        final cs = Theme.of(c).colorScheme;
+        final q = query.trim().toLowerCase();
+        bool pass(Exercise e) =>
+            (kind == null || _equipKind(e.pickEquipment(available)) == kind) &&
+            (group == null || e.group == group || e.altGroups.contains(group)) &&
+            (q.isEmpty || e.name.toLowerCase().contains(q) || e.emphasis.any((x) => x.toLowerCase().contains(q)));
+        final shown = options.where(pass).toList();
+        final kinds = {for (final e in options) _equipKind(e.pickEquipment(available))};
+        final groups = {for (final e in options) e.group};
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.85,
+          maxChildSize: 0.95,
+          builder: (c, ctrl) => ListView(
+            controller: ctrl,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: Text(pe.warmup ? '워밍업 교체 (가볍게 처방돼요)' : '${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
               ),
-            const Divider(),
-            const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 4), child: Text('전체')),
-          ],
-          for (final e in options)
-            ListTile(
-              leading: ExerciseThumb(exerciseId: e.id, type: e.pickEquipment(available), size: 44),
-              title: Text(e.name),
-              subtitle: Text(e.emphasis.join(' · ')),
-              trailing: Text(e.pickEquipment(available).label,
-                  style: Theme.of(c).textTheme.bodySmall),
-              onTap: () => Navigator.pop(c, e),
-            ),
-          if (options.isEmpty)
-            const Padding(padding: EdgeInsets.all(16), child: Text('교체 가능한 운동이 없습니다.')),
-        ],
-      ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: '운동 이름 검색',
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                    suffixIcon: q.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => setSheet(() => query = '')),
+                  ),
+                  onChanged: (v) => setSheet(() => query = v),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 40,
+                child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+                  for (final k in [null, ..._equipKinds.where(kinds.contains)])
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: ChoiceChip(
+                        label: Text(k ?? '전체 기구'),
+                        selected: kind == k,
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (_) => setSheet(() => kind = k),
+                      ),
+                    ),
+                ]),
+              ),
+              if (pe.warmup && groups.length > 1)
+                SizedBox(
+                  height: 40,
+                  child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+                    for (final g in [null, ...MuscleGroup.values.where(groups.contains)])
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: ChoiceChip(
+                          label: Text(g?.label ?? '전체 부위'),
+                          selected: group == g,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) => setSheet(() => group = g),
+                        ),
+                      ),
+                  ]),
+                ),
+              if (picks.isNotEmpty && kind == null && group == null && q.isEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  child: Text('추천 · 앞뒤 운동을 보고 골랐어요', style: Theme.of(c).textTheme.labelLarge?.copyWith(color: cs.primary)),
+                ),
+                for (final p in picks)
+                  ListTile(
+                    leading: Stack(clipBehavior: Clip.none, children: [
+                      ExerciseThumb(exerciseId: p.exercise.id, type: p.exercise.pickEquipment(available), size: 44),
+                      Positioned(right: -4, top: -4, child: Icon(Icons.auto_awesome, size: 16, color: cs.primary)),
+                    ]),
+                    title: Text(p.exercise.name),
+                    subtitle: Text(p.reasons.isEmpty ? p.exercise.emphasis.join(' · ') : p.reasons.join(' · ')),
+                    trailing: Text(p.exercise.pickEquipment(available).label, style: Theme.of(c).textTheme.bodySmall),
+                    onTap: () => Navigator.pop(c, p.exercise),
+                  ),
+                const Divider(),
+              ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text('${kind ?? '전체'}${group != null ? ' · ${group!.label}' : ''} ${shown.length}개', style: Theme.of(c).textTheme.labelLarge),
+              ),
+              for (final e in shown)
+                ListTile(
+                  leading: ExerciseThumb(exerciseId: e.id, type: e.pickEquipment(available), size: 44),
+                  title: Text(e.name),
+                  subtitle: Text(e.emphasis.join(' · ')),
+                  trailing: Text(e.pickEquipment(available).label, style: Theme.of(c).textTheme.bodySmall),
+                  onTap: () => Navigator.pop(c, e),
+                ),
+              if (shown.isEmpty)
+                const Padding(padding: EdgeInsets.all(16), child: Text('조건에 맞는 운동이 없습니다. 필터를 풀어 보세요.')),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      }),
     );
     if (chosen != null) await state.swapExercise(plan, pe, chosen);
+  }
+}
+
+/// 교체 목록 필터용 기구 분류.
+const _equipKinds = ['맨몸', '프리', '머신', '케이블', '유산소'];
+
+IconData _equipKindIcon(String k) => switch (k) {
+      '맨몸' => Icons.accessibility_new,
+      '프리' => Icons.fitness_center,
+      '머신' => Icons.precision_manufacturing_outlined,
+      '케이블' => Icons.cable,
+      _ => Icons.directions_run,
+    };
+
+String _equipKind(EquipmentType t) {
+  switch (t) {
+    case EquipmentType.bodyweight:
+    case EquipmentType.pullUpBar:
+    case EquipmentType.dipStation:
+    case EquipmentType.captainsChair:
+    case EquipmentType.romanChair:
+      return '맨몸';
+    case EquipmentType.cableMachine:
+    case EquipmentType.functionalTrainer:
+      return '케이블';
+    default:
+      if (t.category == EquipmentCategory.cardio) return '유산소';
+      if (t.category == EquipmentCategory.freeWeight || t.category == EquipmentCategory.bench) return '프리';
+      return '머신';
   }
 }
 
@@ -1335,6 +1453,9 @@ class ThemedQuoteBanner extends StatelessWidget {
         text: quote,
         mood: mood,
         avatar: style == AppThemeStyle.marine ? MarineMascot(mood: mood, size: 68) : null,
+        // 해병대: 빨간 명찰 색 말풍선에 흰 글씨(각진 느낌은 테마 모서리가 맡는다).
+        bubbleColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.primary : null,
+        textColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.onPrimary : null,
       ),
     );
   }

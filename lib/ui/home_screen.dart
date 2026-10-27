@@ -88,7 +88,7 @@ class HomeScreen extends StatelessWidget {
                     ]),
                     const SizedBox(height: 6),
                     Text(
-                      plan == null ? '계획 없음' : plan.isRest ? '휴식일' : plan.title ?? '운동',
+                      plan == null ? '계획 없음' : plan.isRest ? '휴식일' : plan.displayTitle,
                       style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: plan == null || plan.isRest ? cs.onSurface : cs.onPrimaryContainer),
                     ),
                     if (plan != null && !plan.isRest) ...[
@@ -180,7 +180,7 @@ class HomeScreen extends StatelessWidget {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Text('${p.date.month}/${p.date.day}', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                        title: Text(p.title ?? ''),
+                        title: Text(p.displayTitle),
                         subtitle: Text('${p.exercises.length}개 · ${p.estimatedMinutes}분${p.partnerName != null ? ' · 👥 ${p.partnerName}' : ''}'),
                         onTap: () => onGoToTab(_tabCalendar),
                       ),

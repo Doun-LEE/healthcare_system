@@ -337,7 +337,7 @@ class _DaySummary extends StatelessWidget {
                 Row(children: [
                   Expanded(
                     child: Text(
-                      p == null ? '${date.month}/${date.day} 계획 없음' : p.isRest ? '${date.month}/${date.day} 휴식일' : p.title ?? '운동',
+                      p == null ? '${date.month}/${date.day} 계획 없음' : p.isRest ? '${date.month}/${date.day} 휴식일' : p.displayTitle,
                       style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -371,7 +371,7 @@ class _DaySummary extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(children: [
-                      Expanded(child: Text(p.title ?? '', style: text.bodySmall)),
+                      Expanded(child: Text(p.displayTitle, style: text.bodySmall)),
                       TextButton(onPressed: onOpen, child: const Text('열기')),
                     ]),
                   ),
@@ -394,10 +394,4 @@ class _DaySummary extends StatelessWidget {
 }
 
 /// 달력 칸의 부위 글자: 전신(큰 부위 4개 이상)이면 '전신', 아니면 부위를 전부(복근·유산소는 뒤에) 보여준다.
-String _focusLabel(DayPlan plan) {
-  const minor = {MuscleGroup.abs, MuscleGroup.cardio};
-  final major = plan.focus.where((g) => !minor.contains(g)).toList();
-  if (major.length >= 4) return '전신';
-  final rest = plan.focus.where(minor.contains).map((g) => g.label);
-  return [...major.map((g) => g.label), ...rest].join('·');
-}
+String _focusLabel(DayPlan plan) => focusTitle(plan.focus);

@@ -102,7 +102,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                 ),
               ]),
               const SizedBox(height: 16),
-              Text(plan.title ?? '운동 완료', style: const TextStyle(color: _fg, fontSize: 25, fontWeight: FontWeight.w800, height: 1.15)),
+              Text(plan.displayTitle, style: const TextStyle(color: _fg, fontSize: 25, fontWeight: FontWeight.w800, height: 1.15)),
               const SizedBox(height: 4),
               Text(
                 [
@@ -355,7 +355,7 @@ Future<String?> _capture(GlobalKey key, DayPlan plan, {bool save = false, bool c
     final file = XFile.fromData(bytes.buffer.asUint8List(), mimeType: 'image/png', name: name);
     final result = await SharePlus.instance.share(ShareParams(
       files: [file],
-      text: '[FitRoutine] ${plan.title ?? '운동'} 완료 · ${(plan.completionRatio * 100).round()}% 수행',
+      text: '[FitRoutine] ${plan.displayTitle} 완료 · ${(plan.completionRatio * 100).round()}% 수행',
     ));
     return result.status == ShareResultStatus.unavailable ? '이 기기에서는 이미지 공유를 지원하지 않아요.' : null;
   } catch (e) {

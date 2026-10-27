@@ -1084,7 +1084,7 @@ class AppState extends ChangeNotifier {
         kind: DayKind.workout,
         focus: groups,
         exercises: [],
-        title: groups.map((g) => g.label).join('·'),
+        title: focusTitle(groups),
       );
       _data.plans.add(plan);
     }
@@ -1201,7 +1201,7 @@ class AppState extends ChangeNotifier {
       existing.focus
         ..clear()
         ..addAll(groups);
-      existing.title = '${title ?? groups.map((g) => g.label).join('·')}${existing.partnerName != null ? ' · ${existing.partnerName}와 함께' : ''}';
+      existing.title = '${title ?? focusTitle(groups)}${existing.partnerName != null ? ' · ${existing.partnerName}와 함께' : ''}';
       existing.estimatedMinutes = SessionGenerator.estimateMinutes(existing.exercises);
       await _save();
       await resyncPartnerDay(existing);
@@ -1230,7 +1230,7 @@ class AppState extends ChangeNotifier {
       focus: groups,
       exercises: exercises,
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
-      title: '${title ?? groups.map((g) => g.label).join('·')}${existing?.partnerName != null ? ' · ${existing!.partnerName}와 함께' : ''}',
+      title: '${title ?? focusTitle(groups)}${existing?.partnerName != null ? ' · ${existing!.partnerName}와 함께' : ''}',
       partnerName: existing?.partnerName,
     );
     if (existing != null) _copyVenue(existing, plan);
@@ -2184,7 +2184,7 @@ class AppState extends ChangeNotifier {
       }
     }
     if (groups.isEmpty) groups = List.of(myFocus);
-    var note = '공통 부위 ${groups.map((g) => g.label).join('·')}로 맞췄어요.';
+    var note = '공통 부위 ${focusTitle(groups)}로 맞췄어요.';
     if (skipped.isNotEmpty) note += ' (${skipped.join('·')} 님과는 겹치는 부위가 없어 이 부위로 맞췄어요)';
 
     final myUid = CloudSync.instance.user!.uid;
@@ -2227,7 +2227,7 @@ class AppState extends ChangeNotifier {
           pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
       };
     }
-    final base = (mine?.title ?? groups.map((g) => g.label).join('·')).split(' · ').first;
+    final base = (mine?.title ?? focusTitle(groups)).split(' · ').first;
     final title = '$base · $names와 함께';
     final plan = DayPlan(
       id: mine?.id ?? newId(),

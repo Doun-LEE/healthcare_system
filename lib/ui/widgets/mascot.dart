@@ -286,7 +286,7 @@ class _MascotPainter extends CustomPainter {
 
 /// 마스코트 + 말풍선 한 줄. 귀여운 테마의 홈·완료 화면에서 쓴다.
 class MascotSays extends StatelessWidget {
-  const MascotSays({super.key, required this.text, this.mood = MascotMood.happy, this.size = 64, this.onTap, this.avatar});
+  const MascotSays({super.key, required this.text, this.mood = MascotMood.happy, this.size = 64, this.onTap, this.avatar, this.bubbleColor, this.textColor});
   final String text;
   final MascotMood mood;
   final double size;
@@ -295,10 +295,16 @@ class MascotSays extends StatelessWidget {
   /// 말하는 캐릭터. 비우면 뭉치.
   final Widget? avatar;
 
+  /// 말풍선 색. 비우면 primaryContainer.
+  final Color? bubbleColor;
+  final Color? textColor;
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final bubble = bubbleColor ?? cs.primaryContainer;
+    final fg = textColor ?? cs.onPrimaryContainer;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -310,13 +316,13 @@ class MascotSays extends StatelessWidget {
           // 말풍선 꼬리
           CustomPaint(
             size: const Size(10, 16),
-            painter: _TailPainter(cs.primaryContainer),
+            painter: _TailPainter(bubble),
           ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(18)),
-              child: Text(text, style: tt.bodyMedium?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.w600)),
+              decoration: BoxDecoration(color: bubble, borderRadius: BorderRadius.circular(18)),
+              child: Text(text, style: tt.bodyMedium?.copyWith(color: fg, fontWeight: FontWeight.w600)),
             ),
           ),
         ]),

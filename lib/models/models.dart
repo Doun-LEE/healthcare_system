@@ -16,6 +16,9 @@ enum MuscleGroup {
   const MuscleGroup(this.label);
   final String label;
 
+  /// 큰 부위(복근·유산소 제외).
+  bool get isMajor => this != MuscleGroup.abs && this != MuscleGroup.cardio;
+
   static MuscleGroup parse(String v) =>
       MuscleGroup.values.firstWhere((e) => e.name == v);
 }
@@ -981,6 +984,14 @@ class DayPlan {
   String? title;
   DateTime? finishedAt;
 
+  /// 화면용 제목: 부위를 전부 나열한 제목('하체·가슴·등·어깨·팔·복근·유산소')은 '전신·유산소'로 줄인다.
+  String get displayTitle {
+    final raw = focus.map((g) => g.label).join('·');
+    final t = title;
+    if (t == null || t.isEmpty) return focusTitle(focus);
+    return t.contains(raw) ? t.replaceFirst(raw, focusTitle(focus)) : t;
+  }
+
   bool get isRest => kind == DayKind.rest;
   bool get isFinished => finishedAt != null;
 
@@ -1328,4 +1339,12 @@ class CardioSplit {
         paceSec: (j['p'] as num?)?.round(),
         hr: (j['hr'] as num?)?.round(),
       );
+}
+
+/// 부위 묶음의 제목. 큰 부위가 4개 이상이면 '전신', 복근·유산소는 뒤에 붙인다(예: '전신·유산소').
+String focusTitle(List<MuscleGroup> groups) {
+  final major = groups.where((g) => g.isMajor).toList();
+  final minor = groups.where((g) => !g.isMajor).map((g) => g.label);
+  final head = major.length >= 4 ? ['전신'] : major.map((g) => g.label);
+  return [...head, ...minor].join('·');
 }
