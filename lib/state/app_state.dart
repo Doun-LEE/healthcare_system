@@ -238,6 +238,7 @@ class AppState extends ChangeNotifier {
             sets: pe.sets,
             note: '${gym.name}: ${pe.equipmentType.label} 대신 ${eq.label}',
             personal: pe.personal,
+            cardio: pe.cardio,
           );
           msgs.add('${ex.name}: ${pe.equipmentType.label} → ${eq.label}');
         }
@@ -1440,6 +1441,31 @@ class AppState extends ChangeNotifier {
     await _save();
     if (!personal) await resyncPartnerDay(plan);
     return planned;
+  }
+
+  /// 워치·러닝 앱 기록(사진 인식)을 그날 유산소 운동에 넣는다. [target]이 없으면 새로 추가.
+  /// [minutes]가 0보다 크면 그 시간으로 1세트를 완료 처리한다.
+  Future<PlannedExercise?> recordCardio(DayPlan plan, Exercise ex, int minutes, CardioStats stats, {PlannedExercise? target}) async {
+    var pe = target;
+    if (pe == null) {
+      final wasFinished = plan.isFinished;
+      if (wasFinished) plan.finishedAt = null;
+      pe = await addExercise(plan, ex);
+      if (pe == null) return null;
+    } else {
+      _markCustom(plan);
+    }
+    if (minutes > 0) {
+      final level = pe.sets.isEmpty ? null : pe.sets.first.level;
+      pe.sets
+        ..clear()
+        ..add(SetEntry(targetReps: minutes, targetWeight: 0, doneReps: minutes, doneWeight: 0, completed: true, level: level, doneLevel: level));
+    }
+    pe.cardio = stats;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+    if (!pe.personal) await resyncPartnerDay(plan);
+    return pe;
   }
 
   /// 운동 순서를 [delta]만큼 이동(-1 위로, +1 아래로).

@@ -153,8 +153,18 @@ class ExerciseThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = EquipmentPhoto(type: type, size: size);
     final urls = exercisePhotoUrls(exerciseId);
+    final ex = exerciseById(exerciseId);
+    if (urls == null && ex != null && (ex.activity || ex.loadType == LoadType.cardio) && type == EquipmentType.bodyweight) {
+      final cs = Theme.of(context).colorScheme;
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(10)),
+        child: Icon(sportIcon(exerciseId), size: size * 0.55, color: cs.onTertiaryContainer),
+      );
+    }
+    final fallback = EquipmentPhoto(type: type, size: size);
     if (urls == null) return fallback;
     return SizedBox(
       width: size,
@@ -206,3 +216,27 @@ Future<void> showEquipmentPreview(BuildContext context, EquipmentType type, {Str
     },
   );
 }
+
+
+/// 스포츠·유산소 운동 아이콘(사진이 없는 운동용).
+IconData sportIcon(String exerciseId) => switch (exerciseId) {
+      'soccer' || 'futsal' => Icons.sports_soccer,
+      'basketball' => Icons.sports_basketball,
+      'swim' => Icons.pool,
+      'badminton' || 'tennis' || 'table_tennis' || 'squash' => Icons.sports_tennis,
+      'volleyball' => Icons.sports_volleyball,
+      'baseball' => Icons.sports_baseball,
+      'climbing' => Icons.terrain,
+      'boxing' => Icons.sports_mma,
+      'jiujitsu' => Icons.sports_kabaddi,
+      'golf' => Icons.sports_golf,
+      'ski' => Icons.downhill_skiing,
+      'dance' => Icons.music_note,
+      'hiking' || 'trail_run' => Icons.hiking,
+      'outdoor_bike' || 'bike' || 'spin' || 'recumbent' => Icons.directions_bike,
+      'outdoor_walk' || 'treadmill_walk' => Icons.directions_walk,
+      'stairs' || 'stair_run' => Icons.stairs,
+      'rowing' => Icons.rowing,
+      'jump_rope' => Icons.cable,
+      _ => Icons.directions_run,
+    };

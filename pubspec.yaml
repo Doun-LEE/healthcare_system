@@ -13,6 +13,7 @@ dependencies:
   firebase_core: ^5.0.0
   flutter:
     sdk: flutter
+  google_mlkit_text_recognition: ^0.17.1
   google_sign_in: ^7.2.0
   http: ^1.6.0
   image_picker: ^1.2.4

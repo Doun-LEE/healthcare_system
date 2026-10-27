@@ -69,3 +69,9 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+
+dependencies {
+    // 운동 기록 사진 글자 인식(기기 안, 오프라인) — 한국어 모델
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+}

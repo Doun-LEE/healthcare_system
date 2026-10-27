@@ -797,6 +797,7 @@ class PlannedExercise {
     this.pinned = false,
     this.skipMine = false,
     this.oneSide = false,
+    this.cardio,
   });
 
   final String exerciseId;
@@ -826,6 +827,9 @@ class PlannedExercise {
   /// 좌우 독립 머신에서 한쪽씩 하기(횟수는 좌우 각각).
   bool oneSide;
 
+  /// 유산소 세부 기록(거리·페이스·심박·케이던스 등). 워치·앱 기록 사진에서 읽어 온다.
+  CardioStats? cardio;
+
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
@@ -841,6 +845,7 @@ class PlannedExercise {
         if (pinned) 'pinned': true,
         if (skipMine) 'skipMine': true,
         if (oneSide) 'oneSide': true,
+        if (cardio != null && !cardio!.isEmpty) 'cardio': cardio!.toJson(),
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -857,6 +862,7 @@ class PlannedExercise {
         pinned: (j['pinned'] as bool?) ?? false,
         skipMine: (j['skipMine'] as bool?) ?? false,
         oneSide: (j['oneSide'] as bool?) ?? false,
+        cardio: j['cardio'] is Map ? CardioStats.fromJson((j['cardio'] as Map).cast<String, dynamic>()) : null,
       );
 }
 
@@ -1132,4 +1138,152 @@ class GroupMember {
   Map<String, dynamic> toJson() => {'u': uid, 'n': name};
 
   factory GroupMember.fromJson(Map<String, dynamic> j) => GroupMember(j['u'] as String, (j['n'] as String?) ?? '');
+}
+
+
+/// 유산소 한 번의 세부 기록. 모든 값은 없을 수 있다.
+class CardioStats {
+  CardioStats({
+    this.durationSec,
+    this.distanceKm,
+    this.activeKcal,
+    this.totalKcal,
+    this.avgHr,
+    this.maxHr,
+    this.paceSec,
+    this.cadence,
+    this.strideM,
+    this.contactMs,
+    this.powerW,
+    this.elevationM,
+    this.speedKmh,
+    this.effort,
+    List<CardioSplit>? splits,
+    this.source,
+  }) : splits = splits ?? [];
+
+  int? durationSec;
+  double? distanceKm;
+  int? activeKcal;
+  int? totalKcal;
+  int? avgHr;
+  int? maxHr;
+
+  /// 평균 페이스(초/km).
+  int? paceSec;
+
+  /// 평균 케이던스(spm, 분당 걸음 / 자전거는 rpm).
+  int? cadence;
+
+  /// 평균 보폭(m).
+  double? strideM;
+
+  /// 평균 지면 접촉 시간(ms).
+  int? contactMs;
+  int? powerW;
+
+  /// 오른 고도(m).
+  int? elevationM;
+
+  /// 평균 속도(km/h, 자전거 등).
+  double? speedKmh;
+
+  /// 운동 강도(1~10, 애플 워치 '운동 강도').
+  int? effort;
+  final List<CardioSplit> splits;
+
+  /// 어디서 왔는지(예: '사진 인식').
+  String? source;
+
+  bool get isEmpty =>
+      durationSec == null &&
+      distanceKm == null &&
+      activeKcal == null &&
+      totalKcal == null &&
+      avgHr == null &&
+      maxHr == null &&
+      paceSec == null &&
+      cadence == null &&
+      strideM == null &&
+      contactMs == null &&
+      powerW == null &&
+      elevationM == null &&
+      speedKmh == null &&
+      effort == null &&
+      splits.isEmpty;
+
+  /// 페이스가 없으면 거리·시간으로 계산.
+  int? get effectivePace {
+    if (paceSec != null) return paceSec;
+    final d = distanceKm, t = durationSec;
+    if (d == null || t == null || d <= 0) return null;
+    return (t / d).round();
+  }
+
+  Map<String, dynamic> toJson() => {
+        if (durationSec != null) 't': durationSec,
+        if (distanceKm != null) 'km': distanceKm,
+        if (activeKcal != null) 'ak': activeKcal,
+        if (totalKcal != null) 'tk': totalKcal,
+        if (avgHr != null) 'hr': avgHr,
+        if (maxHr != null) 'mhr': maxHr,
+        if (paceSec != null) 'p': paceSec,
+        if (cadence != null) 'c': cadence,
+        if (strideM != null) 'st': strideM,
+        if (contactMs != null) 'gc': contactMs,
+        if (powerW != null) 'w': powerW,
+        if (elevationM != null) 'el': elevationM,
+        if (speedKmh != null) 'v': speedKmh,
+        if (effort != null) 'ef': effort,
+        if (splits.isNotEmpty) 'sp': splits.map((e) => e.toJson()).toList(),
+        if (source != null) 'src': source,
+      };
+
+  static int? _i(Object? v) => v is num ? v.round() : null;
+  static double? _d(Object? v) => v is num ? v.toDouble() : null;
+
+  factory CardioStats.fromJson(Map<String, dynamic> j) => CardioStats(
+        durationSec: _i(j['t']),
+        distanceKm: _d(j['km']),
+        activeKcal: _i(j['ak']),
+        totalKcal: _i(j['tk']),
+        avgHr: _i(j['hr']),
+        maxHr: _i(j['mhr']),
+        paceSec: _i(j['p']),
+        cadence: _i(j['c']),
+        strideM: _d(j['st']),
+        contactMs: _i(j['gc']),
+        powerW: _i(j['w']),
+        elevationM: _i(j['el']),
+        speedKmh: _d(j['v']),
+        effort: _i(j['ef']),
+        splits: [
+          for (final e in (j['sp'] as List?) ?? const [])
+            if (e is Map) CardioSplit.fromJson(e.cast<String, dynamic>()),
+        ],
+        source: j['src'] as String?,
+      );
+}
+
+/// 구간(스플릿) 하나: 거리·시간·페이스·심박.
+class CardioSplit {
+  CardioSplit({this.distanceKm, this.sec, this.paceSec, this.hr});
+  final double? distanceKm;
+  final int? sec;
+  final int? paceSec;
+  final int? hr;
+
+  Map<String, dynamic> toJson() => {
+        if (distanceKm != null) 'km': distanceKm,
+        if (sec != null) 't': sec,
+        if (paceSec != null) 'p': paceSec,
+        if (hr != null) 'hr': hr,
+      };
+
+  factory CardioSplit.fromJson(Map<String, dynamic> j) => CardioSplit(
+        distanceKm: (j['km'] as num?)?.toDouble(),
+        sec: (j['t'] as num?)?.round(),
+        paceSec: (j['p'] as num?)?.round(),
+        hr: (j['hr'] as num?)?.round(),
+      );
 }

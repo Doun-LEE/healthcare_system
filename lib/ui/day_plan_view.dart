@@ -21,6 +21,8 @@ import 'widgets/exercise_sheet.dart';
 import 'widgets/rest_timer.dart';
 import 'widgets/set_editor.dart';
 import 'widgets/workout_card.dart';
+import 'widgets/workout_photo_sheet.dart';
+import '../services/workout_photo.dart';
 import 'widgets/app_sheet.dart';
 
 /// 공유 코드 붙여넣기 → 해당 날짜로 가져오기. 오늘/달력 화면에서 공용.
@@ -265,14 +267,18 @@ class DayPlanView extends StatelessWidget {
             child: Text('≡ 손잡이를 끌어 순서를 바꾸면 다음 루틴에도 그 순서가 반영돼요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ),
         if (editable && !plan.isFinished)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
+          Wrap(children: [
+            TextButton.icon(
               onPressed: () => addExerciseDialog(context, plan),
               icon: const Icon(Icons.add),
               label: Text(plan.partnerName != null ? '운동 추가 (나만 또는 같이)' : '운동 추가'),
             ),
-          ),
+            TextButton.icon(
+              onPressed: () => WorkoutPhotoSheet.show(context, plan),
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: const Text('기록 사진 읽기 (워치·러닝 앱)'),
+            ),
+          ]),
         if (plan.exercises.isEmpty)
           Padding(
             padding: const EdgeInsets.all(24),
@@ -1002,6 +1008,10 @@ class _ExerciseCard extends StatelessWidget {
                           await state.togglePin(plan, pe);
                         case 'oneSide':
                           await state.toggleOneSide(plan, pe);
+                        case 'photo':
+                          await WorkoutPhotoSheet.show(context, plan, target: pe);
+                        case 'clearCardio':
+                          await state.recordCardio(plan, ex, 0, CardioStats(), target: pe);
                         case 'up':
                           await state.moveExercise(plan, pe, -1);
                         case 'down':
@@ -1024,6 +1034,8 @@ class _ExerciseCard extends StatelessWidget {
                       if (pe.oneSide || (state.equipmentFor(plan, pe.equipmentType)?.independentSides ?? false))
                         PopupMenuItem(value: 'oneSide', child: Text(pe.oneSide ? '양쪽 같이 하기' : '한쪽씩 하기 (좌우 각각)')),
                       if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
+                      if (isCardio) const PopupMenuItem(value: 'photo', child: Text('📷 기록 사진으로 채우기')),
+                      if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) const PopupMenuItem(value: 'clearCardio', child: Text('세부 기록 지우기')),
                       const PopupMenuItem(value: 'up', child: Text('↑ 위로')),
                       const PopupMenuItem(value: 'down', child: Text('↓ 아래로')),
                       PopupMenuItem(value: 'swap', child: Text('다른 운동으로 교체')),
@@ -1055,6 +1067,7 @@ class _ExerciseCard extends StatelessWidget {
                 },
                 onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw, planning: editable && !logging),
               ),
+            if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) _CardioStatsLine(stats: pe.cardio!),
             if ((editable || logging) && !isCardio)
               Row(children: [
                 TextButton.icon(
@@ -1295,4 +1308,65 @@ Future<bool> confirmRebuildIfStarted(BuildContext context, DayPlan? plan) async 
     ),
   );
   return ok == true;
+}
+
+
+/// 유산소 세부 기록(거리·페이스·심박 등) 칩 + 스플릿 보기.
+class _CardioStatsLine extends StatelessWidget {
+  const _CardioStatsLine({required this.stats});
+  final CardioStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final chips = cardioStatChips(stats);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            for (final c in chips)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: cs.secondaryContainer, borderRadius: BorderRadius.circular(8)),
+                child: Text(c, style: text.bodySmall?.copyWith(color: cs.onSecondaryContainer, fontWeight: FontWeight.w600)),
+              ),
+          ],
+        ),
+        if (stats.splits.isNotEmpty)
+          TextButton(
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (c) => AlertDialog(
+                title: const Text('스플릿'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (var i = 0; i < stats.splits.length; i++)
+                        Row(children: [
+                          SizedBox(width: 28, child: Text('${i + 1}', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant))),
+                          Expanded(child: Text(stats.splits[i].distanceKm != null ? '${stats.splits[i].distanceKm!.toStringAsFixed(2)}km' : '1km')),
+                          Expanded(child: Text(stats.splits[i].sec == null ? '' : formatDuration(stats.splits[i].sec!))),
+                          Expanded(child: Text(stats.splits[i].paceSec == null ? '' : '${formatPace(stats.splits[i].paceSec!)}/km')),
+                          SizedBox(width: 60, child: Text(stats.splits[i].hr == null ? '' : '${stats.splits[i].hr}bpm', textAlign: TextAlign.right)),
+                        ]),
+                    ],
+                  ),
+                ),
+                actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기'))],
+              ),
+            ),
+            child: Text('스플릿 ${stats.splits.length}개 보기', style: text.bodySmall),
+          ),
+        if (stats.source != null)
+          Text(stats.source!, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 10)),
+      ]),
+    );
+  }
 }
