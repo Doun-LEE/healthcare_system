@@ -1174,6 +1174,41 @@ class AppState extends ChangeNotifier {
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return;
+
+    // 부위를 '추가'만 했으면(예: 전신에 유산소 추가) 짜 둔 루틴(파트너와 맞춘 것 포함)은 그대로 두고
+    // 새 부위 운동만 뒤에 붙인다. 통째로 다시 만드는 건 부위를 빼거나 바꿨을 때만.
+    final added = groups.where((g) => !existing!.focus.contains(g)).toList();
+    if (existing != null &&
+        !existing.isRest &&
+        existing.exercises.isNotEmpty &&
+        added.isNotEmpty &&
+        existing.focus.every(groups.contains)) {
+      _markCustom(existing);
+      final have = {for (final e in existing.exercises) e.exerciseId};
+      final extra = SessionGenerator(SessionRequest(
+        groups: added,
+        available: availableFor(existing),
+        progress: progress,
+        profile: u,
+        minutesBudget: max(20, (u.sessionMinutes * u.volumeBias).round() - existing.estimatedMinutes),
+        now: d,
+        equipmentMax: maxForPlan(existing),
+        equipmentStep: stepForPlan(existing),
+        seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
+        avoidIds: {..._neighborIds(d), ...have},
+      )).generate().where((e) => !e.warmup && !have.contains(e.exerciseId)).toList();
+      existing.exercises.addAll(extra);
+      existing.focus
+        ..clear()
+        ..addAll(groups);
+      existing.title = '${title ?? groups.map((g) => g.label).join('·')}${existing.partnerName != null ? ' · ${existing.partnerName}와 함께' : ''}';
+      existing.estimatedMinutes = SessionGenerator.estimateMinutes(existing.exercises);
+      await _save();
+      await resyncPartnerDay(existing);
+      if (shiftFollowing) await rebalanceAround(d);
+      return;
+    }
+
     final exercises = SessionGenerator(SessionRequest(
       groups: groups,
       available: availableFor(existing),

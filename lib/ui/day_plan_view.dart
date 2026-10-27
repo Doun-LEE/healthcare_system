@@ -1193,7 +1193,10 @@ class _ExerciseCard extends StatelessWidget {
             ),
             for (final p in picks)
               ListTile(
-                leading: Icon(Icons.auto_awesome, color: Theme.of(c).colorScheme.primary),
+                leading: Stack(clipBehavior: Clip.none, children: [
+                  ExerciseThumb(exerciseId: p.exercise.id, type: p.exercise.pickEquipment(available), size: 44),
+                  Positioned(right: -4, top: -4, child: Icon(Icons.auto_awesome, size: 16, color: Theme.of(c).colorScheme.primary)),
+                ]),
                 title: Text(p.exercise.name),
                 subtitle: Text(p.reasons.isEmpty ? p.exercise.emphasis.join(' · ') : p.reasons.join(' · ')),
                 trailing: Text(p.exercise.pickEquipment(available).label, style: Theme.of(c).textTheme.bodySmall),
@@ -1204,6 +1207,7 @@ class _ExerciseCard extends StatelessWidget {
           ],
           for (final e in options)
             ListTile(
+              leading: ExerciseThumb(exerciseId: e.id, type: e.pickEquipment(available), size: 44),
               title: Text(e.name),
               subtitle: Text(e.emphasis.join(' · ')),
               trailing: Text(e.pickEquipment(available).label,
