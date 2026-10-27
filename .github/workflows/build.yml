@@ -75,10 +75,20 @@ jobs:
           echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> "$GITHUB_ENV"
 
       - name: Build release APK
+        shell: bash
         run: |
+          # 실패하면 원인 줄을 annotation(로그인 없이 보임)으로 남긴다.
+          set +e
           flutter build apk --release \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }}
+            --build-number=${{ github.run_number }} 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" != "0" ]; then
+            grep -n -iE "error|exception|what went wrong|FAILURE|Could not|Unresolved|Duplicate|not found" build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            tail -n 60 build.log | while IFS= read -r l; do echo "::warning::$l"; done
+            exit "$rc"
+          fi
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/ldw_healthcare_system_${{ steps.ver.outputs.tag }}.apk"
 
