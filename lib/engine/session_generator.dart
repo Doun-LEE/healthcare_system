@@ -227,32 +227,37 @@ class SessionGenerator {
     for (final id in ids) {
       final ex = exerciseById(id);
       if (ex == null || !ex.canDoWith(req.available) || mainIds.contains(id)) continue;
-      final eq = ex.pickEquipment(req.available);
-      if (ex.loadType == LoadType.cardio) {
-        out.add(PlannedExercise(
-          exerciseId: id,
-          equipmentType: eq,
-          restSeconds: 0,
-          sets: [SetEntry(targetReps: ex.repRange[0], targetWeight: 0)],
-          note: '워밍업',
-          warmup: true,
-        ));
-        continue;
-      }
-      final base = _plan(ex);
-      final w = base.sets.first.targetWeight;
-      final step = req.stepFor(ex, eq);
-      final light = w > 0 ? max(step, LoadEstimator.roundTo(w * 0.5, step)) : 0.0;
-      out.add(PlannedExercise(
-        exerciseId: id,
-        equipmentType: eq,
-        restSeconds: 30,
-        sets: List.generate(2, (_) => SetEntry(targetReps: ex.repRange[1], targetWeight: light)),
-        note: '워밍업 · 가볍게',
-        warmup: true,
-      ));
+      out.add(planWarmup(ex));
     }
     return out;
+  }
+
+  /// 운동 하나를 워밍업으로 처방: 유산소는 짧게 1세트, 나머지는 작업 중량의 절반으로 2세트.
+  /// 워밍업 칸의 교체·추가에도 쓴다.
+  PlannedExercise planWarmup(Exercise ex) {
+    final eq = ex.pickEquipment(req.available);
+    if (ex.loadType == LoadType.cardio) {
+      return PlannedExercise(
+        exerciseId: ex.id,
+        equipmentType: eq,
+        restSeconds: 0,
+        sets: [SetEntry(targetReps: ex.repRange[0], targetWeight: 0)],
+        note: '워밍업',
+        warmup: true,
+      );
+    }
+    final base = _plan(ex);
+    final w = base.sets.first.targetWeight;
+    final step = req.stepFor(ex, eq);
+    final light = w > 0 ? max(step, LoadEstimator.roundTo(w * 0.5, step)) : 0.0;
+    return PlannedExercise(
+      exerciseId: ex.id,
+      equipmentType: eq,
+      restSeconds: 30,
+      sets: List.generate(2, (_) => SetEntry(targetReps: ex.repRange[1], targetWeight: light)),
+      note: '워밍업 · 가볍게',
+      warmup: true,
+    );
   }
 
   /// 운동 구역: 'upper'(웨이트 상체) · 'lower'(웨이트 하체) · 'abs' · 'cardio'.

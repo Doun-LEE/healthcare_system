@@ -1610,7 +1610,8 @@ class AppState extends ChangeNotifier {
       equipmentStep: stepForPlan(plan),
     ));
     // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
-    plan.exercises[i] = gen.planExercise(to);
+    // 워밍업 칸이었으면 바꾼 운동도 워밍업(가볍게)으로.
+    plan.exercises[i] = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
     await _save();
     await resyncPartnerDay(plan);
   }

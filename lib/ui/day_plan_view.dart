@@ -1146,10 +1146,32 @@ class _ExerciseCard extends StatelessWidget {
 
   Future<void> _swap(BuildContext context, AppState state, Exercise ex) async {
     final available = state.availableFor(plan);
-    final options = exercisesOf(ex.group)
-        .where((e) => e.id != ex.id && !e.warmupOnly && (ex.activity || !e.activity) && e.canDoWith(available))
-        .toList();
-    final picks = ex.activity
+    final List<Exercise> options;
+    if (pe.warmup) {
+      // 워밍업 칸: 부위에 상관없이 워밍업 전용 + 가볍게 할 수 있는 운동 전부.
+      // 오늘 부위의 활성화 운동 → 다른 워밍업 전용 → 나머지 순.
+      final todayGroups = {for (final e in plan.exercises) if (!e.warmup) e.effectiveGroup};
+      int rank(Exercise e) => e.warmupOnly
+          ? 0
+          : (todayGroups.contains(e.group) || e.altGroups.any(todayGroups.contains))
+              ? 1
+              : 2;
+      options = exerciseCatalog
+          .where((e) => e.id != ex.id && !e.activity && e.canDoWith(available))
+          .toList()
+        ..sort((a, b) => rank(a).compareTo(rank(b)));
+    } else {
+      // 주 부위가 같거나(보조 부위로 이 부위를 쓰는 운동 포함) 같은 역할의 운동.
+      options = exerciseCatalog
+          .where((e) =>
+              e.id != ex.id &&
+              (e.group == ex.group || e.altGroups.contains(ex.group)) &&
+              !e.warmupOnly &&
+              (ex.activity || !e.activity) &&
+              e.canDoWith(available))
+          .toList();
+    }
+    final picks = ex.activity || pe.warmup
         ? const <SwapPick>[]
         : recommendSwaps(plan.exercises, plan.exercises.indexOf(pe), available, recent: state.recentExerciseIds(plan.date));
     final chosen = await showAppSheet<Exercise>(
@@ -1159,7 +1181,7 @@ class _ExerciseCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
+            child: Text(pe.warmup ? '워밍업 교체 (가볍게 처방돼요)' : '${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
           ),
           if (picks.isNotEmpty) ...[
             Padding(

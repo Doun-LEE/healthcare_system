@@ -272,10 +272,10 @@ class _MonthGrid extends StatelessWidget {
             if (plan != null && !plan.isRest)
               Flexible(
                 child: Text(
-                  plan.focus.take(2).map((g) => g.label).join('·'),
-                  style: TextStyle(fontSize: 10, color: fg, decoration: plan.skipped ? TextDecoration.lineThrough : null),
+                  _focusLabel(plan),
+                  style: TextStyle(fontSize: plan.focus.length > 3 ? 8.5 : 10, height: 1.15, color: fg, decoration: plan.skipped ? TextDecoration.lineThrough : null),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: plan.skipped ? 1 : 2,
+                  maxLines: plan.skipped ? 1 : 3,
                 ),
               ),
             if (plan != null && plan.isRest)
@@ -391,4 +391,13 @@ class _DaySummary extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 달력 칸의 부위 글자: 전신(큰 부위 4개 이상)이면 '전신', 아니면 부위를 전부(복근·유산소는 뒤에) 보여준다.
+String _focusLabel(DayPlan plan) {
+  const minor = {MuscleGroup.abs, MuscleGroup.cardio};
+  final major = plan.focus.where((g) => !minor.contains(g)).toList();
+  if (major.length >= 4) return '전신';
+  final rest = plan.focus.where(minor.contains).map((g) => g.label);
+  return [...major.map((g) => g.label), ...rest].join('·');
 }
