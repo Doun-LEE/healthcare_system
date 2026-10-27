@@ -14,6 +14,7 @@ library;
 
 import 'dart:math';
 
+import '../data/body_model.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import 'load_estimator.dart';
@@ -36,7 +37,15 @@ class SessionRequest {
     this.cardioOverride,
     this.avoidIds = const {},
     this.pinned = const [],
+    this.recovery = const {},
+    this.boost = const {},
   });
+
+  /// 데이터 기반 첨삭: 근육별 회복 정도(0 = 방금 자극, 1 = 완전 회복). 비어 있으면 반영 안 함.
+  final Map<Muscle, double> recovery;
+
+  /// 최근 몇 주 자극이 부족한 근육. 이 근육을 주동근으로 쓰는 운동에 보너스.
+  final Set<Muscle> boost;
 
   /// 전날·전전날 한 운동(같은 자세·무게가 연일 겹치지 않게 피한다).
   final Set<String> avoidIds;
@@ -460,6 +469,15 @@ class SessionGenerator {
         score += 0.5;
       }
       score -= repeatPenalty;
+      // 데이터 기반 첨삭: 아직 회복 안 된 근육(70% 미만)을 주동근으로 쓰면 감점, 부족한 근육이면 가점.
+      if (req.recovery.isNotEmpty || req.boost.isNotEmpty) {
+        final mm = musclesFor(ex);
+        for (final m in mm.primary) {
+          final r = req.recovery[m];
+          if (r != null && r < 0.7) score -= (0.7 - r) * 8;
+          if (req.boost.contains(m)) score += 1.5;
+        }
+      }
       score += _rng.nextDouble() * 0.6; // 동점 깨기 + 약간의 변화
 
       if (score > bestScore) {
@@ -483,6 +501,13 @@ class SessionGenerator {
     var sets = LoadEstimator.setsFor(ex, level);
     if (req.intensityFactor < 0.95) {
       sets = max(2, (sets * req.intensityFactor).round());
+    }
+    // 데이터 기반 첨삭: 주동근이 60% 미만 회복이면 한 세트 줄이고 무게도 살짝 낮춘다.
+    var tired = false;
+    if (req.recovery.isNotEmpty) {
+      final mm = musclesFor(ex);
+      tired = mm.primary.any((m) => (req.recovery[m] ?? 1) < 0.6);
+      if (tired) sets = max(2, sets - 1);
     }
 
     final step = req.stepFor(ex, equipment);
@@ -522,8 +547,9 @@ class SessionGenerator {
         : prog.lastPerformed == null
             ? ex.emphasis.join(', ')
             : '마지막 수행 ${(req.now ?? DateTime.now()).difference(prog.lastPerformed!).inDays}일 전 · ${ex.emphasis.join(', ')}';
+    if (tired && weight > 0 && careful.isEmpty) weight = max(step > 0 ? step : 0.0, LoadEstimator.roundTo(weight * 0.9, step));
     final note = careful.isEmpty
-        ? baseNote
+        ? (tired ? '회복 중인 근육 · 세트 -1, 무게 90% · $baseNote' : baseNote)
         : '⚠ ${careful.map((i) => i.label).join('·')} 주의 · 가볍게, 3초 천천히 내리기, 아프면 바로 중단 · $baseNote';
 
     return PlannedExercise(

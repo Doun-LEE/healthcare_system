@@ -65,13 +65,17 @@ class WatchSummary {
 }
 
 class MuscleStats {
-  MuscleStats({required this.days, required this.sessions, required this.scores, required this.watch});
+  MuscleStats({required this.days, required this.sessions, required this.scores, required this.watch, this.firstAt});
   final int days;
+
+  /// 기간 안 첫 완료 세션 날짜(주당 계산을 기록 시작 시점부터 하기 위해).
+  final DateTime? firstAt;
   final int sessions;
   final Map<Muscle, MuscleScore> scores;
   final WatchSummary watch;
 
-  double get weeks => max(1, days) / 7;
+  /// 주 수: 기간 시작이 아니라 첫 세션부터 센다(막 시작한 사람이 전부 '부족'으로 뜨지 않게). 최소 1주.
+  double get weeks => max(7, days) / 7;
   double get maxScore => scores.values.fold(0, (a, s) => max(a, s.score));
 
   /// 점수 높은 순.
@@ -170,11 +174,17 @@ class MuscleStats {
       }
     }
 
+    DateTime? first;
+    for (final p in done) {
+      if (first == null || p.date.isBefore(first)) first = p.date;
+    }
+    final days = to.difference(from).inDays + 1;
     return MuscleStats(
-      days: to.difference(from).inDays + 1,
+      days: first == null ? days : to.difference(first).inDays + 1,
       sessions: done.length,
       scores: scores,
       watch: watch,
+      firstAt: first,
     );
   }
 }

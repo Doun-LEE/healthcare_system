@@ -266,6 +266,7 @@ class UserProfile {
     this.onboarded = true,
     this.dayStartHour = 4,
     this.restMode = 'shift',
+    this.autoAdjust = true,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
     Map<String, List<String>>? warmupByGroupIds,
@@ -318,6 +319,9 @@ class UserProfile {
   /// 갑자기 쉬게 된 날(또는 운동을 못 한 날) 처리: 'shift' 이후 루틴을 뒤로 밀어 다시 맞춤,
   /// 'keep' 정해진 날짜별 루틴을 그대로 유지(그 날만 '휴식' 표시).
   String restMode;
+
+  /// 데이터 기반 자동 첨삭: 루틴을 다시 짤 때 근육별 회복·부족을 반영한다.
+  bool autoAdjust;
 
   /// 운동 전 워밍업: 'auto'(그 날 부위에 맞춰), 'custom'(직접 고른 것), 'off'.
   String warmupMode;
@@ -383,6 +387,7 @@ class UserProfile {
         'onboarded': onboarded,
         'dayStartHour': dayStartHour,
         'restMode': restMode,
+        'autoAdjust': autoAdjust,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
         'warmupByGroupIds': warmupByGroupIds,
@@ -421,6 +426,7 @@ class UserProfile {
         onboarded: (j['onboarded'] as bool?) ?? true,
         dayStartHour: (j['dayStartHour'] as num?)?.toInt() ?? 4,
         restMode: (j['restMode'] as String?) ?? 'shift',
+        autoAdjust: (j['autoAdjust'] as bool?) ?? true,
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
         warmupByGroupIds: {

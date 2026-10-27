@@ -17,6 +17,8 @@ import 'dart:math';
 
 import '../data/catalog.dart';
 import '../models/models.dart';
+import '../data/body_model.dart';
+import 'muscle_stats.dart';
 import 'session_generator.dart';
 import 'splits.dart';
 
@@ -118,6 +120,45 @@ class Planner {
       }
     }
 
+    // 데이터 기반 첨삭: 근육(22개)별 마지막 자극 시각과 최근 4주 부족 근육.
+    final auto = input.profile.autoAdjust;
+    final lastMuscle = <Muscle, DateTime>{};
+    void noteMuscles(DayPlan p) {
+      final at = p.endedAt ?? p.finishedAt ?? p.date.add(const Duration(hours: 20));
+      for (final pe in p.exercises) {
+        if (pe.warmup) continue;
+        if (p.isFinished && !pe.sets.any((s) => s.completed)) continue;
+        final ex = exerciseById(pe.exerciseId);
+        if (ex == null) continue;
+        for (final m in musclesFor(ex).primary) {
+          if (lastMuscle[m] == null || at.isAfter(lastMuscle[m]!)) lastMuscle[m] = at;
+        }
+      }
+    }
+    final boost = <Muscle>{};
+    if (auto) {
+      for (final h in input.history) {
+        if (h.isRest || h.skipped || h.date.isAfter(input.to)) continue;
+        noteMuscles(h);
+      }
+      final recent = MuscleStats.compute(input.history, from: input.from.subtract(const Duration(days: 28)), to: input.from.subtract(const Duration(days: 1)));
+      if (recent.sessions >= 3) {
+        final byGroup = recent.byGroup;
+        for (final m in Muscle.values) {
+          // 그 부위는 하는데 이 근육만 빠지는 경우(주당 유효 2세트 미만)
+          if ((byGroup[m.group] ?? 0) > 0 && recent.weekly(m) < 2) boost.add(m);
+        }
+      }
+    }
+    Map<Muscle, double> recoveryAt(DateTime date) {
+      if (!auto) return const {};
+      final at = date.add(const Duration(hours: 18));
+      return {
+        for (final e in lastMuscle.entries)
+          e.key: (at.difference(e.value).inMinutes / 60 / restRules[e.key.group]!.recoveryHours).clamp(0.0, 1.0),
+      };
+    }
+
     // 사이클 위치: 이력에서 분할의 어느 날인지 알 수 있는 가장 최근 운동일을 찾아 이어간다.
     // (유산소만 한 날·파트너 전신 날·'+ 하체'처럼 덧붙은 제목 때문에 처음(가슴)으로 돌아가지 않게)
     var cycleIdx = 0;
@@ -175,6 +216,7 @@ class Planner {
           for (final g in fixedDay.focus) {
             lastTrained[g] = date;
           }
+          if (auto) noteMuscles(fixedDay);
           // 고정된 날이 분할의 어느 날과 같으면 사이클을 그 다음으로 넘긴다.
           final i = cycleIndexOf(fixedDay, cycle);
           if (i != null) cycleIdx = (i + 1) % cycle.length;
@@ -223,9 +265,22 @@ class Planner {
         equipmentMax: input.equipmentMax,
         equipmentStep: input.equipmentStep,
         seed: date.millisecondsSinceEpoch ~/ 86400000,
+        recovery: recoveryAt(date),
+        boost: boost,
       )).generate();
 
       idsByDay[key] = {for (final e in exercises) if (!e.warmup) e.exerciseId};
+      if (auto) {
+        final at = date.add(const Duration(hours: 20));
+        for (final e in exercises) {
+          if (e.warmup) continue;
+          final ex = exerciseById(e.exerciseId);
+          if (ex == null) continue;
+          for (final m in musclesFor(ex).primary) {
+            lastMuscle[m] = at;
+          }
+        }
+      }
       plans.add(DayPlan(
         id: input.newId(),
         userId: input.profile.id,
