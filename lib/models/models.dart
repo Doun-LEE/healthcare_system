@@ -272,6 +272,7 @@ class UserProfile {
     this.splitDays = 3,
     this.sessionMinutes = 120,
     this.includeCardio = true,
+    this.cardioOnLegDays = false,
     this.startWith = 'auto',
     this.volumeBias = 1.0,
     List<String>? sectionOrder,
@@ -334,6 +335,9 @@ class UserProfile {
   int sessionMinutes;
   bool includeCardio;
 
+  /// 하체 날에도 유산소를 붙일지(기본은 회복 우선으로 뺀다).
+  bool cardioOnLegDays;
+
   /// 운동 시작 순서: 'auto'(복합→고립→복근→유산소) | 'weights' | 'cardio' | 'abs'.
   String startWith;
 
@@ -385,6 +389,7 @@ class UserProfile {
         'splitDays': splitDays,
         'sessionMinutes': sessionMinutes,
         'includeCardio': includeCardio,
+        'cardioOnLegDays': cardioOnLegDays,
         'startWith': startWith,
         'volumeBias': volumeBias,
         'sectionOrder': sectionOrder,
@@ -425,6 +430,7 @@ class UserProfile {
         splitDays: j['splitDays'] as int,
         sessionMinutes: j['sessionMinutes'] as int,
         includeCardio: j['includeCardio'] as bool,
+        cardioOnLegDays: (j['cardioOnLegDays'] as bool?) ?? false,
         startWith: (j['startWith'] as String?) ?? 'auto',
         volumeBias: (j['volumeBias'] as num?)?.toDouble() ?? 1.0,
         sectionOrder: (j['sectionOrder'] as List?)?.cast<String>() ??

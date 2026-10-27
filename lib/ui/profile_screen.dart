@@ -199,9 +199,18 @@ class ProfileScreen extends StatelessWidget {
               value: u.includeCardio,
               contentPadding: EdgeInsets.zero,
               title: const Text('유산소 포함'),
-              subtitle: const Text('하체 날을 제외하고 세션에 10~20분 추가'),
+              subtitle: const Text('세션 끝에 10~20분 추가(감량 목표면 30분까지)'),
               onChanged: (v) => _edit(state, (p) => p.includeCardio = v),
             ),
+            if (u.includeCardio)
+              SwitchListTile(
+                value: u.cardioOnLegDays,
+                contentPadding: const EdgeInsets.only(left: 16),
+                dense: true,
+                title: const Text('하체 날에도 유산소'),
+                subtitle: const Text('끄면 하체 날은 회복을 위해 유산소를 뺍니다'),
+                onChanged: (v) => _edit(state, (p) => p.cardioOnLegDays = v),
+              ),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(

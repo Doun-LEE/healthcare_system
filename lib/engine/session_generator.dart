@@ -204,7 +204,17 @@ class SessionGenerator {
     if (p.warmupMode == 'off' || groups.isEmpty) return const [];
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final ids = <String>[];
-    final perGroup = [for (final g in groups) ...?p.warmupByGroupIds[g.name]];
+    // 부위별로 고른 워밍업은 그 헬스장에서 할 수 있는 것만 남기고, 매번 다르게 1~2개를 뽑는다.
+    final rnd = Random(req.seed ?? (req.now ?? DateTime.now()).millisecondsSinceEpoch ~/ 86400000);
+    final perGroup = <String>[];
+    for (final g in groups) {
+      final cand = [
+        for (final id in p.warmupByGroupIds[g.name] ?? const <String>[])
+          if (exerciseById(id) case final ex?)
+            if (ex.canDoWith(req.available) && !mainIds.contains(id) && !excludedByInjury(ex, req.injuries)) id,
+      ]..shuffle(rnd);
+      perGroup.addAll(cand.take(cand.length >= 2 ? 2 : cand.length));
+    }
     if (p.warmupMode == 'custom' && (p.warmupIds.isNotEmpty || perGroup.isNotEmpty)) {
       for (final id in [...p.warmupIds, ...perGroup]) {
         if (!ids.contains(id)) ids.add(id);
@@ -338,8 +348,8 @@ class SessionGenerator {
   }
 
   bool _shouldAppendCardio(List<MuscleGroup> groups) =>
-      // 하체 날엔 유산소를 붙이지 않는다(회복 우선). 그 외엔 붙인다.
-      !groups.contains(MuscleGroup.legs);
+      // 하체 날엔 기본적으로 유산소를 붙이지 않는다(회복 우선). 프로필에서 켜면 하체 날에도 붙인다.
+      !groups.contains(MuscleGroup.legs) || req.profile.cardioOnLegDays;
 
   static int _exercisesPerGroup(int groupCount) => switch (groupCount) {
         <= 1 => 5,
