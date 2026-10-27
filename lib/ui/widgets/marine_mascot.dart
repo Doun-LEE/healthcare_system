@@ -70,156 +70,234 @@ class _MarinePainter extends CustomPainter {
     final line = Paint()
       ..color = _line
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 3
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
+    final thin = Paint()
+      ..color = _line
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.7
+      ..strokeCap = StrokeCap.round;
     final skin = Paint()..color = _skin;
     final shade = Paint()..color = _skinDark;
+    final vein = Paint()
+      ..color = const Color(0xFF8E5A3A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3
+      ..strokeCap = StrokeCap.round;
 
-    // 팔(기분별). 내린 팔은 몸 뒤.
-    void arm(Offset c, double deg, {double len = 30}) {
+    // 팔: 굵고 각진 상완 + 이두 덩어리 + 핏줄. 내린 팔은 몸 뒤.
+    void arm(Offset c, double deg, {double len = 32}) {
       canvas.save();
       canvas.translate(c.dx, c.dy);
       canvas.rotate(deg * math.pi / 180);
-      final r = Rect.fromCenter(center: Offset.zero, width: 15, height: len);
-      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), skin);
-      // 이두 볼록
-      canvas.drawOval(Rect.fromCenter(center: Offset(0, -len * 0.18), width: 13, height: len * 0.42), shade);
-      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), line);
+      final r = Rect.fromCenter(center: Offset.zero, width: 19, height: len);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(7)), skin);
+      canvas.drawOval(Rect.fromCenter(center: Offset(-1, -len * 0.16), width: 16, height: len * 0.46), shade);
+      canvas.drawOval(Rect.fromCenter(center: Offset(-2, -len * 0.2), width: 10, height: len * 0.28), skin);
+      final v = Path()
+        ..moveTo(3, len * 0.05)
+        ..lineTo(1, len * 0.18)
+        ..lineTo(4, len * 0.3)
+        ..lineTo(2, len * 0.42);
+      canvas.drawPath(v, vein);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(7)), line);
       canvas.restore();
     }
     final raised = mood == MascotMood.cheer || mood == MascotMood.flex;
     if (!raised) {
-      arm(const Offset(12, 74), 12);
-      arm(const Offset(88, 74), -12);
+      arm(const Offset(9, 74), 10);
+      arm(const Offset(91, 74), -10);
     } else if (mood == MascotMood.flex) {
-      arm(const Offset(12, 74), 12);
+      arm(const Offset(9, 74), 10);
     }
 
-    // 반바지
+    // 반바지(허리띠 포함)
     final shorts = Path()
-      ..moveTo(24, 84)
-      ..lineTo(76, 84)
-      ..lineTo(80, 100)
-      ..lineTo(20, 100)
+      ..moveTo(22, 84)
+      ..lineTo(78, 84)
+      ..lineTo(82, 100)
+      ..lineTo(18, 100)
       ..close();
     canvas.drawPath(shorts, Paint()..color = _shorts);
+    canvas.drawRect(const Rect.fromLTWH(22, 84, 56, 4), Paint()..color = _line);
     canvas.drawPath(shorts, line);
 
-    // 몸통: 넓은 어깨 → 좁은 허리
+    // 몸통: 승모근이 목까지 솟고, 어깨는 각지게, 허리는 좁게.
     final torso = Path()
-      ..moveTo(14, 52)
-      ..cubicTo(30, 44, 70, 44, 86, 52)
-      ..lineTo(76, 86)
-      ..lineTo(24, 86)
+      ..moveTo(8, 56)
+      ..lineTo(22, 46)
+      ..lineTo(42, 40)
+      ..lineTo(58, 40)
+      ..lineTo(78, 46)
+      ..lineTo(92, 56)
+      ..lineTo(80, 86)
+      ..lineTo(20, 86)
       ..close();
     canvas.drawPath(torso, skin);
-    // 가슴·복근 음영
-    canvas.drawArc(const Rect.fromLTWH(27, 52, 22, 16), math.pi, math.pi, false, line..strokeWidth = 1.8);
-    canvas.drawArc(const Rect.fromLTWH(51, 52, 22, 16), math.pi, math.pi, false, line);
-    canvas.drawLine(const Offset(50, 60), const Offset(50, 82), line);
-    for (final y in [68.0, 75.0]) {
-      canvas.drawLine(Offset(38, y), Offset(47, y + 1), line);
-      canvas.drawLine(Offset(53, y + 1), Offset(62, y), line);
+    // 가슴: 각진 판 두 장
+    final pecL = Path()
+      ..moveTo(24, 52)
+      ..lineTo(48, 52)
+      ..lineTo(48, 64)
+      ..lineTo(30, 66)
+      ..close();
+    final pecR = Path()
+      ..moveTo(52, 52)
+      ..lineTo(76, 52)
+      ..lineTo(70, 66)
+      ..lineTo(52, 64)
+      ..close();
+    canvas.drawPath(pecL, shade);
+    canvas.drawPath(pecR, shade);
+    canvas.drawPath(pecL, thin);
+    canvas.drawPath(pecR, thin);
+    // 복근 6칸 + 옆구리
+    canvas.drawLine(const Offset(50, 64), const Offset(50, 84), line);
+    for (final y in [70.0, 77.0]) {
+      canvas.drawLine(Offset(37, y), Offset(48, y + 1), thin);
+      canvas.drawLine(Offset(52, y + 1), Offset(63, y), thin);
     }
-    line.strokeWidth = 2.2;
+    canvas.drawLine(const Offset(36, 64), const Offset(35, 84), thin);
+    canvas.drawLine(const Offset(64, 64), const Offset(65, 84), thin);
+    canvas.drawLine(const Offset(26, 70), const Offset(32, 80), vein);
+    canvas.drawLine(const Offset(74, 70), const Offset(68, 80), vein);
+    // 승모근 선
+    canvas.drawLine(const Offset(22, 46), const Offset(36, 52), thin);
+    canvas.drawLine(const Offset(78, 46), const Offset(64, 52), thin);
     canvas.drawPath(torso, line);
 
     // 군번줄
     final chain = Path()
-      ..moveTo(40, 50)
-      ..quadraticBezierTo(50, 62, 60, 50);
-    canvas.drawPath(chain, Paint()..color = const Color(0xFF8E9BA6)..style = PaintingStyle.stroke..strokeWidth = 1.4);
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(47, 56, 6, 8), const Radius.circular(1.5)), Paint()..color = const Color(0xFFC9D3DC));
+      ..moveTo(41, 46)
+      ..quadraticBezierTo(50, 60, 59, 46);
+    canvas.drawPath(chain, Paint()..color = const Color(0xFF8E9BA6)..style = PaintingStyle.stroke..strokeWidth = 1.6);
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(47, 55, 6, 9), const Radius.circular(1.5)), Paint()..color = const Color(0xFFC9D3DC));
+    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(47, 55, 6, 9), const Radius.circular(1.5)), thin);
 
     // 올린 팔(몸 앞)
     if (mood == MascotMood.cheer) {
-      arm(const Offset(14, 52), 150, len: 32);
-      arm(const Offset(86, 52), -150, len: 32);
+      arm(const Offset(12, 50), 150, len: 34);
+      arm(const Offset(88, 50), -150, len: 34);
     } else if (mood == MascotMood.flex) {
-      arm(const Offset(86, 52), -150, len: 32);
+      arm(const Offset(88, 50), -150, len: 34);
     }
 
-    // 목·머리
-    canvas.drawRect(const Rect.fromLTWH(44, 40, 12, 10), skin);
-    final head = RRect.fromRectAndRadius(const Rect.fromLTWH(35, 20, 30, 26), const Radius.circular(9));
-    canvas.drawRRect(head, skin);
-    canvas.drawRRect(head, line);
-    // 턱선 그림자
-    canvas.drawArc(const Rect.fromLTWH(38, 30, 24, 16), 0.3, math.pi - 0.6, false, Paint()..color = _skinDark..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    // 목·머리: 각진 턱
+    canvas.drawRect(const Rect.fromLTWH(43, 36, 14, 10), skin);
+    canvas.drawLine(const Offset(45, 38), const Offset(45, 45), vein);
+    final head = Path()
+      ..moveTo(34, 20)
+      ..lineTo(66, 20)
+      ..lineTo(66, 36)
+      ..lineTo(60, 46)
+      ..lineTo(40, 46)
+      ..lineTo(34, 36)
+      ..close();
+    canvas.drawPath(head, skin);
+    // 수염 자국·흉터
+    final stub = Paint()..color = _skinDark.withValues(alpha: 0.55);
+    for (final p in const [Offset(39, 40), Offset(43, 43), Offset(47, 44), Offset(53, 44), Offset(57, 43), Offset(61, 40), Offset(41, 37), Offset(59, 37)]) {
+      canvas.drawCircle(p, 0.9, stub);
+    }
+    canvas.drawLine(const Offset(60, 23), const Offset(63, 30), thin);
+    canvas.drawLine(const Offset(60, 26), const Offset(63, 26), thin);
+    canvas.drawPath(head, line);
 
-    // 선글라스
+    // 선글라스(각진)
     final glass = Paint()..color = _line;
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(37, 29, 12, 7), const Radius.circular(2)), glass);
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(51, 29, 12, 7), const Radius.circular(2)), glass);
-    canvas.drawLine(const Offset(49, 32), const Offset(51, 32), line);
-    // 렌즈 반사
+    canvas.drawRect(const Rect.fromLTWH(36, 28, 12, 7), glass);
+    canvas.drawRect(const Rect.fromLTWH(52, 28, 12, 7), glass);
+    canvas.drawLine(const Offset(48, 31), const Offset(52, 31), line);
     final gleam = Paint()..color = Colors.white.withValues(alpha: 0.35)..strokeWidth = 1.2;
-    canvas.drawLine(const Offset(39, 31), const Offset(42, 31), gleam);
-    canvas.drawLine(const Offset(53, 31), const Offset(56, 31), gleam);
+    canvas.drawLine(const Offset(38, 30), const Offset(42, 30), gleam);
+    canvas.drawLine(const Offset(54, 30), const Offset(58, 30), gleam);
+    // 찡그린 눈썹
+    canvas.drawLine(const Offset(37, 26), const Offset(47, 27.5), line);
+    canvas.drawLine(const Offset(63, 26), const Offset(53, 27.5), line);
 
     // 입
     switch (mood) {
       case MascotMood.happy:
-        canvas.drawLine(const Offset(44, 41), const Offset(56, 41), line);
       case MascotMood.flex:
-        final m = Path()
-          ..moveTo(44, 41)
-          ..quadraticBezierTo(50, 44, 56, 41);
-        canvas.drawPath(m, line);
+        // 이 악문 입: 가로 사각 + 이빨 선
+        canvas.drawRect(const Rect.fromLTWH(43, 39, 14, 4), Paint()..color = Colors.white);
+        canvas.drawRect(const Rect.fromLTWH(43, 39, 14, 4), thin);
+        for (final x in [46.5, 50.0, 53.5]) {
+          canvas.drawLine(Offset(x, 39), Offset(x, 43), thin);
+        }
       case MascotMood.cheer:
-        final mouth = Rect.fromCenter(center: const Offset(50, 41), width: 11, height: 7);
-        canvas.drawOval(mouth, Paint()..color = const Color(0xFF7A1E1E));
-        canvas.drawOval(mouth, line);
+        final mouth = Path()
+          ..moveTo(42, 38)
+          ..lineTo(58, 38)
+          ..lineTo(55, 45)
+          ..lineTo(45, 45)
+          ..close();
+        canvas.drawPath(mouth, Paint()..color = const Color(0xFF6E1414));
+        canvas.drawRect(const Rect.fromLTWH(43, 38, 14, 2.2), Paint()..color = Colors.white);
+        canvas.drawPath(mouth, line);
       case MascotMood.tired:
         final m = Path()
-          ..moveTo(44, 42)
-          ..quadraticBezierTo(50, 38, 56, 42);
+          ..moveTo(43, 43)
+          ..lineTo(50, 39)
+          ..lineTo(57, 43);
         canvas.drawPath(m, line);
       case MascotMood.sleep:
-        canvas.drawOval(Rect.fromCenter(center: const Offset(50, 41), width: 5, height: 4), line);
+        canvas.drawLine(const Offset(44, 41), const Offset(56, 41), line);
     }
 
-    // 팔각모: 윗면 팔각형 + 챙, 앞에 빨간 명찰 조각
+    // 팔각모: 높은 팔각 크라운 + 챙 + 빨간 명찰 조각
     final cap = Path()
-      ..moveTo(31, 22)
-      ..lineTo(36, 10)
-      ..lineTo(64, 10)
-      ..lineTo(69, 22)
+      ..moveTo(30, 21)
+      ..lineTo(33, 12)
+      ..lineTo(40, 6)
+      ..lineTo(60, 6)
+      ..lineTo(67, 12)
+      ..lineTo(70, 21)
       ..close();
     canvas.drawPath(cap, Paint()..color = _camo);
-    // 위장 무늬
     final patch = Paint()..color = _camoDark;
-    canvas.drawOval(const Rect.fromLTWH(38, 12, 9, 5), patch);
-    canvas.drawOval(const Rect.fromLTWH(54, 15, 8, 4), patch);
-    canvas.drawOval(const Rect.fromLTWH(45, 17, 6, 3), patch);
+    for (final r in const [Rect.fromLTWH(36, 9, 10, 4), Rect.fromLTWH(52, 13, 9, 4), Rect.fromLTWH(44, 15, 6, 3), Rect.fromLTWH(58, 8, 6, 3)]) {
+      canvas.drawOval(r, patch);
+    }
+    // 크라운 각 선
+    canvas.drawLine(const Offset(40, 6), const Offset(42, 20), thin);
+    canvas.drawLine(const Offset(60, 6), const Offset(58, 20), thin);
     canvas.drawPath(cap, line);
-    canvas.drawRect(const Rect.fromLTWH(29, 21, 42, 4), Paint()..color = _camoDark);
-    canvas.drawRect(const Rect.fromLTWH(29, 21, 42, 4), line);
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(45, 13, 10, 5), const Radius.circular(1)), Paint()..color = accent);
-    canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(45, 13, 10, 5), const Radius.circular(1)), Paint()..color = gold..style = PaintingStyle.stroke..strokeWidth = 1);
+    canvas.drawRect(const Rect.fromLTWH(28, 20, 44, 5), Paint()..color = _camoDark);
+    canvas.drawRect(const Rect.fromLTWH(28, 20, 44, 5), line);
+    canvas.drawRect(const Rect.fromLTWH(45, 11, 10, 5), Paint()..color = accent);
+    canvas.drawRect(const Rect.fromLTWH(45, 11, 10, 5), Paint()..color = gold..style = PaintingStyle.stroke..strokeWidth = 1.2);
 
     // 장식
     switch (mood) {
       case MascotMood.cheer:
         final tp = TextPainter(
-          text: TextSpan(text: '악!', style: TextStyle(color: accent, fontSize: 16, fontWeight: FontWeight.w900)),
+          text: TextSpan(text: '악!!', style: TextStyle(color: accent, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -1)),
           textDirection: TextDirection.ltr,
         )..layout();
-        tp.paint(canvas, const Offset(72, 6));
+        tp.paint(canvas, const Offset(66, 0));
+        // 기합 선
+        for (final a in [-0.9, -0.5, -0.1]) {
+          final p1 = Offset(64 + math.cos(a) * 8, 14 + math.sin(a) * 8);
+          final p2 = Offset(64 + math.cos(a) * 14, 14 + math.sin(a) * 14);
+          canvas.drawLine(p1, p2, Paint()..color = accent..strokeWidth = 2..strokeCap = StrokeCap.round);
+        }
       case MascotMood.tired:
-        final drop = Path()
-          ..moveTo(68, 24)
-          ..quadraticBezierTo(73, 32, 68, 34)
-          ..quadraticBezierTo(63, 32, 68, 24)
-          ..close();
-        canvas.drawPath(drop, Paint()..color = const Color(0xFF7FB8F2));
+        for (final o in const [Offset(69, 23), Offset(31, 30)]) {
+          final drop = Path()
+            ..moveTo(o.dx, o.dy)
+            ..quadraticBezierTo(o.dx + 5, o.dy + 8, o.dx, o.dy + 10)
+            ..quadraticBezierTo(o.dx - 5, o.dy + 8, o.dx, o.dy)
+            ..close();
+          canvas.drawPath(drop, Paint()..color = const Color(0xFF7FB8F2));
+        }
       case MascotMood.sleep:
         final tp = TextPainter(
-          text: const TextSpan(text: 'zZ', style: TextStyle(color: _line, fontSize: 12, fontWeight: FontWeight.w700)),
+          text: const TextSpan(text: 'zZ', style: TextStyle(color: _line, fontSize: 13, fontWeight: FontWeight.w900)),
           textDirection: TextDirection.ltr,
         )..layout();
-        tp.paint(canvas, const Offset(70, 8));
+        tp.paint(canvas, const Offset(70, 4));
       case MascotMood.happy:
       case MascotMood.flex:
         break;
