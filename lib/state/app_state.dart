@@ -1307,7 +1307,36 @@ class AppState extends ChangeNotifier {
       partner: partner,
       request: request,
     );
-    return AiCoach.generate(ctx);
+    if (aiRemaining('coach') <= 0) {
+      throw AiCoachException('오늘 AI 코치 한도(${aiDailyLimit['coach']}회)를 다 썼어요. 내일 다시 쓸 수 있어요. 그동안은 자동 루틴·운동 교체를 써 주세요.');
+    }
+    final plan = await AiCoach.generate(ctx);
+    await consumeAi('coach');
+    return plan;
+  }
+
+  // ───────── AI 호출 한도(비용 상한) ─────────
+
+  /// 하루 한도: AI 코치 5회, 사진 기록 AI 보충 8회.
+  static const aiDailyLimit = {'coach': 5, 'photo': 8};
+
+  String _aiKey(String kind) => '${dateKey(today)}|$kind';
+
+  int aiRemaining(String kind) {
+    final u = currentUser;
+    if (u == null) return 0;
+    return (aiDailyLimit[kind] ?? 0) - (u.aiUsage[_aiKey(kind)] ?? 0);
+  }
+
+  Future<void> consumeAi(String kind) async {
+    final u = currentUser;
+    if (u == null) return;
+    final k = _aiKey(kind);
+    u.aiUsage[k] = (u.aiUsage[k] ?? 0) + 1;
+    // 7일 지난 기록은 정리
+    final cutoff = dateKey(today.subtract(const Duration(days: 7)));
+    u.aiUsage.removeWhere((key, _) => key.split('|').first.compareTo(cutoff) < 0);
+    await _save();
   }
 
   Future<DayPlan?> applyAiPlan(DateTime date, AiPlan ai) async {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'core/store_io.dart' if (dart.library.js_interop) 'core/store_web.dart';
 import 'firebase_options.dart';
 import 'services/cloud_sync.dart';
+import 'services/error_report.dart';
 import 'state/app_state.dart';
 import 'ui/app_theme.dart';
 import 'ui/home_shell.dart';
@@ -17,6 +18,8 @@ Future<void> main() async {
   } catch (e) {
     CloudSync.initError = e.toString();
   }
+  // 잡히지 않은 오류를 Firestore errors/ 에 남긴다(로그인한 사용자만, 세션당 최대 8건).
+  if (CloudSync.isConfigured) await ErrorReport.install();
   final state = AppState(await createStore());
   await state.load();
   runApp(FitRoutineApp(state: state));

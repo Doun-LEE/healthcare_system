@@ -69,9 +69,15 @@ class _BodyState extends State<_Body> {
       _result = null;
     });
     try {
-      final r = await WorkoutPhotoReader.read(widget.images, onStep: (s) {
-        if (mounted) setState(() => _step = s);
-      });
+      final state = context.read<AppState>();
+      final r = await WorkoutPhotoReader.read(
+        widget.images,
+        onStep: (s) {
+          if (mounted) setState(() => _step = s);
+        },
+        allowAi: state.aiRemaining('photo') > 0,
+        onAiUsed: () => state.consumeAi('photo'),
+      );
       if (!mounted) return;
       setState(() {
         _result = r;

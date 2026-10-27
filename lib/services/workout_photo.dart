@@ -25,7 +25,9 @@ class WorkoutImage {
 
 class WorkoutPhotoReader {
   /// 사진을 읽는다. 어느 방법으로도 못 읽으면 [AiCoachException].
-  static Future<PhotoWorkout> read(List<WorkoutImage> images, {void Function(String)? onStep, DateTime? today}) async {
+  /// [allowAi]가 false 면(오늘 AI 한도 소진) 기기 인식만 쓴다. AI 를 실제로 썼으면 [onAiUsed]를 부른다.
+  static Future<PhotoWorkout> read(List<WorkoutImage> images,
+      {void Function(String)? onStep, DateTime? today, bool allowAi = true, void Function()? onAiUsed}) async {
     if (images.isEmpty) throw AiCoachException('사진을 골라 주세요.');
 
     PhotoWorkout? local;
@@ -43,10 +45,15 @@ class WorkoutPhotoReader {
     }
     if (local != null && local.usable) return local;
 
+    if (!allowAi) {
+      if (local != null && !local.stats.isEmpty) return local;
+      throw AiCoachException('기기에서 시간·거리를 찾지 못했고, 오늘 AI 보충 한도를 다 써서 AI 는 쓸 수 없어요. 숫자가 크게 보이는 요약 화면을 캡처해 다시 시도하거나 직접 입력하세요.');
+    }
     onStep?.call('AI로 사진 읽는 중…');
     PhotoWorkout ai;
     try {
       ai = await _gemini(images);
+      onAiUsed?.call();
     } on AiCoachException catch (e) {
       if (local != null && !local.stats.isEmpty) return local; // 뭔가는 읽었으니 그걸로
       throw AiCoachException(

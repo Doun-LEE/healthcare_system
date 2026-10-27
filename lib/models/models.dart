@@ -267,6 +267,7 @@ class UserProfile {
     this.dayStartHour = 4,
     this.restMode = 'shift',
     this.autoAdjust = true,
+    Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
     Map<String, List<String>>? warmupByGroupIds,
@@ -295,6 +296,7 @@ class UserProfile {
         exerciseRank = exerciseRank ?? {},
         groupRank = groupRank ?? {},
         warmupIds = warmupIds ?? [],
+        aiUsage = aiUsage ?? {},
         warmupByGroupIds = warmupByGroupIds ?? {};
 
   final String id;
@@ -322,6 +324,9 @@ class UserProfile {
 
   /// 데이터 기반 자동 첨삭: 루틴을 다시 짤 때 근육별 회복·부족을 반영한다.
   bool autoAdjust;
+
+  /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
+  final Map<String, int> aiUsage;
 
   /// 운동 전 워밍업: 'auto'(그 날 부위에 맞춰), 'custom'(직접 고른 것), 'off'.
   String warmupMode;
@@ -388,6 +393,7 @@ class UserProfile {
         'dayStartHour': dayStartHour,
         'restMode': restMode,
         'autoAdjust': autoAdjust,
+        if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
         'warmupByGroupIds': warmupByGroupIds,
@@ -427,6 +433,7 @@ class UserProfile {
         dayStartHour: (j['dayStartHour'] as num?)?.toInt() ?? 4,
         restMode: (j['restMode'] as String?) ?? 'shift',
         autoAdjust: (j['autoAdjust'] as bool?) ?? true,
+        aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
         warmupByGroupIds: {
