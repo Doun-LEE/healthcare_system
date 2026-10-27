@@ -216,22 +216,42 @@ class SessionGenerator {
     final p = req.profile;
     if (p.warmupMode == 'off' || groups.isEmpty) return const [];
     final mainIds = main.map((e) => e.exerciseId).toSet();
+    final mainNames = [for (final e in main) exerciseById(e.exerciseId)?.name ?? ''];
+    // 본 운동과 같은 계열(풀업 ↔ 어시스트 풀업, 벤치 ↔ 덤벨 벤치 등)은 워밍업으로 넣지 않는다.
+    bool sameFamily(Exercise ex) {
+      if (mainIds.contains(ex.id)) return true;
+      for (final id in mainIds) {
+        if (id.contains(ex.id) || ex.id.contains(id)) return true;
+      }
+      for (final n in mainNames) {
+        if (n.isNotEmpty && (n.contains(ex.name) || ex.name.contains(n))) return true;
+      }
+      return false;
+    }
     final ids = <String>[];
-    // 부위별 워밍업은 그 날 부위를 다 하지 않는다. 총 운동 시간에 비례해 몇 부위만(30분당 1부위, 1~4개)
-    // 랜덤으로 고르되 전날 안 한 부위를 먼저. 고른 부위에서 그 헬스장에서 할 수 있는 것만 1~2개 뽑는다.
+    // 활성화 워밍업은 그 날 부위를 다 하지 않는다. 총 운동 시간에 맞춰 몇 개만(40분당 1개, 1~3개):
+    // 부위는 랜덤이되 전날 안 한 부위를 먼저, 부위마다 1개씩 돌아가며 뽑는다.
     final rnd = Random(req.seed ?? (req.now ?? DateTime.now()).millisecondsSinceEpoch ~/ 86400000);
-    final slots = (req.minutesBudget / 30).round().clamp(1, 4);
+    final cap = (req.minutesBudget / 40).round().clamp(1, 3);
     final major = groups.where((g) => g != MuscleGroup.cardio).toList()..shuffle(rnd);
     major.sort((a, b) => (req.yesterdayGroups.contains(a) ? 1 : 0) - (req.yesterdayGroups.contains(b) ? 1 : 0));
-    final chosenGroups = major.take(slots).toList();
+    final chosenGroups = major.take(cap).toList();
     final perGroup = <String>[];
-    for (final g in chosenGroups) {
-      final cand = [
-        for (final id in p.warmupByGroupIds[g.name] ?? const <String>[])
-          if (exerciseById(id) case final ex?)
-            if (ex.canDoWith(req.available) && !mainIds.contains(id) && !excludedByInjury(ex, req.injuries)) id,
-      ]..shuffle(rnd);
-      perGroup.addAll(cand.take(cand.length >= 2 ? 2 : cand.length));
+    final pools = [
+      for (final g in chosenGroups)
+        [
+          for (final id in p.warmupByGroupIds[g.name] ?? const <String>[])
+            if (exerciseById(id) case final ex?)
+              if (ex.canDoWith(req.available) && !sameFamily(ex) && !excludedByInjury(ex, req.injuries)) id,
+        ]..shuffle(rnd),
+    ];
+    var round = 0;
+    while (perGroup.length < cap && pools.any((q) => q.length > round)) {
+      for (final q in pools) {
+        if (perGroup.length >= cap) break;
+        if (q.length > round && !perGroup.contains(q[round])) perGroup.add(q[round]);
+      }
+      round++;
     }
     if (p.warmupMode == 'custom' && (p.warmupIds.isNotEmpty || perGroup.isNotEmpty)) {
       for (final id in [...p.warmupIds, ...perGroup]) {
@@ -239,12 +259,12 @@ class SessionGenerator {
       }
     } else {
       ids.add('dyn_stretch');
-      for (final g in chosenGroups.take(2)) {
+      for (final g in chosenGroups) {
         var n = 0;
         for (final id in warmupByGroup[g] ?? const <String>[]) {
-          if (n >= 2 || ids.length >= 5) break;
+          if (n >= 1 || ids.length >= 1 + cap) break;
           final ex = exerciseById(id);
-          if (ex == null || ids.contains(id) || mainIds.contains(id) || !ex.canDoWith(req.available)) continue;
+          if (ex == null || ids.contains(id) || sameFamily(ex) || !ex.canDoWith(req.available)) continue;
           if (excludedByInjury(ex, req.injuries)) continue;
           ids.add(id);
           n++;
@@ -254,7 +274,7 @@ class SessionGenerator {
     final out = <PlannedExercise>[];
     for (final id in ids) {
       final ex = exerciseById(id);
-      if (ex == null || !ex.canDoWith(req.available) || mainIds.contains(id)) continue;
+      if (ex == null || !ex.canDoWith(req.available) || sameFamily(ex)) continue;
       out.add(planWarmup(ex));
     }
     return out;
