@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'widgets/account_sheet.dart';
 import 'widgets/injury_chips.dart';
+import 'widgets/mascot.dart';
 import 'widgets/backup_section.dart';
 import 'friends_screen.dart';
 import 'widgets/version_section.dart';
@@ -330,21 +331,23 @@ class ProfileScreen extends StatelessWidget {
 
           // 앱 디자인
           _Section(title: '앱 디자인', children: [
-            Text('고르면 바로 바뀌고, 이 계정으로 로그인한 다른 기기에도 똑같이 적용돼요. 라이트/다크는 기기 설정을 따라요.',
+            Text('고르면 바로 바뀌고, 이 계정으로 로그인한 다른 기기에도 똑같이 적용돼요. 색·모양과 함께 인사말·완료 문구·오늘의 한마디 말투도 바뀌어요. 라이트/다크는 기기 설정을 따라요.',
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
             const SizedBox(height: 10),
-            Row(children: [
-              for (final s in AppThemeStyle.values) ...[
-                if (s != AppThemeStyle.values.first) const SizedBox(width: 8),
-                Expanded(
-                  child: _ThemeCard(
-                    style: s,
-                    selected: AppThemeStyle.parse(u.theme) == s,
-                    onTap: () => _edit(state, (p) => p.theme = s.id),
+            LayoutBuilder(builder: (c, box) {
+              final w = (box.maxWidth - 8) / 2;
+              return Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final s in AppThemeStyle.values)
+                  SizedBox(
+                    width: w,
+                    child: _ThemeCard(
+                      style: s,
+                      selected: AppThemeStyle.parse(u.theme) == s,
+                      onTap: () => _edit(state, (p) => p.theme = s.id),
+                    ),
                   ),
-                ),
-              ],
-            ]),
+              ]);
+            }),
           ]),
 
           // 계정
@@ -546,11 +549,22 @@ class _ThemeCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(color: pcs.secondaryContainer, borderRadius: BorderRadius.circular(style.radius / 2)),
-                ),
+                if (style == AppThemeStyle.cute)
+                  const Mascot(size: 30, bob: false)
+                else if (style == AppThemeStyle.marine)
+                  Container(
+                    height: 22,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: pcs.secondary, borderRadius: BorderRadius.circular(style.radius / 2)),
+                    child: Text('악!', style: preview.textTheme.labelLarge?.copyWith(color: pcs.onSecondary, fontSize: 12)),
+                  )
+                else
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(color: pcs.secondaryContainer, borderRadius: BorderRadius.circular(style.radius / 2)),
+                  ),
                 const Spacer(),
                 if (selected) Icon(Icons.check_circle, size: 18, color: cs.primary) else Icon(style.icon, size: 18, color: pcs.onSurfaceVariant),
               ]),

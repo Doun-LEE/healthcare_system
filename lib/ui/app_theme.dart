@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../state/app_state.dart';
 
 /// 사용자가 고르는 앱 디자인. 프로필의 `theme` 문자열(id)로 저장된다.
+/// 색·모양뿐 아니라 말투(인사·완료 문구·명언)도 테마가 정한다.
 enum AppThemeStyle {
   basic('basic', '기본', '지금 모습 그대로. 차분한 초록.', Icons.circle_outlined),
-  cute('cute', '귀여운', '파스텔 핑크 · 동글동글 · 이모지 살짝 🐣', Icons.favorite_border),
-  tough('tough', '상남자', '어두운 톤 · 강한 대비 · 각진 모서리 · 굵은 숫자', Icons.fitness_center);
+  cute('cute', '귀여운', '파스텔 핑크 · 동글동글 · 마스코트 뭉치 🐣', Icons.favorite_border),
+  tough('tough', '상남자', '쇳내·땀내 나는 체육관 · 검정과 불꽃 주황 · 굵은 숫자', Icons.fitness_center),
+  marine('marine', '해병대', '빨강·노랑 · 각진 · 악! 기합 가득 · 오도된 말투', Icons.military_tech);
 
   const AppThemeStyle(this.id, this.label, this.description, this.icon);
   final String id;
@@ -19,7 +24,8 @@ enum AppThemeStyle {
   Color get seed => switch (this) {
         AppThemeStyle.basic => const Color(0xFF7CB342),
         AppThemeStyle.cute => const Color(0xFFF48FB1),
-        AppThemeStyle.tough => const Color(0xFFE53935),
+        AppThemeStyle.tough => const Color(0xFFFF5722),
+        AppThemeStyle.marine => const Color(0xFFD7263D),
       };
 
   /// 모서리 반지름. 카드·입력창·버튼이 모두 이 값을 따른다.
@@ -27,8 +33,147 @@ enum AppThemeStyle {
         AppThemeStyle.basic => 16,
         AppThemeStyle.cute => 28,
         AppThemeStyle.tough => 4,
+        AppThemeStyle.marine => 2,
       };
+
+  // ───────── 말투 ─────────
+
+  /// 홈 인사. [hour]는 0~23.
+  String greeting(int hour, String name) {
+    final slot = hour < 5 ? 0 : hour < 11 ? 1 : hour < 17 ? 2 : 3;
+    switch (this) {
+      case AppThemeStyle.basic:
+        return '${const ['늦은 밤이에요', '좋은 아침이에요', '좋은 오후예요', '좋은 저녁이에요'][slot]}, $name님';
+      case AppThemeStyle.cute:
+        return '${const ['늦은 밤이에요 🌙', '좋은 아침이에요 ☀️', '좋은 오후예요 🍀', '좋은 저녁이에요 ✨'][slot]}, $name님';
+      case AppThemeStyle.tough:
+        return '${const ['이 시간에 깨어 있나', '일어났으면 들어라', '오후다, 쇠 만질 시간', '저녁이다, 핑계 없다'][slot]}, $name';
+      case AppThemeStyle.marine:
+        return '악! ${const ['심야 점호입니다', '기상입니다', '오후 훈련입니다', '야간 훈련입니다'][slot]}, $name 해병!';
+    }
+  }
+
+  /// 운동 완료 버튼.
+  String finishButton(int percent) => switch (this) {
+        AppThemeStyle.basic => '운동 완료 ($percent%)',
+        AppThemeStyle.cute => '오늘도 해냈어요 🎉 ($percent%)',
+        AppThemeStyle.tough => '끝장냈다 ($percent%)',
+        AppThemeStyle.marine => '악! 운동 완료 ($percent%)',
+      };
+
+  /// 완료된 날의 머리 문구.
+  String finishedLine(int percent) => switch (this) {
+        AppThemeStyle.basic => '완료됨 · $percent% 수행',
+        AppThemeStyle.cute => '완료! $percent% 해냈어요 🎀',
+        AppThemeStyle.tough => '박살 · $percent% 수행',
+        AppThemeStyle.marine => '악! 임무 완수 · $percent% 수행',
+      };
+
+  /// 테마별 오늘의 한마디 묶음. 날짜로 하나를 고른다.
+  List<String> get quotes => switch (this) {
+        AppThemeStyle.basic => _basicQuotes,
+        AppThemeStyle.cute => _cuteQuotes,
+        AppThemeStyle.tough => _toughQuotes,
+        AppThemeStyle.marine => _marineQuotes,
+      };
+
+  String quoteFor(DateTime d) {
+    final q = quotes;
+    return q[(d.year * 366 + d.month * 31 + d.day) % q.length];
+  }
 }
+
+/// 지금 적용 중인 테마(프로필의 theme). 위젯에서 말투·마스코트를 고를 때 쓴다.
+AppThemeStyle themeStyleOf(BuildContext context) =>
+    AppThemeStyle.parse(context.select<AppState, String?>((s) => s.currentUser?.theme));
+
+const _basicQuotes = [
+  '오늘 안 하면 내일은 두 배로 힘들다.',
+  '근육은 거짓말을 하지 않는다. 한 만큼 돌아온다.',
+  '가장 무거운 무게는 헬스장 문이다. 이미 들어왔으면 반은 끝났다.',
+  '어제의 나보다 2.5kg만 더. 그게 쌓이면 다른 사람이 된다.',
+  '동기부여는 시작하게 하고, 습관은 계속하게 한다.',
+  '쉬는 것도 훈련이다. 단, 계획된 휴식만.',
+  '마지막 두 개 반복이 몸을 바꾼다.',
+  '헬스장에서 흘린 땀은 절대 배신하지 않는다.',
+  '폼이 무너지면 세트를 끝내라. 자존심은 무게보다 싸다.',
+  '하루 2시간이 아니라, 매주 꾸준한 3일이 몸을 만든다.',
+  '오늘의 핑계는 내일의 후회다.',
+  '가벼운 날도 있다. 그래도 온 사람이 이긴다.',
+  '강해지는 데 지름길은 없다. 하지만 멈추지 않는 길은 있다.',
+  '세트 사이 휴식은 쉬는 시간이 아니라 다음 세트 준비 시간이다.',
+  '몸은 당신이 먹고, 자고, 든 것의 합이다.',
+  '첫 세트는 몸을 깨우고, 마지막 세트는 몸을 바꾼다.',
+  '비교할 대상은 옆 사람이 아니라 지난주의 나다.',
+  '못 든 날은 실패가 아니라 데이터다. 다음엔 조정하면 된다.',
+  '운동은 의지로 시작하고 루틴으로 완성된다.',
+  '통증은 피하고, 불편함은 견뎌라. 그 차이를 아는 게 경험이다.',
+  '오늘 1%만 더. 1년이면 37배다.',
+  '하체 하는 날을 빼먹는 사람은 반쪽짜리 몸을 얻는다.',
+  '물 마셔라. 단백질 먹어라. 자라. 그리고 들어라.',
+  '기록하지 않은 운동은 기억되지 않는다.',
+  '벤치 숫자는 내려갈 수 있어도, 다시 오는 사람은 결국 올라간다.',
+  '지금 들기 싫은 그 세트가 제일 효과 좋은 세트다.',
+  '좋은 날엔 PR을, 나쁜 날엔 출석을.',
+  '루틴을 믿어라. 기분은 매일 바뀌지만 계획은 안 바뀐다.',
+  '파트너가 있으면 마지막 한 개가 두 개가 된다.',
+  '근성장은 헬스장에서 시작해서 침대에서 끝난다.',
+  '어깨 넓이는 레터럴 레이즈 횟수에 비례한다.',
+];
+
+const _cuteQuotes = [
+  '오늘도 왔구나! 그것만으로 반은 했어 🐣',
+  '한 세트만 더 하면 뭉치가 춤출게 💃',
+  '무거우면 가볍게, 대신 꾸준히! 🌱',
+  '물 한 모금 마시고 가자 💧',
+  '어제보다 조금만 더. 조금이면 충분해 🍀',
+  '힘든 세트 뒤엔 꼭 칭찬해 주기 🎀',
+  '폼이 예쁜 게 제일 멋있어 ✨',
+  '쉬는 날도 열심히 쉬는 거야 😴',
+  '오늘 흘린 땀은 내일의 반짝임 🌟',
+  '못 들어도 괜찮아, 다음에 들면 되지 🐾',
+  '하체 날도 사랑해 주기 🍑',
+  '단백질 챙겼어? 뭉치는 챙겼어 🍗',
+  '기록 남기면 나중에 뿌듯함 두 배 📒',
+  '친구랑 같이 하면 마지막 한 개가 두 개 👯',
+  '오늘의 나, 참 잘했어요 도장 쾅 🏅',
+];
+
+const _toughQuotes = [
+  '쇠는 핑계를 안 듣는다.',
+  '땀이 안 나면 운동이 아니라 산책이다.',
+  '마지막 한 개가 진짜 첫 번째다.',
+  '무게가 무서우면 네가 가벼운 거다.',
+  '오늘 안 들면 어제 든 게 사라진다.',
+  '하체 빼먹는 놈은 상체도 못 키운다.',
+  '아프면 쉬고, 힘들면 든다. 구분해라.',
+  '세트 중간에 폰 보지 마라. 쇠가 식는다.',
+  '랙에 걸린 바벨은 널 기다리지 않는다.',
+  '근육은 울면서 자란다. 네가 울 차례다.',
+  '기록 안 하면 그 세트는 없던 거다.',
+  '출석이 재능을 이긴다. 매번.',
+  '숨이 턱까지 차야 세트 하나다.',
+  '무게 내리는 건 패배가 아니다. 안 오는 게 패배다.',
+  '한 번 더. 그 한 번이 다음 달 너다.',
+];
+
+const _marineQuotes = [
+  '악! 해병은 바벨 앞에서 물러서지 않는다!',
+  '악! 안 되면 될 때까지, 한 세트 더!',
+  '악! 땀은 피를 아끼고, 세트는 핑계를 지운다!',
+  '악! 하체 훈련 미실시 해병은 해병이 아니다!',
+  '악! 기합 넣고 랙에 올라간다, 실시!',
+  '악! 오늘 임무는 완수한다. 내일 임무는 내일 완수한다!',
+  '악! 휴식도 훈련이다. 대신 계획된 휴식만!',
+  '악! 귀신 잡는 해병, 오늘은 PR 잡는다!',
+  '악! 한 번 해병은 영원한 헬창!',
+  '악! 무게 앞에서 떨지 않는다. 떠는 건 근육뿐!',
+  '악! 물 마시고 단백질 보급, 실시!',
+  '악! 기록 미작성 운동은 운동으로 인정 안 한다!',
+  '악! 파트너는 전우다. 마지막 한 개는 같이 든다!',
+  '악! 폼 무너지면 즉시 세트 종료, 부상은 적이다!',
+  '악! 오늘도 출석 완료, 해병 정신 이상 무!',
+];
 
 /// 테마 하나를 ThemeData 로 만든다. 세 디자인 모두 라이트/다크를 지원한다.
 ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
@@ -72,50 +217,106 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
       );
       scheme = dark
           ? base.copyWith(
-              // 거의 검정 바탕에 짙은 회색 단계, 포인트는 선명한 빨강.
-              surface: const Color(0xFF0E0E0F),
-              surfaceContainerLowest: const Color(0xFF070708),
-              surfaceContainerLow: const Color(0xFF161618),
-              surfaceContainer: const Color(0xFF1C1C1F),
-              surfaceContainerHigh: const Color(0xFF242428),
-              surfaceContainerHighest: const Color(0xFF2E2E33),
-              onSurface: const Color(0xFFF2F2F2),
-              onSurfaceVariant: const Color(0xFFB8B8BD),
-              outline: const Color(0xFF6F6F76),
-              outlineVariant: const Color(0xFF3A3A40),
-              primary: const Color(0xFFFF4D4D),
+              // 쇳덩이 체육관: 거의 검정에 녹슨 철 느낌의 따뜻한 회색, 포인트는 불꽃 주황.
+              surface: const Color(0xFF0F0D0C),
+              surfaceContainerLowest: const Color(0xFF080706),
+              surfaceContainerLow: const Color(0xFF181412),
+              surfaceContainer: const Color(0xFF1F1A17),
+              surfaceContainerHigh: const Color(0xFF28211D),
+              surfaceContainerHighest: const Color(0xFF342A25),
+              onSurface: const Color(0xFFF3EEE9),
+              onSurfaceVariant: const Color(0xFFBFB3A9),
+              outline: const Color(0xFF7A6B60),
+              outlineVariant: const Color(0xFF3F352F),
+              primary: const Color(0xFFFF6A2B),
               onPrimary: Colors.black,
-              primaryContainer: const Color(0xFF8E1B1B),
-              onPrimaryContainer: const Color(0xFFFFDAD6),
-              secondary: const Color(0xFFE0E0E0),
-              secondaryContainer: const Color(0xFF3A3A40),
-              onSecondaryContainer: const Color(0xFFF2F2F2),
-              tertiary: const Color(0xFFFFB300),
-              tertiaryContainer: const Color(0xFF5A3D00),
-              onTertiaryContainer: const Color(0xFFFFE0A3),
+              primaryContainer: const Color(0xFF7A2A0C),
+              onPrimaryContainer: const Color(0xFFFFDBCB),
+              secondary: const Color(0xFFE5DED6),
+              secondaryContainer: const Color(0xFF3F352F),
+              onSecondaryContainer: const Color(0xFFF3EEE9),
+              tertiary: const Color(0xFFFFC107),
+              tertiaryContainer: const Color(0xFF5A4300),
+              onTertiaryContainer: const Color(0xFFFFE6A3),
             )
           : base.copyWith(
-              // 라이트도 강한 대비: 차가운 회백색 바탕 + 검정 글자 + 빨강 포인트.
-              surface: const Color(0xFFF4F4F5),
+              // 라이트: 분필 가루 묻은 콘크리트 회색 + 검정 글자 + 녹슨 주황 포인트.
+              surface: const Color(0xFFF2EFEB),
               surfaceContainerLowest: Colors.white,
-              surfaceContainerLow: const Color(0xFFEAEAEC),
-              surfaceContainer: const Color(0xFFE0E0E3),
-              surfaceContainerHigh: const Color(0xFFD4D4D8),
-              surfaceContainerHighest: const Color(0xFFC8C8CD),
-              onSurface: const Color(0xFF111113),
-              onSurfaceVariant: const Color(0xFF3F3F46),
-              outline: const Color(0xFF5A5A62),
-              outlineVariant: const Color(0xFFA1A1AA),
-              primary: const Color(0xFFC62828),
+              surfaceContainerLow: const Color(0xFFE8E3DD),
+              surfaceContainer: const Color(0xFFDDD6CF),
+              surfaceContainerHigh: const Color(0xFFD0C8C0),
+              surfaceContainerHighest: const Color(0xFFC3BAB1),
+              onSurface: const Color(0xFF141110),
+              onSurfaceVariant: const Color(0xFF473F3A),
+              outline: const Color(0xFF5F554E),
+              outlineVariant: const Color(0xFFA39A92),
+              primary: const Color(0xFFD1400F),
               onPrimary: Colors.white,
-              primaryContainer: const Color(0xFFFFCDD2),
-              onPrimaryContainer: const Color(0xFF410002),
-              secondary: const Color(0xFF1F1F23),
-              secondaryContainer: const Color(0xFFD4D4D8),
-              onSecondaryContainer: const Color(0xFF111113),
-              tertiary: const Color(0xFFB36B00),
-              tertiaryContainer: const Color(0xFFFFE0A3),
-              onTertiaryContainer: const Color(0xFF2B1A00),
+              primaryContainer: const Color(0xFFFFD2C0),
+              onPrimaryContainer: const Color(0xFF3B0E00),
+              secondary: const Color(0xFF221D1A),
+              secondaryContainer: const Color(0xFFD0C8C0),
+              onSecondaryContainer: const Color(0xFF141110),
+              tertiary: const Color(0xFF9A6A00),
+              tertiaryContainer: const Color(0xFFFFE6A3),
+              onTertiaryContainer: const Color(0xFF2B1F00),
+            );
+    case AppThemeStyle.marine:
+      final base = ColorScheme.fromSeed(
+        seedColor: style.seed,
+        brightness: brightness,
+        dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
+        contrastLevel: 0.5,
+      );
+      scheme = dark
+          ? base.copyWith(
+              // 야간: 짙은 남색 바탕, 빨간 명찰 색 포인트, 노란(금색) 보조.
+              surface: const Color(0xFF0B1020),
+              surfaceContainerLowest: const Color(0xFF060A16),
+              surfaceContainerLow: const Color(0xFF121A30),
+              surfaceContainer: const Color(0xFF182139),
+              surfaceContainerHigh: const Color(0xFF1F2A46),
+              surfaceContainerHighest: const Color(0xFF283555),
+              onSurface: const Color(0xFFF4F1E8),
+              onSurfaceVariant: const Color(0xFFC2BFB4),
+              outline: const Color(0xFF7A7F8F),
+              outlineVariant: const Color(0xFF3A4360),
+              primary: const Color(0xFFFF5A6B),
+              onPrimary: const Color(0xFF3A0008),
+              primaryContainer: const Color(0xFF8E1024),
+              onPrimaryContainer: const Color(0xFFFFDADB),
+              secondary: const Color(0xFFFFD24D),
+              onSecondary: const Color(0xFF3A2A00),
+              secondaryContainer: const Color(0xFF5C4300),
+              onSecondaryContainer: const Color(0xFFFFE8A3),
+              tertiary: const Color(0xFFFFD24D),
+              tertiaryContainer: const Color(0xFF5C4300),
+              onTertiaryContainer: const Color(0xFFFFE8A3),
+            )
+          : base.copyWith(
+              // 주간: 모래빛 바탕, 빨강 포인트, 노랑 보조.
+              surface: const Color(0xFFF7F3EA),
+              surfaceContainerLowest: Colors.white,
+              surfaceContainerLow: const Color(0xFFEFE9DB),
+              surfaceContainer: const Color(0xFFE6DFCD),
+              surfaceContainerHigh: const Color(0xFFDCD4BF),
+              surfaceContainerHighest: const Color(0xFFD1C8B1),
+              onSurface: const Color(0xFF15161C),
+              onSurfaceVariant: const Color(0xFF434552),
+              outline: const Color(0xFF5E6170),
+              outlineVariant: const Color(0xFFA6A9B6),
+              primary: const Color(0xFFC8102E),
+              onPrimary: Colors.white,
+              primaryContainer: const Color(0xFFFFD4D8),
+              onPrimaryContainer: const Color(0xFF40000A),
+              secondary: const Color(0xFF8A6400),
+              onSecondary: Colors.white,
+              secondaryContainer: const Color(0xFFFFE28A),
+              onSecondaryContainer: const Color(0xFF2E2100),
+              tertiary: const Color(0xFF1E2A4A),
+              tertiaryContainer: const Color(0xFFD6DEF5),
+              onTertiaryContainer: const Color(0xFF0B1020),
             );
   }
 
@@ -186,7 +387,9 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
       );
 
     case AppThemeStyle.tough:
+    case AppThemeStyle.marine:
       // 숫자·제목은 아주 굵게, 자간은 좁게. 모서리는 거의 직각.
+      final marine = style == AppThemeStyle.marine;
       final t = theme.textTheme;
       const tabular = [FontFeature.tabularFigures()];
       TextStyle? heavy(TextStyle? s, {double spacing = -0.5}) =>
@@ -211,12 +414,16 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
         textTheme: textTheme,
         scaffoldBackgroundColor: scheme.surface,
         appBarTheme: AppBarTheme(
-          backgroundColor: scheme.surface,
-          foregroundColor: scheme.onSurface,
-          titleTextStyle: textTheme.titleLarge?.copyWith(color: scheme.onSurface),
+          backgroundColor: marine ? scheme.primary : scheme.surface,
+          foregroundColor: marine ? scheme.onPrimary : scheme.onSurface,
+          titleTextStyle: textTheme.titleLarge?.copyWith(color: marine ? scheme.onPrimary : scheme.onSurface),
         ),
         cardTheme: theme.cardTheme.copyWith(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(r), side: BorderSide(color: scheme.outlineVariant)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(r),
+            // 해병대: 카드 왼쪽에 빨간 명찰 줄. 상남자: 쇠 테두리.
+            side: marine ? BorderSide.none : BorderSide(color: scheme.outlineVariant),
+          ),
         ),
         chipTheme: theme.chipTheme.copyWith(shape: sharp, side: BorderSide(color: scheme.outline)),
         filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(shape: sharp, textStyle: textTheme.labelLarge)),
@@ -239,9 +446,9 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
         navigationBarTheme: NavigationBarThemeData(
           indicatorShape: sharp,
           backgroundColor: scheme.surfaceContainerLow,
-          indicatorColor: scheme.primary,
+          indicatorColor: marine ? scheme.secondary : scheme.primary,
           iconTheme: WidgetStateProperty.resolveWith(
-            (s) => IconThemeData(color: s.contains(WidgetState.selected) ? scheme.onPrimary : scheme.onSurfaceVariant),
+            (s) => IconThemeData(color: s.contains(WidgetState.selected) ? (marine ? scheme.onSecondary : scheme.onPrimary) : scheme.onSurfaceVariant),
           ),
           labelTextStyle: WidgetStatePropertyAll(textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800)),
         ),

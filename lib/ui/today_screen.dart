@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/quotes.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'day_plan_view.dart';
@@ -67,7 +66,7 @@ class TodayScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          QuoteBanner(quote: quoteFor(now)),
+          ThemedQuoteBanner(date: now, plan: plan),
           const InboxBanner(),
           Expanded(child: plan == null ? _Empty(user: user) : DayPlanView(plan: plan)),
         ],

@@ -13,8 +13,10 @@ import '../engine/substitute.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/mascot.dart';
 import 'widgets/equipment_look.dart';
 import 'widgets/real_photos.dart';
 import 'widgets/exercise_sheet.dart';
@@ -293,15 +295,17 @@ class DayPlanView extends StatelessWidget {
           FilledButton.icon(
             onPressed: () => _finish(context, state),
             icon: const Icon(Icons.flag),
-            label: Text('운동 완료 (${(plan.completionRatio * 100).round()}%)'),
+            label: Text(themeStyleOf(context).finishButton((plan.completionRatio * 100).round())),
             style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
           ),
         if (plan.isFinished)
           Column(children: [
+            if (themeStyleOf(context) == AppThemeStyle.cute)
+              const Padding(padding: EdgeInsets.only(bottom: 4), child: Mascot(mood: MascotMood.cheer, size: 84)),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.check_circle, color: cs.primary),
               const SizedBox(width: 8),
-              Text('완료됨 · ${(plan.completionRatio * 100).round()}% 수행', style: text.titleMedium),
+              Text(themeStyleOf(context).finishedLine((plan.completionRatio * 100).round()), style: text.titleMedium),
             ]),
             if (plan.actualMinutes != null)
               Text('실제 ${plan.actualMinutes}분 / 계획 ${plan.estimatedMinutes}분${plan.extraSetsDone > 0 ? ' · 추가 세트 ${plan.extraSetsDone}개' : ''}',
@@ -1275,6 +1279,32 @@ String _fmt(double w) =>
     w == w.roundToDouble() ? w.toInt().toString() : w.toStringAsFixed(1);
 
 /// 오늘의 명언 배너.
+/// 오늘의 한마디(테마 말투). 귀여운 테마면 마스코트 뭉치가 말풍선으로 말한다.
+class ThemedQuoteBanner extends StatelessWidget {
+  const ThemedQuoteBanner({super.key, required this.date, this.plan});
+  final DateTime date;
+  final DayPlan? plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = themeStyleOf(context);
+    final quote = style.quoteFor(date);
+    if (style != AppThemeStyle.cute) return QuoteBanner(quote: quote);
+    final hour = DateTime.now().hour;
+    final mood = plan != null && plan!.isFinished
+        ? MascotMood.cheer
+        : plan == null || plan!.isRest
+            ? MascotMood.sleep
+            : (hour < 5 || hour >= 23)
+                ? MascotMood.tired
+                : MascotMood.happy;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      child: MascotSays(text: quote, mood: mood),
+    );
+  }
+}
+
 class QuoteBanner extends StatelessWidget {
   const QuoteBanner({super.key, required this.quote});
   final String quote;

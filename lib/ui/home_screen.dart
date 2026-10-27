@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/catalog.dart';
-import '../data/quotes.dart';
 import '../engine/stats.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'app_theme.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'partner_profile_screen.dart';
@@ -37,12 +37,11 @@ class HomeScreen extends StatelessWidget {
     final week = Stats.summarize(state.myPlans, from: wFrom, to: wTo);
     final plannedThisWeek = state.myPlans.where((p) => !p.isRest && !p.date.isBefore(wFrom) && p.date.isBefore(wFrom.add(const Duration(days: 7)))).length;
     final upcoming = state.myPlans.where((p) => p.date.isAfter(today) && !p.isRest).take(3).toList();
-    final hour = now.hour;
-    final greet = hour < 5 ? '늦은 밤이에요' : hour < 11 ? '좋은 아침이에요' : hour < 17 ? '좋은 오후예요' : '좋은 저녁이에요';
+    final style = themeStyleOf(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$greet, ${user.name}님'),
+        title: Text(style.greeting(now.hour, user.name)),
         actions: [
           IconButton(
             tooltip: '친구 · 채팅',
@@ -61,7 +60,7 @@ class HomeScreen extends StatelessWidget {
         children: [
           // 친구 목록(상단): 누르면 채팅, 안 읽은 메시지는 배지
           const FriendsStrip(),
-          QuoteBanner(quote: quoteFor(now)),
+          ThemedQuoteBanner(date: now, plan: plan),
           const SizedBox(height: 4),
           const InboxBanner(),
           const SizedBox(height: 6),
