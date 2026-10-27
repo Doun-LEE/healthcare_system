@@ -49,7 +49,7 @@ enum AppThemeStyle {
       case AppThemeStyle.tough:
         return '${const ['이 시간에 깨어 있나', '일어났으면 들어라', '오후다, 쇠 만질 시간', '저녁이다, 핑계 없다'][slot]}, $name';
       case AppThemeStyle.marine:
-        return '악! ${const ['심야 점호입니다', '기상입니다', '오후 훈련입니다', '야간 훈련입니다'][slot]}, $name 해병!';
+        return '악! ${const ['심야 점호입니다', '기상입니다 아쎄이', '오후 훈련입니다', '야간 훈련입니다'][slot]}, $name 해병!';
     }
   }
 
@@ -66,7 +66,7 @@ enum AppThemeStyle {
         AppThemeStyle.basic => '완료됨 · $percent% 수행',
         AppThemeStyle.cute => '완료! $percent% 해냈어요 🎀',
         AppThemeStyle.tough => '박살 · $percent% 수행',
-        AppThemeStyle.marine => '악! 임무 완수 · $percent% 수행',
+        AppThemeStyle.marine => '악! 임무 완수, 빨간 명찰 값 했다 · $percent%',
       };
 
   /// 테마별 오늘의 한마디 묶음. 날짜로 하나를 고른다.
@@ -173,6 +173,12 @@ const _marineQuotes = [
   '악! 파트너는 전우다. 마지막 한 개는 같이 든다!',
   '악! 폼 무너지면 즉시 세트 종료, 부상은 적이다!',
   '악! 오늘도 출석 완료, 해병 정신 이상 무!',
+  '악! 아쎄이, 그 무게로 되겠나? 한 장 더 꽂는다!',
+  '악! 기수 열외 없다. 선임도 후임도 오늘은 하체다!',
+  '악! 빨간 명찰 달았으면 랙 앞에서 도망 안 간다!',
+  '악! 팔각모 눌러쓰고 벤치로 돌격, 실시!',
+  '악! 쉬는 시간 끝. 아쎄이, 랙으로 복귀!',
+  '악! 땀으로 샤워, 단백질로 보급, 침대로 복귀!',
 ];
 
 /// 테마 하나를 ThemeData 로 만든다. 세 디자인 모두 라이트/다크를 지원한다.
