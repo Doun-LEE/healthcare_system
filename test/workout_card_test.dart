@@ -52,7 +52,7 @@ void main() {
 
     expect(tester.takeException(), isNull); // RenderFlex overflow 등 없음
     expect(find.text('전신'), findsOneWidget);
-    expect(find.textContaining('100% 수행'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget); // 수행률 링
     expect(find.textContaining('체감 6/10'), findsOneWidget);
     // 최고 기록: 140kg × 1
     expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('140kg × 1')), findsOneWidget);

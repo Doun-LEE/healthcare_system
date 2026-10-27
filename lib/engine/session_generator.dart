@@ -39,7 +39,11 @@ class SessionRequest {
     this.pinned = const [],
     this.recovery = const {},
     this.boost = const {},
+    this.yesterdayGroups = const {},
   });
+
+  /// 전날 한 부위(워밍업 부위를 고를 때 전날 안 한 부위를 우선).
+  final Set<MuscleGroup> yesterdayGroups;
 
   /// 데이터 기반 첨삭: 근육별 회복 정도(0 = 방금 자극, 1 = 완전 회복). 비어 있으면 반영 안 함.
   final Map<Muscle, double> recovery;
@@ -213,10 +217,15 @@ class SessionGenerator {
     if (p.warmupMode == 'off' || groups.isEmpty) return const [];
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final ids = <String>[];
-    // 부위별로 고른 워밍업은 그 헬스장에서 할 수 있는 것만 남기고, 매번 다르게 1~2개를 뽑는다.
+    // 부위별 워밍업은 그 날 부위를 다 하지 않는다. 총 운동 시간에 비례해 몇 부위만(30분당 1부위, 1~4개)
+    // 랜덤으로 고르되 전날 안 한 부위를 먼저. 고른 부위에서 그 헬스장에서 할 수 있는 것만 1~2개 뽑는다.
     final rnd = Random(req.seed ?? (req.now ?? DateTime.now()).millisecondsSinceEpoch ~/ 86400000);
+    final slots = (req.minutesBudget / 30).round().clamp(1, 4);
+    final major = groups.where((g) => g != MuscleGroup.cardio).toList()..shuffle(rnd);
+    major.sort((a, b) => (req.yesterdayGroups.contains(a) ? 1 : 0) - (req.yesterdayGroups.contains(b) ? 1 : 0));
+    final chosenGroups = major.take(slots).toList();
     final perGroup = <String>[];
-    for (final g in groups) {
+    for (final g in chosenGroups) {
       final cand = [
         for (final id in p.warmupByGroupIds[g.name] ?? const <String>[])
           if (exerciseById(id) case final ex?)
@@ -230,7 +239,7 @@ class SessionGenerator {
       }
     } else {
       ids.add('dyn_stretch');
-      for (final g in groups.take(2)) {
+      for (final g in chosenGroups.take(2)) {
         var n = 0;
         for (final id in warmupByGroup[g] ?? const <String>[]) {
           if (n >= 2 || ids.length >= 5) break;

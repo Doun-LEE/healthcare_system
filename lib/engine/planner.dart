@@ -267,6 +267,10 @@ class Planner {
         seed: date.millisecondsSinceEpoch ~/ 86400000,
         recovery: recoveryAt(date),
         boost: boost,
+        yesterdayGroups: {
+          for (final e in lastTrained.entries)
+            if (date.difference(e.value).inDays == 1) e.key,
+        },
       )).generate();
 
       idsByDay[key] = {for (final e in exercises) if (!e.warmup) e.exerciseId};
