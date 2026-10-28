@@ -2443,10 +2443,16 @@ class AppState extends ChangeNotifier {
     if (mine != null && mine.isFinished) return '그날 운동은 이미 완료했어요.';
     final myFocus = (mine != null && !mine.isRest) ? mine.focus : (await regenerateDay(d))?.focus ?? const <MuscleGroup>[];
     // 모두의 그날 부위가 겹치는 곳. 누군가와 전혀 안 겹치면 그 사람은 건너뛰고 맞춘다.
-    var groups = List.of(myFocus);
+    // 유산소는 상대 쪽에 '부위'가 아니라 마무리 운동으로만 붙어 있는 경우가 많아 교집합에서 빼고,
+    // 모두 유산소를 원하면(프로필) 누구 하나라도 그날 유산소가 있을 때 그대로 둔다.
+    final everyoneCardio = u.includeCardio && profiles.values.every((pp) => pp.profile.includeCardio);
+    var wantCardio = myFocus.contains(MuscleGroup.cardio);
+    var groups = [for (final g in myFocus) if (g != MuscleGroup.cardio) g];
     final skipped = <String>[];
     for (final m in others) {
-      final theirs = profiles[m.uid]!.planFocus[key] ?? const <MuscleGroup>[];
+      final theirsAll = profiles[m.uid]!.planFocus[key] ?? const <MuscleGroup>[];
+      if (theirsAll.contains(MuscleGroup.cardio)) wantCardio = true;
+      final theirs = [for (final g in theirsAll) if (g != MuscleGroup.cardio) g];
       if (theirs.isEmpty) continue;
       final both = groups.where(theirs.contains).toList();
       if (both.isEmpty) {
@@ -2455,6 +2461,8 @@ class AppState extends ChangeNotifier {
         groups = both;
       }
     }
+    if (groups.isEmpty) groups = [for (final g in myFocus) if (g != MuscleGroup.cardio) g];
+    if (wantCardio && everyoneCardio) groups.add(MuscleGroup.cardio);
     if (groups.isEmpty) groups = List.of(myFocus);
     var note = '공통 부위 ${focusTitle(groups)}로 맞췄어요.';
     if (skipped.isNotEmpty) note += ' (${skipped.join('·')} 님과는 겹치는 부위가 없어 이 부위로 맞췄어요)';
@@ -2486,7 +2494,7 @@ class AppState extends ChangeNotifier {
       equipmentStep: equipmentStep,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
       extraInjuries: {for (final pp in all) ...pp.profile.injuries}, // 누구라도 다친 부위는 뺀다
-      cardioOverride: u.includeCardio && all.every((pp) => pp.profile.includeCardio), // 모두 원할 때만 유산소
+      cardioOverride: everyoneCardio, // 모두 원할 때만 유산소
     )).generate();
     if (exercises.isEmpty) return '모두에게 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
 
@@ -2499,8 +2507,7 @@ class AppState extends ChangeNotifier {
           pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
       };
     }
-    final base = (mine?.title ?? focusTitle(groups)).split(' · ').first;
-    final title = '$base · $names와 함께';
+    final title = '${focusTitle(groups)} · $names와 함께';
     final plan = DayPlan(
       id: mine?.id ?? newId(),
       userId: u.id,

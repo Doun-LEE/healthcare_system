@@ -1105,7 +1105,8 @@ class _ExerciseCard extends StatelessWidget {
                 eachSide: pe.oneSide,
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
-                  if (pe.sets[i].completed && pe.restSeconds > 0 && i < pe.sets.length - 1 && context.mounted) {
+                  // 파트너와 함께하는 날은 서로 번갈아 하니 휴식 타이머를 띄우지 않는다.
+                  if (plan.partnerName == null && pe.sets[i].completed && pe.restSeconds > 0 && i < pe.sets.length - 1 && context.mounted) {
                     RestTimerSheet.show(context, pe.restSeconds);
                   }
                 },
