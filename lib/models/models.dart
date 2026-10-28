@@ -730,17 +730,32 @@ class GymEquipment {
 }
 
 class Gym {
-  Gym({required this.id, required this.name, List<GymEquipment>? equipment})
+  Gym({required this.id, required this.name, List<GymEquipment>? equipment, this.sharedFrom, this.sharedGymId, this.sharedName, this.syncedAt})
       : equipment = equipment ?? [];
 
   final String id;
   String name;
   final List<GymEquipment> equipment;
 
+  /// 친구 헬스장에서 가져온 경우: 원본 주인 uid·헬스장 id·이름, 마지막으로 받아온 시각.
+  String? sharedFrom;
+  String? sharedGymId;
+  String? sharedName;
+  DateTime? syncedAt;
+
+  bool get isShared => sharedFrom != null && sharedGymId != null;
+
+  /// 겹침 판단용 이름 키(공백·괄호·대소문자 무시).
+  static String nameKey(String name) => name.toLowerCase().replaceAll(RegExp(r'[\s()\[\]·._-]'), '');
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'equipment': equipment.map((e) => e.toJson()).toList(),
+        if (sharedFrom != null) 'sharedFrom': sharedFrom,
+        if (sharedGymId != null) 'sharedGymId': sharedGymId,
+        if (sharedName != null) 'sharedName': sharedName,
+        if (syncedAt != null) 'syncedAt': syncedAt!.toIso8601String(),
       };
 
   factory Gym.fromJson(Map<String, dynamic> j) => Gym(
@@ -749,6 +764,10 @@ class Gym {
         equipment: (j['equipment'] as List)
             .map((e) => GymEquipment.fromJson(e as Map<String, dynamic>))
             .toList(),
+        sharedFrom: j['sharedFrom'] as String?,
+        sharedGymId: j['sharedGymId'] as String?,
+        sharedName: j['sharedName'] as String?,
+        syncedAt: j['syncedAt'] == null ? null : DateTime.tryParse(j['syncedAt'] as String),
       );
 
   /// 보유 기구 + 그 기구가 대신할 수 있는 기구(하프랙→스쿼트랙, 펑셔널 트레이너→케이블 등).
@@ -958,6 +977,7 @@ class DayPlan {
     this.venueGymId,
     this.venueName,
     List<EquipmentType>? venueTypes,
+    List<GymEquipment>? venueEquipment,
     this.partnerName,
     Map<String, double>? partnerWeights,
     List<GroupMember>? members,
@@ -966,7 +986,8 @@ class DayPlan {
         partnerWeights = partnerWeights ?? {},
         members = members ?? [],
         memberWeights = memberWeights ?? {},
-        venueTypes = venueTypes ?? [];
+        venueTypes = venueTypes ?? [],
+        venueEquipment = venueEquipment ?? [];
 
   /// 파트너 운동이면 함께하는 사람 이름(여러 명이면 '·'로 이음)과 운동별 파트너 무게(kg, 첫 사람).
   String? partnerName;
@@ -1029,6 +1050,9 @@ class DayPlan {
   String? venueName;
   List<EquipmentType> venueTypes;
 
+  /// 파트너 헬스장의 실제 기구(별칭·브랜드·무게 한 칸·최대·한쪽/원판 기준). 그 사람이 등록한 데이터 그대로.
+  List<GymEquipment> venueEquipment;
+
   /// 사용자가 직접 손본 날(부위 변경·운동 교체/추가/삭제·AI 적용 등).
   /// 이후 날짜를 자동으로 다시 맞출 때 이 날은 그대로 두고 기준으로 삼는다.
   bool custom;
@@ -1086,6 +1110,7 @@ class DayPlan {
         if (venueGymId != null) 'venueGymId': venueGymId,
         if (venueName != null) 'venueName': venueName,
         if (venueTypes.isNotEmpty) 'venueTypes': venueTypes.map((t) => t.name).toList(),
+        if (venueEquipment.isNotEmpty) 'venueEquipment': venueEquipment.map((e) => e.toJson()).toList(),
         'partnerName': partnerName,
         'partnerWeights': partnerWeights,
         if (members.isNotEmpty) 'members': members.map((m) => m.toJson()).toList(),
@@ -1135,6 +1160,10 @@ class DayPlan {
         venueTypes: [
           for (final n in ((j['venueTypes'] as List?) ?? const []))
             if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+        ],
+        venueEquipment: [
+          for (final e in ((j['venueEquipment'] as List?) ?? const []))
+            if (e is Map) GymEquipment.fromJson(Map<String, dynamic>.from(e)),
         ],
       );
 }

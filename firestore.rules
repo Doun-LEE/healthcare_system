@@ -77,6 +77,15 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ───────── 공유 헬스장 대표 데이터(관리자 지정) ─────────
+    // 로그인한 누구나 읽고, 관리자 계정(이메일)만 쓴다.
+    match /sharedGyms/{key} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.token.email == 'ehdnsdlfkrh@gmail.com'
+        && isStr(request.resource.data.owner, 128) && isStr(request.resource.data.gymId, 128)
+        && isStr(request.resource.data.name, 100);
+    }
+
     // ───────── 오류 보고(앱 안 크래시 리포트) ─────────
     // 로그인한 사용자가 자기 uid 로 만들기만 할 수 있고, 아무도 읽을 수 없다(콘솔에서만 본다).
     match /errors/{id} {

@@ -34,6 +34,22 @@ String newId() {
   return '$t$s';
 }
 
+/// 관리자 정리용: 같은 이름 헬스장을 가진 사람들.
+class SharedGymGroup {
+  SharedGymGroup(this.name);
+  final String name;
+  final List<SharedGymEntry> entries = [];
+
+  /// 관리자가 대표로 지정한 데이터({owner, ownerName, gymId, name}). 없으면 null.
+  Map<String, dynamic>? canonical;
+}
+
+class SharedGymEntry {
+  SharedGymEntry(this.uid, this.ownerName, this.gymId, this.gymName, this.equipmentCount);
+  final String uid, ownerName, gymId, gymName;
+  final int equipmentCount;
+}
+
 class AppState extends ChangeNotifier {
   AppState(this._store);
 
@@ -71,8 +87,9 @@ class AppState extends ChangeNotifier {
   /// 그 날 헬스장에서 이 운동에 쓰는 실제 기구(등록한 이름·사진). 파트너 헬스장이거나 못 찾으면 null.
   /// 같은 종류가 여러 대면 사진 있는 것 → 브랜드 지정한 것 → 먼저 등록한 것 순.
   GymEquipment? equipmentFor(DayPlan plan, EquipmentType type) {
-    if (plan.atOtherGym || type == EquipmentType.bodyweight) return null;
-    final list = gymOf(plan)?.equipment ?? const <GymEquipment>[];
+    if (type == EquipmentType.bodyweight) return null;
+    // 파트너 헬스장이면 그 사람이 등록한 기구 데이터(별칭·무게 단위)를 그대로 쓴다.
+    final list = plan.atOtherGym ? plan.venueEquipment : (gymOf(plan)?.equipment ?? const <GymEquipment>[]);
     final exact = list.where((e) => e.type == type).toList();
     final pool = exact.isNotEmpty ? exact : list.where((e) => e.allTypes.contains(type)).toList();
     if (pool.isEmpty) return null;
@@ -157,10 +174,12 @@ class AppState extends ChangeNotifier {
     return m;
   }
 
-  Map<EquipmentType, double> maxForPlan(DayPlan? p) =>
-      p != null && p.atOtherGym ? const {} : maxForGym(p == null ? activeGym : gymOf(p));
-  Map<EquipmentType, double> stepForPlan(DayPlan? p) =>
-      p != null && p.atOtherGym ? const {} : stepForGym(p == null ? activeGym : gymOf(p));
+  Map<EquipmentType, double> maxForPlan(DayPlan? p) => p != null && p.atOtherGym
+      ? maxForGym(Gym(id: '_venue', name: p.venueName ?? '', equipment: p.venueEquipment))
+      : maxForGym(p == null ? activeGym : gymOf(p));
+  Map<EquipmentType, double> stepForPlan(DayPlan? p) => p != null && p.atOtherGym
+      ? stepForGym(Gym(id: '_venue', name: p.venueName ?? '', equipment: p.venueEquipment))
+      : stepForGym(p == null ? activeGym : gymOf(p));
 
   /// 계획을 새로 만들 때 이전 계획의 장소(헬스장·파트너 헬스장)를 그대로 옮긴다.
   void _copyVenue(DayPlan from, DayPlan to) {
@@ -169,6 +188,7 @@ class AppState extends ChangeNotifier {
     to.venueGymId = from.venueGymId;
     to.venueName = from.venueName;
     to.venueTypes = List.of(from.venueTypes);
+    to.venueEquipment = List.of(from.venueEquipment);
   }
 
   /// 파트너에게 보낼 장소 정보.
@@ -179,6 +199,7 @@ class AppState extends ChangeNotifier {
       gymId: p.venueGymId!,
       name: p.venueName ?? '',
       types: p.atOtherGym ? p.venueTypes : (gymById(p.venueGymId)?.availableTypes.toList() ?? const []),
+      equipment: p.atOtherGym ? p.venueEquipment : (gymById(p.venueGymId)?.equipment ?? const []),
     );
   }
 
@@ -191,8 +212,10 @@ class AppState extends ChangeNotifier {
     if (v.owner == myUid && gymById(v.gymId) != null) {
       plan.gymId = v.gymId;
       plan.venueTypes = [];
+      plan.venueEquipment = [];
     } else {
       plan.venueTypes = List.of(v.types);
+      plan.venueEquipment = List.of(v.equipment);
     }
   }
 
@@ -936,6 +959,85 @@ class AppState extends ChangeNotifier {
     currentUser?.activeGymId ??= g.id;
     await _save();
     return g;
+  }
+
+  /// 친구 헬스장을 내 목록으로 가져온다. [mode]: 'new'(새로 추가) · 'merge'(같은 이름의 내 헬스장에 기구 합치기, 내 설정 우선)
+  /// · 'replace'(같은 이름의 내 헬스장 기구를 친구 데이터로 교체). 가져온 헬스장은 원본과 연결돼 '다시 동기화'할 수 있다.
+  Future<Gym> importPartnerGym(PartnerLink from, PartnerGym g, {String mode = 'new', String? targetGymId}) async {
+    final copies = [for (final e in g.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = false)];
+    Gym target;
+    if (mode != 'new' && targetGymId != null && gymById(targetGymId) != null) {
+      target = gymById(targetGymId)!;
+      if (mode == 'replace') {
+        target.equipment
+          ..clear()
+          ..addAll(copies);
+      } else {
+        // merge: 내게 없는 종류만 추가(같은 종류·같은 이름은 내 설정 유지)
+        for (final c in copies) {
+          final dup = target.equipment.any((e) => e.type == c.type && e.displayName == c.displayName);
+          if (!dup) target.equipment.add(c);
+        }
+      }
+    } else {
+      target = Gym(id: newId(), name: g.name, equipment: copies);
+      _data.gyms.add(target);
+      currentUser?.activeGymId ??= target.id;
+    }
+    target.sharedFrom = from.uid;
+    target.sharedGymId = g.id;
+    target.sharedName = from.display;
+    target.syncedAt = DateTime.now();
+    await _save();
+    return target;
+  }
+
+  /// 연결된 친구 헬스장의 최신 기구 데이터로 교체(내가 찍은 사진은 기구 id 가 같으면 그대로).
+  Future<String> resyncSharedGym(Gym g) async {
+    if (!g.isShared || !cloudSignedIn) return '친구 헬스장과 연결된 곳이 아니에요.';
+    final pp = await CloudSync.instance.fetchPartner(g.sharedFrom!);
+    final src = pp?.gyms.where((x) => x.id == g.sharedGymId).firstOrNull;
+    if (src == null) return '${g.sharedName ?? '친구'} 님의 헬스장을 찾지 못했어요(삭제됐거나 아직 새 버전으로 접속 안 함).';
+    final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
+    g.equipment
+      ..clear()
+      ..addAll([for (final e in src.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = photos.contains(e.id))]);
+    g.name = src.name;
+    g.syncedAt = DateTime.now();
+    await _save();
+    return '${src.name} 기구 ${src.equipment.length}개를 ${g.sharedName ?? '친구'} 님 데이터로 맞췄어요.';
+  }
+
+  /// 관리자(겹치는 헬스장 데이터를 정리할 사람). 계정 이메일로 판단한다.
+  static const adminEmail = 'ehdnsdlfkrh@gmail.com';
+  bool get isAdmin => cloudSignedIn && (CloudSync.instance.email?.toLowerCase() == adminEmail);
+
+  /// 같은 이름의 헬스장을 가진 사람들(나 + 친구들)을 묶는다. 관리자 정리 화면용.
+  Future<List<SharedGymGroup>> sharedGymGroups() async {
+    final out = <String, SharedGymGroup>{};
+    final myUid = CloudSync.instance.user!.uid;
+    for (final g in gyms) {
+      out.putIfAbsent(Gym.nameKey(g.name), () => SharedGymGroup(g.name)).entries.add(SharedGymEntry(myUid, currentUser?.name ?? '나', g.id, g.name, g.equipment.length));
+    }
+    for (final p in partners.where((p) => !p.pending)) {
+      try {
+        final pp = await CloudSync.instance.fetchPartner(p.uid);
+        for (final g in pp?.gyms ?? const <PartnerGym>[]) {
+          out.putIfAbsent(Gym.nameKey(g.name), () => SharedGymGroup(g.name)).entries.add(SharedGymEntry(p.uid, p.display, g.id, g.name, g.equipment.length));
+        }
+      } catch (_) {}
+    }
+    final canon = await CloudSync.instance.listSharedGyms();
+    for (final e in out.entries) {
+      e.value.canonical = canon[e.key];
+    }
+    return out.values.toList()..sort((a, b) => b.entries.length.compareTo(a.entries.length));
+  }
+
+  Future<void> setCanonicalGym(SharedGymGroup group, SharedGymEntry e) async {
+    await CloudSync.instance.setSharedGym(Gym.nameKey(group.name), {'owner': e.uid, 'ownerName': e.ownerName, 'gymId': e.gymId, 'name': e.gymName});
+    group.canonical = {'owner': e.uid, 'ownerName': e.ownerName, 'gymId': e.gymId, 'name': e.gymName};
+    notifyListeners();
   }
 
   Future<void> renameGym(String id, String name) async {

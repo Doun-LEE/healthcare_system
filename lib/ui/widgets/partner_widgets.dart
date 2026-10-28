@@ -186,10 +186,11 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   final myUid = CloudSync.instance.user!.uid;
   final options = <(String, SharedVenue?)>[
     for (final g in state.gyms)
-      ('내 헬스장 · ${g.name}', SharedVenue(owner: myUid, gymId: g.id, name: g.name, types: g.availableTypes.toList())),
+      ('내 헬스장 · ${g.name}', SharedVenue(owner: myUid, gymId: g.id, name: g.name, types: g.availableTypes.toList(), equipment: g.equipment)),
     for (final p in partners)
       for (final g in profiles[p.uid]?.gyms ?? const <PartnerGym>[])
-        ('${p.name} 헬스장 · ${g.name}', SharedVenue(owner: p.uid, gymId: g.id, name: g.name, types: g.types.toList())),
+        ('${p.name} 헬스장 · ${g.name}${g.equipment.isEmpty ? ' (기구 종류만)' : ' · 기구 ${g.equipment.length}개'}',
+            SharedVenue(owner: p.uid, gymId: g.id, name: g.name, types: g.types.toList(), equipment: g.equipment)),
     (partners.length == 1 ? '각자 헬스장 공통 기구로' : '모두의 헬스장 공통 기구로', null),
   ];
   final pickedIndex = await showDialog<int>(

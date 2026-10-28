@@ -135,7 +135,14 @@ class PartnerProfile {
       },
       'available': available.map((e) => e.name).toList(),
       'gyms': [
-        for (final g in gyms) {'id': g.id, 'name': g.name, 'types': g.availableTypes.map((t) => t.name).toList()},
+        for (final g in gyms)
+          {
+            'id': g.id,
+            'name': g.name,
+            'types': g.availableTypes.map((t) => t.name).toList(),
+            // 실제 기구 데이터(사진은 기기에만 있으므로 hasPhoto 는 뺀다)
+            'equipment': [for (final e in g.equipment) e.toJson()..remove('hasPhoto')],
+          },
       ],
       'weights': {for (final p in progress.entries) if (p.value.workingWeight > 0) p.key: p.value.workingWeight},
       'plans': {
@@ -246,17 +253,32 @@ class PartnerProfile {
               for (final n in ((g['types'] as List?) ?? const []))
                 if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
             },
+            equipment: [
+              for (final e in ((g['equipment'] as List?) ?? const []))
+                if (e is Map) ?_safeEquipment(Map<String, dynamic>.from(e)),
+            ],
           ),
       ],
     );
   }
 }
 
+GymEquipment? _safeEquipment(Map<String, dynamic> j) {
+  try {
+    return GymEquipment.fromJson(j);
+  } catch (_) {
+    return null;
+  }
+}
+
 class PartnerGym {
-  const PartnerGym({required this.id, required this.name, required this.types});
+  const PartnerGym({required this.id, required this.name, required this.types, this.equipment = const []});
   final String id;
   final String name;
   final Set<EquipmentType> types;
+
+  /// 그 사람이 등록한 기구 그대로(별칭·브랜드·무게 설정). 옛 버전 프로필이면 비어 있다.
+  final List<GymEquipment> equipment;
 }
 
 /// 파트너의 하루 루틴 요약(공개 프로필에서 읽음).

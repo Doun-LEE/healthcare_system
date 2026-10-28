@@ -15,6 +15,7 @@ import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/backup_section.dart';
 import 'friends_screen.dart';
+import 'shared_gym_admin_screen.dart';
 import 'widgets/version_section.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
@@ -370,6 +371,17 @@ class ProfileScreen extends StatelessWidget {
 
           // 계정
           const _Section(title: '계정 · 동기화', children: [AccountSection()]),
+          if (state.isAdmin)
+            _Section(title: '관리자 · 헬스장 데이터 정리', children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('겹치는 헬스장 정리'),
+                subtitle: const Text('친구들이 같은 이름으로 등록한 헬스장을 모아 대표 데이터를 정해요. 가져오기할 때 대표가 표시돼요.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => SharedGymAdminScreen.open(context),
+              ),
+            ]),
           const SizedBox(height: 12),
           const _Section(title: '기록 저장 · 불러오기', children: [BackupSection()]),
 

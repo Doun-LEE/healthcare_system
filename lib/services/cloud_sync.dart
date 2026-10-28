@@ -326,6 +326,22 @@ class CloudSync {
     });
   }
 
+  // ───────── 공유 헬스장(관리자가 대표 데이터를 지정) ─────────
+
+  /// 이름 키 → {owner, ownerName, gymId, name}
+  Future<Map<String, Map<String, dynamic>>> listSharedGyms() async {
+    final snap = await _db.collection('sharedGyms').get().timeout(const Duration(seconds: 15));
+    return {for (final d in snap.docs) d.id: d.data()};
+  }
+
+  Future<void> setSharedGym(String key, Map<String, dynamic> data) =>
+      _db.doc('sharedGyms/$key').set({...data, 'updatedAt': FieldValue.serverTimestamp()});
+
+  Future<Map<String, dynamic>?> getSharedGym(String key) async {
+    final d = await _db.doc('sharedGyms/$key').get().timeout(const Duration(seconds: 10));
+    return d.data();
+  }
+
   Future<List<InboxItem>> readInbox() async {
     final u = user;
     if (u == null) return const [];

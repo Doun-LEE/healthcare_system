@@ -13,11 +13,14 @@ import '../models/models.dart';
 const _prefix = 'FR1:';
 
 class SharedVenue {
-  const SharedVenue({required this.owner, required this.gymId, required this.name, required this.types});
+  const SharedVenue({required this.owner, required this.gymId, required this.name, required this.types, this.equipment = const []});
   final String owner;
   final String gymId;
   final String name;
   final List<EquipmentType> types;
+
+  /// 장소 주인이 등록한 실제 기구(별칭·무게 설정). 받는 쪽이 같은 이름·단위로 본다.
+  final List<GymEquipment> equipment;
 }
 
 class SharedRoutine {
@@ -54,7 +57,13 @@ String encodeRoutine(DayPlan plan, {String? from, SharedVenue? venue, DateTime? 
     'f': plan.focus.map((g) => g.name).toList(),
     'u': from,
     if (venue != null)
-      'v': {'o': venue.owner, 'g': venue.gymId, 'n': venue.name, 'q': venue.types.map((t) => t.name).toList()},
+      'v': {
+        'o': venue.owner,
+        'g': venue.gymId,
+        'n': venue.name,
+        'q': venue.types.map((t) => t.name).toList(),
+        if (venue.equipment.isNotEmpty) 'e': [for (final e in venue.equipment) e.toJson()..remove('hasPhoto')],
+      },
     'e': [
       for (final pe in plan.exercises)
         if (!pe.personal) {
@@ -129,6 +138,10 @@ SharedVenue? _venue(dynamic v) {
       types: [
         for (final n in ((v['q'] as List?) ?? const []))
           if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+      ],
+      equipment: [
+        for (final e in ((v['e'] as List?) ?? const []))
+          if (e is Map) GymEquipment.fromJson(Map<String, dynamic>.from(e)),
       ],
     );
   } catch (_) {

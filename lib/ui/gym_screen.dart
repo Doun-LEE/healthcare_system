@@ -5,6 +5,8 @@ import '../data/body_model.dart';
 import '../data/brands.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
+import '../services/cloud_sync.dart';
+import '../services/partner.dart';
 import '../state/app_state.dart';
 import 'widgets/body_view.dart';
 import 'widgets/equipment_look.dart';
@@ -41,6 +43,8 @@ class GymScreen extends StatelessWidget {
             onSelected: (v) => _gymMenu(context, state, v),
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'add', child: Text('헬스장 추가')),
+              const PopupMenuItem(value: 'import', child: Text('친구 헬스장 가져오기')),
+              if (gym != null && gym.isShared) PopupMenuItem(value: 'resync', child: Text('${gym.sharedName ?? '친구'} 님 데이터로 다시 동기화')),
               if (gym != null) const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
               if (gym != null) const PopupMenuItem(value: 'standard', child: Text('대중적인 기본 기구 일괄 추가')),
               if (gym != null) const PopupMenuItem(value: 'delete', child: Text('이 헬스장 삭제')),
@@ -102,6 +106,12 @@ class GymScreen extends StatelessWidget {
       case 'add':
         final name = await _prompt(context, '헬스장 이름', '예: 집 앞 피트니스');
         if (name != null) await state.addGym(name);
+      case 'import':
+        await _importFriendGym(context, state);
+      case 'resync':
+        if (gym == null) return;
+        final msg = await state.resyncSharedGym(gym);
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       case 'rename':
         if (gym == null) return;
         final name = await _prompt(context, '헬스장 이름', gym.name, initial: gym.name);
@@ -122,6 +132,85 @@ class GymScreen extends StatelessWidget {
           ),
         );
         if (ok == true) await state.deleteGym(gym.id);
+    }
+  }
+
+  /// 친구가 등록한 헬스장(기구 데이터 포함)을 내 목록으로 가져온다. 같은 이름이 이미 있으면 합치기/교체/따로.
+  Future<void> _importFriendGym(BuildContext context, AppState state) async {
+    if (!state.cloudSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인하면 친구 헬스장을 가져올 수 있어요.')));
+      return;
+    }
+    final friends = state.partners.where((p) => !p.pending).toList();
+    if (friends.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('친구가 없어요. 홈 상단 친구에서 먼저 추가하세요.')));
+      return;
+    }
+    final friend = await showDialog<PartnerLink>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('누구 헬스장을 가져올까요?'),
+        children: [for (final p in friends) SimpleDialogOption(onPressed: () => Navigator.pop(c, p), child: Text(p.display))],
+      ),
+    );
+    if (friend == null || !context.mounted) return;
+    PartnerProfile? pp;
+    try {
+      pp = await CloudSync.instance.fetchPartner(friend.uid);
+    } catch (_) {}
+    final gyms = pp?.gyms ?? const <PartnerGym>[];
+    if (!context.mounted) return;
+    if (gyms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${friend.display} 님의 헬스장 정보가 없어요(새 버전으로 한 번 접속해야 보여요).')));
+      return;
+    }
+    final canon = await CloudSync.instance.listSharedGyms().catchError((_) => <String, Map<String, dynamic>>{});
+    if (!context.mounted) return;
+    final g = await showDialog<PartnerGym>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: Text('${friend.display} 님의 헬스장'),
+        children: [
+          for (final g in gyms)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, g),
+              child: Row(children: [
+                Expanded(child: Text('${g.name} · 기구 ${g.equipment.isEmpty ? g.types.length : g.equipment.length}개')),
+                if (canon[Gym.nameKey(g.name)]?['owner'] == friend.uid) const Icon(Icons.verified, size: 18),
+              ]),
+            ),
+        ],
+      ),
+    );
+    if (g == null || !context.mounted) return;
+    final same = state.gyms.where((x) => Gym.nameKey(x.name) == Gym.nameKey(g.name)).toList();
+    var mode = 'new';
+    String? target;
+    if (same.isNotEmpty) {
+      final c0 = canon[Gym.nameKey(g.name)];
+      final hint = c0 == null
+          ? '관리자가 대표 데이터를 아직 정하지 않았어요.'
+          : (c0['owner'] == friend.uid ? '관리자가 ${friend.display} 님 데이터를 대표로 지정했어요 → 교체를 권해요.' : '관리자가 ${c0['ownerName']} 님 데이터를 대표로 지정했어요.');
+      mode = await showDialog<String>(
+            context: context,
+            builder: (c) => AlertDialog(
+              title: Text('"${same.first.name}" 이(가) 이미 있어요'),
+              content: Text('같은 이름의 헬스장이 내 목록에 있어요. $hint'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(c, 'new'), child: const Text('따로 추가')),
+                TextButton(onPressed: () => Navigator.pop(c, 'merge'), child: const Text('합치기(내 설정 우선)')),
+                FilledButton(onPressed: () => Navigator.pop(c, 'replace'), child: const Text('친구 데이터로 교체')),
+              ],
+            ),
+          ) ??
+          '';
+      if (mode.isEmpty || !context.mounted) return;
+      target = same.first.id;
+    }
+    final gym = await state.importPartnerGym(friend, g, mode: mode, targetGymId: target);
+    await state.setActiveGym(gym.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${gym.name} · 기구 ${gym.equipment.length}개. 메뉴의 "다시 동기화"로 언제든 최신 데이터를 받을 수 있어요.')));
     }
   }
 
