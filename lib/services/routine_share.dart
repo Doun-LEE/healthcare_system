@@ -97,7 +97,7 @@ SharedRoutine? decodeRoutine(String code) {
       items.add(SharedItem(
         exerciseId: id,
         sets: (e['s'] as num).toInt().clamp(1, 10),
-        reps: (e['r'] as num).toInt().clamp(1, 60),
+        reps: (e['r'] as num).toInt().clamp(1, 9999),
         equipment: eq,
       ));
     }

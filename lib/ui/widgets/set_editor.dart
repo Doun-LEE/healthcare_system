@@ -20,7 +20,7 @@ class SetEditorSheet extends StatefulWidget {
     required this.showWeight,
     this.levelSpec,
     this.initialLevel,
-    this.maxReps = 60,
+    this.maxReps = 999,
   });
 
   final String title;
@@ -50,7 +50,7 @@ class SetEditorSheet extends StatefulWidget {
     required bool showWeight,
     CardioLevelSpec? levelSpec,
     int? initialLevel,
-    int maxReps = 60,
+    int maxReps = 999,
   }) =>
       showAppSheet<(int, double, int?)>(
         context: context,

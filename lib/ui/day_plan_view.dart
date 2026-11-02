@@ -1157,7 +1157,7 @@ class _ExerciseCard extends StatelessWidget {
       showWeight: showWeight,
       levelSpec: spec,
       initialLevel: planning ? s.level : s.effectiveLevel,
-      maxReps: isCardio ? 1440 : 60, // 유산소는 사실상 제한 없음(24시간)
+      maxReps: isCardio ? 1440 : 999, // 횟수는 사실상 제한 없음(유산소는 분, 24시간)
     );
     if (result == null) return;
     final weight = showWeight ? result.$2 / f : null;
