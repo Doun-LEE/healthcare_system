@@ -1263,18 +1263,26 @@ class AppState extends ChangeNotifier {
     if (u == null) return;
     final existing = planOn(date);
     if (existing != null && existing.isFinished) return;
+    // 지난 날은 기록만 바꾼다(앞으로의 계획은 다시 짜지 않는다).
+    final past = dateOnly(date).isBefore(today);
     // 쉬기로 했던 운동일 → 다시 운동하기
     if (existing != null && existing.skipped) {
       existing.skipped = false;
       await _save();
-      if (u.restMode == 'shift') await rebalanceAround(dateOnly(date));
+      if (!past && u.restMode == 'shift') await rebalanceAround(dateOnly(date));
       return;
     }
     // 운동일을 쉬는 날로: 설정에 따라 루틴 유지(그 날만 휴식 표시) 또는 뒤로 밀기
     if (existing != null && !existing.isRest) {
       existing.skipped = true;
       await _save();
-      if (u.restMode == 'shift') await rebalanceAround(dateOnly(date));
+      if (!past && u.restMode == 'shift') await rebalanceAround(dateOnly(date));
+      return;
+    }
+    if (existing != null && existing.isRest && past) {
+      // 지난 휴식 표시 해제 → 계획 없음으로
+      _data.plans.remove(existing);
+      await _save();
       return;
     }
     if (existing != null && existing.isRest) {
@@ -1295,7 +1303,7 @@ class AppState extends ChangeNotifier {
     ));
     await _save();
     // 쉬는 날이 생겼으니 그 부위가 빠지지 않게 이후(와 오늘 이후 앞쪽) 날짜를 다시 맞춘다.
-    await rebalanceAround(dateOnly(date));
+    if (!past) await rebalanceAround(dateOnly(date));
   }
 
   /// 기록 복원 코드로 그 날을 '완료한 운동'으로 덮어쓴다. 그 날의 제목·파트너·헬스장 정보는 유지.

@@ -46,7 +46,13 @@ class DayPage extends StatelessWidget {
               if (!isPast) const PopupMenuItem(value: 'import', child: Text('친구 루틴 불러오기')),
               if (!isPast && (plan == null || plan.isRest)) const PopupMenuItem(value: 'regen', child: Text('이 날 루틴 만들기')),
               if (!isPast && plan != null && !plan.isFinished) const PopupMenuItem(value: 'regen', child: Text('루틴 다시 생성')),
-              if (!isPast && (plan == null || !plan.isFinished)) PopupMenuItem(value: 'rest', child: Text(plan?.isRest == true ? '휴식 해제 (운동일로)' : '휴식일로 표시')),
+              if (plan == null || !plan.isFinished)
+                PopupMenuItem(
+                  value: 'rest',
+                  child: Text(plan?.isRest == true || plan?.skipped == true
+                      ? (isPast && plan?.isRest == true ? '휴식 표시 지우기' : '휴식 해제 (운동일로)')
+                      : '휴식일로 표시'),
+                ),
               if (plan != null) const PopupMenuDivider(),
               if (plan != null) const PopupMenuItem(value: 'delete', child: Text('이 날 계획 삭제')),
             ],

@@ -133,13 +133,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
             today: today,
             onTap: (d) => setState(() => _selected = d),
             onLongPress: (d) async {
-              if (d.isBefore(today)) return;
+              if (state.planOn(d)?.isFinished == true) return;
               await state.toggleRestDay(d);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(state.planOn(d)?.isRest == true
-                      ? '${d.month}/${d.day} 휴식일로 표시했어요. 루틴을 다시 생성하면 반영됩니다.'
-                      : '${d.month}/${d.day} 운동일로 되돌렸어요.'),
+                  content: Text(state.planOn(d)?.isRest == true || state.planOn(d)?.skipped == true
+                      ? '${d.month}/${d.day} 휴식일로 표시했어요.'
+                      : d.isBefore(today)
+                          ? '${d.month}/${d.day} 휴식 표시를 지웠어요.'
+                          : '${d.month}/${d.day} 운동일로 되돌렸어요.'),
                   duration: const Duration(seconds: 2),
                 ));
               }
