@@ -36,8 +36,9 @@ Future<void> main() async {
 Future<void> _autoUpdateWeb() async {
   final deployed = await WebReload.deployedVersion();
   if (deployed == null) return;
-  final mine = await AppUpdate.currentVersionOnly();
-  if (AppUpdate.compare(deployed, mine) <= 0 || WebReload.triedFor(deployed)) return;
+  // 서버 빌드와 지금 빌드가 다르면(숫자 크기와 상관없이) 새로고침한다.
+  final mine = await AppUpdate.currentVersionAndBuild();
+  if (deployed == mine || WebReload.triedFor(deployed)) return;
   WebReload.markTried(deployed);
   await WebReload.hardReload();
 }

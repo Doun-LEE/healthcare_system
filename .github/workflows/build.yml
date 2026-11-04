@@ -102,6 +102,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
+          # 태그를 이 빌드의 커밋에 정확히 붙인다(지정 안 하면 다른 커밋에 붙어 버전이 꼬일 수 있음).
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.ver.outputs.tag }}
           files: dist/*.apk
           generate_release_notes: true

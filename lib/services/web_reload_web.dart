@@ -18,7 +18,10 @@ class WebReload {
       final res = await http.get(url, headers: {'cache-control': 'no-cache'}).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return null;
       final j = jsonDecode(res.body) as Map<String, dynamic>;
-      return j['version'] as String?;
+      // 버전 숫자는 CI 태그가 꼬이면 거꾸로 갈 수 있어서, 배포마다 늘어나는 빌드 번호를 같이 돌려준다.
+      final v = j['version'] as String?;
+      final b = '${j['build_number'] ?? ''}';
+      return v == null ? null : (b.isEmpty ? v : '$v+$b');
     } catch (_) {
       return null;
     }

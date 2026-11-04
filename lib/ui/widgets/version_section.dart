@@ -16,6 +16,7 @@ class VersionSection extends StatefulWidget {
 class _VersionSectionState extends State<VersionSection> {
   String _current = '…';
   String _currentOnly = '0.0.0';
+  String _currentFull = '';
   ReleaseInfo? _latest;
   bool _checking = false;
   bool _checked = false;
@@ -25,6 +26,7 @@ class _VersionSectionState extends State<VersionSection> {
     super.initState();
     AppUpdate.currentVersion().then((v) => mounted ? setState(() => _current = v) : null);
     AppUpdate.currentVersionOnly().then((v) => mounted ? setState(() => _currentOnly = v) : null);
+    AppUpdate.currentVersionAndBuild().then((v) => mounted ? setState(() => _currentFull = v) : null);
     // 앱을 열 때 한 번 조용히 확인한다.
     _check(silent: true);
   }
@@ -46,7 +48,9 @@ class _VersionSectionState extends State<VersionSection> {
     }
   }
 
-  bool get _hasUpdate => _latest != null && AppUpdate.compare(_latest!.version, _currentOnly) > 0;
+  // 웹은 서버 빌드와 다르기만 하면 새로고침 대상(버전+빌드 비교). 앱은 릴리스 버전이 더 높을 때.
+  bool get _hasUpdate => _latest != null &&
+      (kIsWeb ? _latest!.version != _currentFull : AppUpdate.compare(_latest!.version, _currentOnly) > 0);
 
   Future<void> _open(String url) async {
     final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);

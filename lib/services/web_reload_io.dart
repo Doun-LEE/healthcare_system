@@ -2,7 +2,7 @@
 class WebReload {
   WebReload._();
 
-  /// 서버에 올라간 웹 버전. 앱에서는 null.
+  /// 서버에 올라간 웹 버전('버전+빌드'). 앱에서는 null.
   static Future<String?> deployedVersion() async => null;
 
   /// 캐시를 비우고 새로고침. 앱에서는 아무것도 안 함.

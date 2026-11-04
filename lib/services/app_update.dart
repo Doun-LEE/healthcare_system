@@ -27,6 +27,13 @@ class AppUpdate {
     return b.isEmpty ? v : '$v ($b)';
   }
 
+  /// '버전+빌드'(웹 version.json 과 같은 모양).
+  static Future<String> currentVersionAndBuild() async {
+    _info ??= await PackageInfo.fromPlatform();
+    final b = _info!.buildNumber;
+    return b.isEmpty ? _info!.version : '${_info!.version}+$b';
+  }
+
   static Future<String> currentVersionOnly() async {
     _info ??= await PackageInfo.fromPlatform();
     return _info!.version;
