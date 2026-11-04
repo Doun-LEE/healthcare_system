@@ -12,6 +12,7 @@ import '../../data/catalog.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../app_theme.dart';
+import 'marine_hero.dart';
 import 'marine_mascot.dart';
 import 'mascot.dart';
 
@@ -83,7 +84,7 @@ class CardLook {
             muted: Color(0xFFC2BFB4),
             tile: Color(0x1AFFFFFF),
             glow: Color(0xFFFF5A6B),
-            mascot: MarineMascot(mood: MascotMood.flex, size: 70, bob: false),
+            mascot: MarineHero(size: 78),
             badge: MarineEmblem(size: 26),
             tagline: '#FitRoutine · 악! 임무 완수! 우라!',
           ),
@@ -261,7 +262,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (look.mascot != null) SizedBox(width: look.mascot is MarineMascot ? 60 : 54),
+                  if (look.mascot != null) SizedBox(width: look.mascot is MarineHero ? 66 : 54),
                 ]),
                 const SizedBox(height: 14),
                 Row(children: [

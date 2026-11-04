@@ -16,6 +16,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/marine_hero.dart';
 import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/equipment_look.dart';
@@ -1474,7 +1475,6 @@ class _PhotoQuoteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final marine = style == AppThemeStyle.marine;
     final accent = marine ? const Color(0xFFFFD24D) : const Color(0xFFFF7A3D);
-    final mood = plan != null && plan!.isFinished ? MascotMood.cheer : MascotMood.happy;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: ClipRRect(
@@ -1494,7 +1494,7 @@ class _PhotoQuoteBanner extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, marine ? 96 : 16, 12),
+              padding: EdgeInsets.fromLTRB(16, 12, marine ? 112 : 16, 12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                 Container(width: 26, height: 3, color: accent),
                 const SizedBox(height: 8),
@@ -1507,7 +1507,7 @@ class _PhotoQuoteBanner extends StatelessWidget {
                 ),
               ]),
             ),
-            if (marine) Positioned(right: 4, bottom: -2, child: MarineMascot(mood: mood, size: 92)),
+            if (marine) const Positioned(right: -10, bottom: -6, child: MarineHero(size: 132)),
           ]),
         ),
       ),

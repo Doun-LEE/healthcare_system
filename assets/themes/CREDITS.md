@@ -12,3 +12,9 @@
 - 출처: https://commons.wikimedia.org/wiki/File:2013.4._%ED%95%B4%EB%B3%91%EB%8C%80_%EA%B5%90%EC%9C%A1%ED%9B%88%EB%A0%A8%EB%8B%A8_%ED%8A%B9%EC%88%98%EC%88%98%EC%83%89%EA%B5%90%EC%9C%A1_Republic_of_Korea_Marine_Corps_Special_Search_Training_of_Republic_of_Korea_Marine_Corps_(8657452324).jpg
 - 라이선스: CC BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)
 - 가공본(marine_bg.jpg)도 CC BY-SA 2.0 으로 배포한다. 원본 워터마크 영역은 잘라냈다.
+
+## marine_hero.png (해병대 테마 캐릭터)
+- 원본: "흑백 셔츠를 입지 않은 포즈를 취한 근육질의 남자" — Brian Lee (@sd_cosplayfit)
+- 출처: https://unsplash.com/photos/bcCtXnA_R8k
+- 라이선스: Unsplash License
+- 가공: 배경 제거, 구릿빛 채색·윤곽선, 디지털 위장 팔각모·빨간 명찰·챙 그림자·붉은 눈빛 합성(모두 직접 그림)

@@ -382,71 +382,234 @@ class _MarinePainter extends CustomPainter {
   bool shouldRepaint(_MarinePainter old) => old.mood != mood || old.accent != accent || old.gold != gold;
 }
 
-/// 오리지널 해병 헬스 뱃지: 빨간 원 + 금색 로프 테두리 + 별 하나 + 교차 아령. 공식 휘장이 아니다.
+/// 해병 헬스 뱃지(애니풍): 남색 바탕 + 노란 밧줄 테두리 + 빨간 원 + 흰 독수리 + 금색 닻 + 흑백 별.
+/// 해병대 상징의 분위기를 만화풍으로 다시 그린 것으로, 공식 휘장이 아니다(공식 문구 대신 헬스 문구).
 class MarineEmblem extends StatelessWidget {
-  const MarineEmblem({super.key, this.size = 40, this.text = '악'});
+  const MarineEmblem({super.key, this.size = 40, this.top = '악! 해병 헬스', this.bottom = 'FIT MARINE', this.motto = '근성과 땀을 위하여'});
   final double size;
-  final String text;
+  final String top;
+  final String bottom;
+  final String motto;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _EmblemPainter(text));
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _EmblemPainter(top, bottom, motto));
 }
 
 class _EmblemPainter extends CustomPainter {
-  _EmblemPainter(this.text);
-  final String text;
+  _EmblemPainter(this.top, this.bottom, this.motto);
+  final String top;
+  final String bottom;
+  final String motto;
+
+  static const _navy = Color(0xFF1F2B5C);
+  static const _yellow = Color(0xFFFFE04A);
+  static const _yellowDark = Color(0xFFC9A400);
+  static const _red = Color(0xFFE2463F);
+  static const _ink = Color(0xFF151A33);
+  static const _gold = Color(0xFFF5C518);
+  static const _goldDark = Color(0xFFB8860B);
 
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.width / 100;
     canvas.scale(s, s);
     const c = Offset(50, 50);
-    const gold = Color(0xFFF2C14E);
-    const goldDark = Color(0xFFB8860B);
-    const red = Color(0xFFC8102E);
-    const navy = Color(0xFF14213D);
-    canvas.drawCircle(c, 48, Paint()..color = navy);
-    // 로프: 금색 원 위에 짧은 빗금
-    canvas.drawCircle(c, 44, Paint()..color = gold..style = PaintingStyle.stroke..strokeWidth = 6);
-    final rope = Paint()..color = goldDark..strokeWidth = 2..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 36; i++) {
-      final a = i * math.pi / 18;
-      final p1 = c + Offset(math.cos(a - 0.05) * 41, math.sin(a - 0.05) * 41);
-      final p2 = c + Offset(math.cos(a + 0.05) * 47, math.sin(a + 0.05) * 47);
-      canvas.drawLine(p1, p2, rope);
+    final ink = Paint()
+      ..color = _ink
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+
+    // 바탕·밧줄 두 줄
+    canvas.drawCircle(c, 49.5, Paint()..color = _navy);
+    _rope(canvas, c, 46.5, 3.2, 44);
+    _rope(canvas, c, 34.8, 2.6, 32);
+    canvas.drawCircle(c, 33.2, Paint()..color = _red);
+    canvas.drawCircle(c, 33.2, Paint()..color = const Color(0x22000000)..style = PaintingStyle.stroke..strokeWidth = 2);
+
+    // 둥근 글자(위는 바깥을 향해, 아래는 읽기 좋게 뒤집어)
+    _arcText(canvas, c, 40.5, top, -math.pi / 2, 0.21, upper: true);
+    _arcText(canvas, c, 40.5, bottom, math.pi / 2, 0.165, upper: false);
+    // 양옆 별
+    for (final x in [9.5, 90.5]) {
+      canvas.drawPath(_star(Offset(x, 50), 3.6, 1.5), Paint()..color = _yellow);
     }
-    canvas.drawCircle(c, 38, Paint()..color = red);
-    // 별
-    final star = Path();
-    for (var i = 0; i < 10; i++) {
-      final r = i.isEven ? 13.0 : 5.5;
-      final a = -math.pi / 2 + i * math.pi / 5;
-      final p = Offset(50 + math.cos(a) * r, 38 + math.sin(a) * r);
-      i == 0 ? star.moveTo(p.dx, p.dy) : star.lineTo(p.dx, p.dy);
+
+    // 금색 닻(뒤)
+    final anchor = Paint()
+      ..color = _gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.2
+      ..strokeCap = StrokeCap.round;
+    final anchorEdge = Paint()
+      ..color = _goldDark
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.6
+      ..strokeCap = StrokeCap.round;
+    final shank = Path()..moveTo(68, 36)..lineTo(38, 80);
+    final stock = Path()..moveTo(61, 37)..lineTo(76, 47);
+    final crown = Path()
+      ..moveTo(26, 70)
+      ..quadraticBezierTo(30, 86, 46, 87);
+    for (final p in [shank, stock, crown]) {
+      canvas.drawPath(p, anchorEdge);
+      canvas.drawPath(p, anchor);
     }
-    star.close();
-    canvas.drawPath(star, Paint()..color = gold);
-    canvas.drawPath(star, Paint()..color = goldDark..style = PaintingStyle.stroke..strokeWidth = 1.2);
-    // 교차 아령
-    final bar = Paint()..color = gold..strokeWidth = 3.2..strokeCap = StrokeCap.round;
-    for (final deg in [30.0, -30.0]) {
-      canvas.save();
-      canvas.translate(50, 62);
-      canvas.rotate(deg * math.pi / 180);
-      canvas.drawLine(const Offset(-16, 0), const Offset(16, 0), bar);
-      for (final x in [-14.0, 14.0]) {
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(x, 0), width: 5, height: 11), const Radius.circular(1.5)), Paint()..color = gold);
+    canvas.drawCircle(const Offset(70, 33), 3.2, Paint()..color = _goldDark..style = PaintingStyle.stroke..strokeWidth = 2.6);
+    canvas.drawCircle(const Offset(70, 33), 3.2, Paint()..color = _gold..style = PaintingStyle.stroke..strokeWidth = 1.6);
+    for (final tip in const [Offset(26, 70), Offset(46, 87)]) {
+      canvas.drawCircle(tip, 3, Paint()..color = _gold);
+      canvas.drawCircle(tip, 3, Paint()..color = _goldDark..style = PaintingStyle.stroke..strokeWidth = 0.8);
+    }
+    // 닻줄
+    final rope = Path()
+      ..moveTo(70, 36)
+      ..cubicTo(80, 46, 72, 58, 62, 60)
+      ..cubicTo(52, 62, 46, 74, 34, 74);
+    canvas.drawPath(rope, Paint()..color = const Color(0xFFF7E7B0)..style = PaintingStyle.stroke..strokeWidth = 1.8);
+
+    // 흑백 별(입체)
+    _bevelStar(canvas, const Offset(50, 69), 12.5, 5.2);
+
+    // 독수리: 펼친 날개 + 몸통 + 왼쪽을 보는 머리
+    final white = Paint()..color = Colors.white;
+    for (final side in [-1.0, 1.0]) {
+      final wing = Path()..moveTo(50 + side * 3, 50);
+      // 깃털 끝 5개(톱니)
+      final tips = [
+        Offset(50 + side * 10, 38),
+        Offset(50 + side * 20, 34),
+        Offset(50 + side * 29, 33),
+        Offset(50 + side * 33, 37),
+        Offset(50 + side * 31, 42),
+      ];
+      wing.lineTo(tips[0].dx, tips[0].dy);
+      for (var i = 1; i < tips.length; i++) {
+        final mid = Offset((tips[i - 1].dx + tips[i].dx) / 2, (tips[i - 1].dy + tips[i].dy) / 2 + 3);
+        wing.quadraticBezierTo(mid.dx, mid.dy, tips[i].dx, tips[i].dy);
       }
+      wing
+        ..quadraticBezierTo(50 + side * 22, 46, 50 + side * 15, 50)
+        ..quadraticBezierTo(50 + side * 9, 53, 50 + side * 3, 54)
+        ..close();
+      canvas.drawPath(wing, white);
+      canvas.drawPath(wing, ink);
+      // 깃털 결
+      for (var k = 0; k < 4; k++) {
+        final a = Offset(50 + side * (8 + k * 5.5), 46 - k * 0.6);
+        final b = Offset(50 + side * (12 + k * 5.5), 40 - k * 1.2);
+        canvas.drawLine(a, b, Paint()..color = const Color(0xFF9AA3B5)..strokeWidth = 0.7..strokeCap = StrokeCap.round);
+      }
+    }
+    final body = Path()
+      ..moveTo(45, 44)
+      ..quadraticBezierTo(50, 40, 55, 44)
+      ..quadraticBezierTo(57, 52, 53, 58)
+      ..lineTo(50, 61)
+      ..lineTo(47, 58)
+      ..quadraticBezierTo(43, 52, 45, 44)
+      ..close();
+    canvas.drawPath(body, white);
+    canvas.drawPath(body, ink);
+    // 머리(왼쪽을 봄) + 노란 부리 + 눈
+    final head = Path()
+      ..moveTo(47, 44)
+      ..quadraticBezierTo(44, 36, 48.5, 33.5)
+      ..quadraticBezierTo(53.5, 32.5, 54, 38)
+      ..quadraticBezierTo(54, 42, 52, 44)
+      ..close();
+    canvas.drawPath(head, white);
+    canvas.drawPath(head, ink);
+    final beak = Path()
+      ..moveTo(46.5, 36)
+      ..lineTo(42, 37.6)
+      ..quadraticBezierTo(43, 39.6, 46.8, 38.8)
+      ..close();
+    canvas.drawPath(beak, Paint()..color = _yellow);
+    canvas.drawPath(beak, ink);
+    canvas.drawCircle(const Offset(48.6, 35.6), 0.9, Paint()..color = _ink);
+
+    // 부리에서 늘어진 리본 + 문구
+    final ribbon = Path()
+      ..moveTo(44, 37.5)
+      ..quadraticBezierTo(46, 30, 54, 27)
+      ..lineTo(76, 24.5)
+      ..lineTo(73, 28)
+      ..lineTo(77, 31)
+      ..lineTo(55, 32.5)
+      ..quadraticBezierTo(49, 34, 46.5, 38.5)
+      ..close();
+    canvas.drawPath(ribbon, white);
+    canvas.drawPath(ribbon, ink);
+    final tp = TextPainter(
+      text: TextSpan(text: motto, style: const TextStyle(color: _ink, fontSize: 3.6, fontWeight: FontWeight.w800, height: 1)),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 22);
+    canvas.save();
+    canvas.translate(54.5, 27.6);
+    canvas.rotate(-0.07);
+    tp.paint(canvas, Offset.zero);
+    canvas.restore();
+  }
+
+  /// 꼬인 밧줄: 노란 띠 위에 짧은 빗금.
+  void _rope(Canvas canvas, Offset c, double r, double w, int twists) {
+    canvas.drawCircle(c, r, Paint()..color = _yellow..style = PaintingStyle.stroke..strokeWidth = w);
+    final p = Paint()
+      ..color = _yellowDark
+      ..strokeWidth = 0.9
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < twists; i++) {
+      final a = i * 2 * math.pi / twists;
+      final p1 = c + Offset(math.cos(a - 0.04) * (r - w / 2), math.sin(a - 0.04) * (r - w / 2));
+      final p2 = c + Offset(math.cos(a + 0.06) * (r + w / 2), math.sin(a + 0.06) * (r + w / 2));
+      canvas.drawLine(p1, p2, p);
+    }
+  }
+
+  /// 원을 따라 글자를 배치. [center]는 글자열 가운데 각도, [step]은 글자 간격(라디안).
+  void _arcText(Canvas canvas, Offset c, double r, String text, double center, double step, {required bool upper}) {
+    final chars = text.characters.toList();
+    final start = center - step * (chars.length - 1) / 2 * (upper ? 1 : -1);
+    for (var i = 0; i < chars.length; i++) {
+      final a = start + step * i * (upper ? 1 : -1);
+      final tp = TextPainter(
+        text: TextSpan(text: chars[i], style: const TextStyle(color: _yellow, fontSize: 9, fontWeight: FontWeight.w900, height: 1)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      canvas.save();
+      canvas.translate(c.dx + math.cos(a) * r, c.dy + math.sin(a) * r);
+      canvas.rotate(upper ? a + math.pi / 2 : a - math.pi / 2);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
       canvas.restore();
     }
-    // 글자
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(50 - tp.width / 2, 74));
+  }
+
+  Path _star(Offset c, double r, double inner) {
+    final star = Path();
+    for (var i = 0; i < 10; i++) {
+      final rr = i.isEven ? r : inner;
+      final a = -math.pi / 2 + i * math.pi / 5;
+      final p = Offset(c.dx + math.cos(a) * rr, c.dy + math.sin(a) * rr);
+      i == 0 ? star.moveTo(p.dx, p.dy) : star.lineTo(p.dx, p.dy);
+    }
+    return star..close();
+  }
+
+  /// 꼭짓점마다 반은 흰색·반은 검정으로 나눠 입체감을 주는 별.
+  void _bevelStar(Canvas canvas, Offset c, double r, double inner) {
+    for (var i = 0; i < 5; i++) {
+      final a = -math.pi / 2 + i * 2 * math.pi / 5;
+      final tip = Offset(c.dx + math.cos(a) * r, c.dy + math.sin(a) * r);
+      final l = Offset(c.dx + math.cos(a - math.pi / 5) * inner, c.dy + math.sin(a - math.pi / 5) * inner);
+      final rr = Offset(c.dx + math.cos(a + math.pi / 5) * inner, c.dy + math.sin(a + math.pi / 5) * inner);
+      canvas.drawPath(Path()..moveTo(c.dx, c.dy)..lineTo(l.dx, l.dy)..lineTo(tip.dx, tip.dy)..close(), Paint()..color = Colors.white);
+      canvas.drawPath(Path()..moveTo(c.dx, c.dy)..lineTo(tip.dx, tip.dy)..lineTo(rr.dx, rr.dy)..close(), Paint()..color = _ink);
+    }
+    canvas.drawPath(_star(c, r, inner), Paint()..color = _ink..style = PaintingStyle.stroke..strokeWidth = 0.9..strokeJoin = StrokeJoin.round);
   }
 
   @override
-  bool shouldRepaint(_EmblemPainter old) => old.text != text;
+  bool shouldRepaint(_EmblemPainter old) => old.top != top || old.bottom != bottom || old.motto != motto;
 }

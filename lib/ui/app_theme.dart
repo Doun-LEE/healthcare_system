@@ -30,7 +30,7 @@ enum AppThemeStyle {
   /// 배경 사진 출처(라이선스 표시). 사진을 듀오톤으로 가공해 썼다.
   String? get photoCredit => switch (this) {
         AppThemeStyle.tough => '배경 사진: Anastase Maragos / Unsplash (Unsplash License), 색 보정',
-        AppThemeStyle.marine => '배경 사진: 대한민국 국군 "해병대 교육훈련단 특수수색교육"(2013) / Wikimedia Commons, CC BY-SA 2.0, 잘라내고 색 보정(가공본도 CC BY-SA 2.0)',
+        AppThemeStyle.marine => '배경 사진: 대한민국 국군 "해병대 교육훈련단 특수수색교육"(2013) / Wikimedia Commons, CC BY-SA 2.0, 잘라내고 색 보정(가공본도 CC BY-SA 2.0) · 캐릭터 원본 사진: Brian Lee / Unsplash (Unsplash License), 채색·합성',
         _ => null,
       };
 
