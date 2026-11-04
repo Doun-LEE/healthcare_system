@@ -17,7 +17,6 @@ import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
 import 'widgets/marine_hero.dart';
-import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/equipment_look.dart';
 import 'widgets/real_photos.dart';
@@ -287,7 +286,7 @@ class DayPlanView extends StatelessWidget {
             if (themeStyleOf(context) == AppThemeStyle.cute)
               const Padding(padding: EdgeInsets.only(bottom: 4), child: Mascot(mood: MascotMood.cheer, size: 84)),
             if (themeStyleOf(context) == AppThemeStyle.marine)
-              const Padding(padding: EdgeInsets.only(bottom: 4), child: MarineMascot(mood: MascotMood.cheer, size: 90)),
+              const Padding(padding: EdgeInsets.only(bottom: 4), child: MarineHero(size: 150)),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.check_circle, color: cs.primary),
               const SizedBox(width: 8),
@@ -1455,7 +1454,7 @@ class ThemedQuoteBanner extends StatelessWidget {
       child: MascotSays(
         text: quote,
         mood: mood,
-        avatar: style == AppThemeStyle.marine ? MarineMascot(mood: mood, size: 68) : null,
+        avatar: style == AppThemeStyle.marine ? const MarineHero(size: 76) : null,
         // 해병대: 빨간 명찰 색 말풍선에 흰 글씨(각진 느낌은 테마 모서리가 맡는다).
         bubbleColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.primary : null,
         textColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.onPrimary : null,
