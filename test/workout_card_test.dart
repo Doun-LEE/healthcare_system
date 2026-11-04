@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull); // RenderFlex overflow 등 없음
-    expect(find.text('전신'), findsOneWidget);
+    expect(find.text('전신·유산소'), findsOneWidget); // 유산소(천국의 계단)가 들어 있으면 제목에도 보인다
     expect(find.text('100%'), findsOneWidget); // 수행률 링
     expect(find.textContaining('체감 6/10'), findsOneWidget);
     // 최고 기록: 140kg × 1

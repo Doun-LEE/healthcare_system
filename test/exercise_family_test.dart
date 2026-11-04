@@ -77,6 +77,19 @@ void main() {
     expect(newtech.models.any((m) => m.type == EquipmentType.vikingPress), isTrue);
   });
 
+  test('유산소 포함이면 전신 날엔 붙고, 하체만 하는 날엔 기본적으로 빠진다', () {
+    final gym = _gym([EquipmentType.treadmill, EquipmentType.dumbbell, EquipmentType.flatBench, EquipmentType.legPress, EquipmentType.latPulldown, EquipmentType.chestPress]);
+    List<String> gen(List<MuscleGroup> groups) => SessionGenerator(SessionRequest(
+          groups: groups, available: gym.availableTypes, progress: {},
+          profile: UserProfile(id: 'u', name: 'u', includeCardio: true, warmupMode: 'off'),
+          minutesBudget: 95, seed: 1, now: DateTime(2026, 11, 4),
+        )).generate().map((e) => e.exerciseId).toList();
+    bool hasCardio(List<String> ids) => ids.any((id) => exerciseById(id)!.loadType == LoadType.cardio);
+    expect(hasCardio(gen([MuscleGroup.chest, MuscleGroup.back, MuscleGroup.legs, MuscleGroup.shoulder, MuscleGroup.arms])), isTrue);
+    expect(hasCardio(gen([MuscleGroup.legs])), isFalse);
+    expect(hasCardio(gen([MuscleGroup.chest, MuscleGroup.arms])), isTrue);
+  });
+
   test('유산소 구간별 레벨: 시간 가중 평균 레벨, 총 시간으로 완주 판단', () {
     final pe = PlannedExercise(exerciseId: 'stairs', equipmentType: EquipmentType.stairClimber, restSeconds: 0, sets: [
       SetEntry(targetReps: 20, targetWeight: 0, level: 8, doneReps: 10, completed: true),

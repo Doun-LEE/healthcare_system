@@ -456,4 +456,4 @@ class _DaySummary extends StatelessWidget {
 }
 
 /// 달력 칸의 부위 글자: 전신(큰 부위 4개 이상)이면 '전신', 아니면 부위를 전부(복근·유산소는 뒤에) 보여준다.
-String _focusLabel(DayPlan plan) => focusTitle(plan.focus);
+String _focusLabel(DayPlan plan) => focusTitle(plan.shownFocus);

@@ -3,6 +3,8 @@
 /// 모든 모델은 JSON(Map) 직렬화를 지원해 [LocalStore]에 그대로 저장된다.
 library;
 
+import '../data/catalog.dart' show exerciseById;
+
 /// 운동 부위. 요구사항 6번의 7개 부위를 그대로 사용한다.
 enum MuscleGroup {
   shoulder('어깨'),
@@ -1035,11 +1037,25 @@ class DayPlan {
   DateTime? finishedAt;
 
   /// 화면용 제목: 부위를 전부 나열한 제목('하체·가슴·등·어깨·팔·복근·유산소')은 '전신·유산소'로 줄인다.
+  /// 화면에 보여줄 부위: 정한 부위 + 루틴에 유산소가 붙어 있으면 '유산소'.
+  /// (유산소 포함 설정으로 끝에 자동으로 붙인 유산소도 부위로 보이게.)
+  List<MuscleGroup> get shownFocus => [
+        ...focus,
+        if (!focus.contains(MuscleGroup.cardio) &&
+            exercises.any((e) => !e.warmup && exerciseById(e.exerciseId)?.loadType == LoadType.cardio))
+          MuscleGroup.cardio,
+      ];
+
   String get displayTitle {
     final raw = focus.map((g) => g.label).join('·');
     final t = title;
-    if (t == null || t.isEmpty) return focusTitle(focus);
-    return t.contains(raw) ? t.replaceFirst(raw, focusTitle(focus)) : t;
+    final base = (t == null || t.isEmpty)
+        ? focusTitle(focus)
+        : (t.contains(raw) ? t.replaceFirst(raw, focusTitle(focus)) : t);
+    if (focus.contains(MuscleGroup.cardio) || base.contains('유산소') || shownFocus.length == focus.length) return base;
+    final parts = base.split(' · ');
+    parts[0] = '${parts[0]}·유산소';
+    return parts.join(' · ');
   }
 
   bool get isRest => kind == DayKind.rest;

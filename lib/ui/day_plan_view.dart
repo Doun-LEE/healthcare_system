@@ -588,7 +588,7 @@ class _Header extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: [
-                for (final g in plan.focus)
+                for (final g in plan.shownFocus)
                   Chip(label: Text(g.label), visualDensity: VisualDensity.compact),
                 if (plan.atOtherGym || gym != null)
                   ActionChip(

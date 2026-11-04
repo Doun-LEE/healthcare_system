@@ -386,9 +386,12 @@ class SessionGenerator {
     return [for (final k in keyed) k.$3];
   }
 
-  bool _shouldAppendCardio(List<MuscleGroup> groups) =>
-      // 하체 날엔 기본적으로 유산소를 붙이지 않는다(회복 우선). 프로필에서 켜면 하체 날에도 붙인다.
-      !groups.contains(MuscleGroup.legs) || req.profile.cardioOnLegDays;
+  bool _shouldAppendCardio(List<MuscleGroup> groups) {
+    // 하체 날엔 기본적으로 유산소를 붙이지 않는다(회복 우선). 프로필에서 켜면 하체 날에도 붙인다.
+    // 전신 날(큰 부위 4개 이상)은 하체 '날'이 아니므로 유산소를 붙인다.
+    if (!groups.contains(MuscleGroup.legs) || req.profile.cardioOnLegDays) return true;
+    return groups.where((g) => g.isMajor).length >= 4;
+  }
 
   static int _exercisesPerGroup(int groupCount) => switch (groupCount) {
         <= 1 => 5,
