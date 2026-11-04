@@ -20,7 +20,15 @@ class ReleaseInfo {
 class AppUpdate {
   static PackageInfo? _info;
 
+  /// 빌드할 때 박아 넣은 '버전+빌드'(웹 CI). 웹의 PackageInfo 는 서버 version.json 을 읽어서
+  /// '지금 실행 중인 번들'의 버전을 알 수 없으므로 이 값을 쓴다. 로컬 빌드면 빈 문자열.
+  static const bundledBuild = String.fromEnvironment('APP_BUILD');
+
   static Future<String> currentVersion() async {
+    if (bundledBuild.isNotEmpty) {
+      final i = bundledBuild.indexOf('+');
+      return i < 0 ? bundledBuild : '${bundledBuild.substring(0, i)} (${bundledBuild.substring(i + 1)})';
+    }
     _info ??= await PackageInfo.fromPlatform();
     final v = _info!.version;
     final b = _info!.buildNumber;
@@ -29,12 +37,14 @@ class AppUpdate {
 
   /// '버전+빌드'(웹 version.json 과 같은 모양).
   static Future<String> currentVersionAndBuild() async {
+    if (bundledBuild.isNotEmpty) return bundledBuild;
     _info ??= await PackageInfo.fromPlatform();
     final b = _info!.buildNumber;
     return b.isEmpty ? _info!.version : '${_info!.version}+$b';
   }
 
   static Future<String> currentVersionOnly() async {
+    if (bundledBuild.isNotEmpty) return bundledBuild.split('+').first;
     _info ??= await PackageInfo.fromPlatform();
     return _info!.version;
   }

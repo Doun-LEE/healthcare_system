@@ -37,6 +37,8 @@ Future<void> _autoUpdateWeb() async {
   final deployed = await WebReload.deployedVersion();
   if (deployed == null) return;
   // 서버 빌드와 지금 빌드가 다르면(숫자 크기와 상관없이) 새로고침한다.
+  // 번들에 빌드 정보가 없으면(로컬 빌드) 비교할 수 없으니 건너뛴다.
+  if (AppUpdate.bundledBuild.isEmpty) return;
   final mine = await AppUpdate.currentVersionAndBuild();
   if (deployed == mine || WebReload.triedFor(deployed)) return;
   WebReload.markTried(deployed);

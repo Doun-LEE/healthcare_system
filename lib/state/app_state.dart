@@ -343,9 +343,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> load() async {
     _data = await _store.load();
+    // 중복 정리를 먼저 해야, 정리된 걸 '내가 고친 것'으로 잡아 친구에게 수정 알림이 가지 않는다.
+    _dedupeEquipment();
     _snapshotEntities();
     final loadedAt = _data.updatedAt;
-    _dedupeEquipment();
     _loaded = true;
     if (!cloudSignedIn) _initialSyncDone = true;
     if (cloudSignedIn) {
@@ -1039,9 +1040,12 @@ class AppState extends ChangeNotifier {
   }
 
   /// 연결된 친구 헬스장의 최신 기구 데이터로 교체(내가 찍은 사진은 기구 id 가 같으면 그대로).
-  Future<String> resyncSharedGym(Gym g) async {
-    if (!g.isShared || !cloudSignedIn) return '친구 헬스장과 연결된 곳이 아니에요.';
-    final pp = await CloudSync.instance.fetchPartner(g.sharedFrom!);
+  Future<String> resyncSharedGym(Gym gym) async {
+    if (!gym.isShared || !cloudSignedIn) return '친구 헬스장과 연결된 곳이 아니에요.';
+    final pp = await CloudSync.instance.fetchPartner(gym.sharedFrom!);
+    // 기다리는 사이 클라우드 동기화로 헬스장 객체가 바뀌었을 수 있으니 다시 찾는다.
+    final g = gymById(gym.id);
+    if (g == null) return '헬스장을 찾지 못했어요.';
     final src = pp?.gyms.where((x) => x.id == g.sharedGymId).firstOrNull;
     if (src == null) return '${g.sharedName ?? '친구'} 님의 헬스장을 찾지 못했어요(삭제됐거나 아직 새 버전으로 접속 안 함).';
     // 친구 앱이 옛 버전이면 기구 데이터가 비어 온다. 그럴 땐 내 기구를 지우지 않는다.
@@ -1118,7 +1122,8 @@ class AppState extends ChangeNotifier {
   /// 친구 수정 받아들이기: 기구를 친구 것으로 맞춘다(같은 기구의 내 사진 표시는 유지). 지금 상태는 먼저 백업.
   Future<void> acceptGymUpdate(GymUpdate u) async {
     await _backupBefore('헬스장 동기화 전 자동 저장');
-    final g = u.gym;
+    final g = gymById(u.gym.id);
+    if (g == null) return;
     final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
     g.equipment
       ..clear()
@@ -1132,7 +1137,8 @@ class AppState extends ChangeNotifier {
 
   /// 이번 수정은 동기화하지 않는다(친구가 또 고치면 다시 묻는다).
   Future<void> declineGymUpdate(GymUpdate u) async {
-    if (u.remote.editedAt != null) u.gym.syncDeclined[u.friendUid] = u.remote.editedAt!;
+    final g = gymById(u.gym.id);
+    if (g != null && u.remote.editedAt != null) g.syncDeclined[u.friendUid] = u.remote.editedAt!;
     gymUpdates = [for (final x in gymUpdates) if (x.gym.id != u.gym.id || x.friendUid != u.friendUid) x];
     await _save();
   }
@@ -1155,8 +1161,10 @@ class AppState extends ChangeNotifier {
   }
 
   /// 이 헬스장의 기구만 백업 때 상태로 되돌린다(다른 기록은 그대로). 지금 상태는 먼저 백업한다.
-  Future<void> restoreGymEquipment(Gym g, List<GymEquipment> equipment) async {
+  Future<void> restoreGymEquipment(Gym gym, List<GymEquipment> equipment) async {
     await _backupBefore('기구 되살리기 전 자동 저장');
+    final g = gymById(gym.id);
+    if (g == null) return;
     g.equipment
       ..clear()
       ..addAll([for (final e in equipment) GymEquipment.fromJson(e.toJson())]);
@@ -1215,9 +1223,20 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> addEquipment(String gymId, EquipmentType type,
-      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand, String? weightBasis, double? emptyKg}) async {
+      {String? name, double? maxWeight, String? note, LoadMechanism? mechanism, double? stepKg, List<EquipmentType>? extraTypes, String? brand, String? weightBasis, double? emptyKg, bool another = false}) async {
     final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (g == null) return;
+    // '한 대 더': 같은 종류 기구를 하나 더. 이름이 겹치면 '… 2', '… 3'으로 붙여 중복 정리에서 지워지지 않게.
+    if (another) {
+      final base = (name == null || name.trim().isEmpty) ? type.label : name.trim();
+      var label = base;
+      var n = 2;
+      while (g.equipment.any((e) => e.type == type && e.displayName == label)) {
+        label = '$base $n';
+        n++;
+      }
+      name = label;
+    }
     // 같은 종류·같은 이름 기구가 이미 있으면 또 넣지 않는다(중복 방지).
     final label = (name == null || name.trim().isEmpty) ? type.label : name.trim();
     if (g.equipment.any((e) => e.type == type && e.displayName == label)) return;

@@ -64,7 +64,8 @@ jobs:
             --base-href "/" \
             --pwa-strategy offline-first \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }}
+            --build-number=${{ github.run_number }} \
+            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ github.run_number }}
 
       # firebase-tools를 직접 실행한다. 실패하면 원인 문구를 annotation(공개)으로 남겨
       # 로그인 없이도 실패 이유를 볼 수 있게 한다(키 내용은 출력하지 않음).
@@ -127,7 +128,8 @@ jobs:
             --base-href "/${{ github.event.repository.name }}/" \
             --pwa-strategy offline-first \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }}
+            --build-number=${{ github.run_number }} \
+            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ github.run_number }}
           mv build/web pages
 
       - uses: actions/configure-pages@v5

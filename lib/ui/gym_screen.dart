@@ -111,6 +111,18 @@ class GymScreen extends StatelessWidget {
     final links = state.gymLinks[gym.id] ?? const <GymUpdate>[];
     if (links.isEmpty) {
       if (gym.isShared) {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text('${gym.sharedName ?? '친구'} 님 데이터로 동기화할까요?'),
+            content: const Text('지금 기구가 친구 헬스장 기구로 바뀌어요. 내 사진은 유지되고, 지금 상태는 백업해 둬요.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+              FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('동기화')),
+            ],
+          ),
+        );
+        if (ok != true) return;
         final msg = await state.resyncSharedGym(gym);
         messenger.showSnackBar(SnackBar(content: Text(msg)));
       } else {
@@ -359,7 +371,7 @@ class GymScreen extends StatelessWidget {
           weightBasis: p.model.perSide ? 'perSide' : null,
           emptyKg: p.model.emptyKg);
     }
-    if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty) {
+    if (result.named.isNotEmpty && result.add.isEmpty && result.remove.isEmpty && result.more.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('브랜드 기구 ${result.named.length}개를 추가했어요.')));
       }
@@ -371,8 +383,20 @@ class GymScreen extends StatelessWidget {
         await state.removeEquipment(gym.id, e.id);
       }
     }
+    // '한 대 더': 하나씩 이름·무게 설정을 받아 같은 종류로 하나 더 등록한다.
+    for (final t in result.more) {
+      if (!context.mounted) return;
+      final detail = await _EquipmentEditor.show(context, t);
+      if (detail == null) continue;
+      await state.addEquipment(gym.id, t,
+          name: detail.customName, maxWeight: detail.maxWeightKg, note: detail.note,
+          mechanism: detail.mechanism, stepKg: detail.stepKg, another: true);
+    }
     final chosen = result.add;
     if (chosen.isEmpty) {
+      if (result.more.isNotEmpty && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('같은 종류 기구를 ${result.more.length}대 더 등록했어요.')));
+      }
       if (result.remove.isNotEmpty && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result.remove.length}개 기구를 보유 목록에서 뺐어요.')));
       }
@@ -399,8 +423,11 @@ class GymScreen extends StatelessWidget {
 
 /// 기구 선택기 결과: 새로 추가할 기구와 보유 해제한 기구.
 class PickerResult {
-  const PickerResult({required this.add, required this.remove, this.named = const [], this.custom});
+  const PickerResult({required this.add, required this.remove, this.named = const [], this.custom, this.more = const []});
   final List<EquipmentType> add;
+
+  /// 이미 있는 종류를 한 대 더(다른 기구로).
+  final List<EquipmentType> more;
   final List<EquipmentType> remove;
 
   /// 브랜드 탭에서 고른 모델(이름·종류·방식·브랜드 그대로 등록).
@@ -772,7 +799,8 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                       : () => Navigator.pop(
                           context,
                           PickerResult(
-                            add: [..._selected, ..._more],
+                            add: _selected.toList(),
+                            more: _more.toList(),
                             remove: _removed.toList(),
                             named: [for (final e in _brandPicked.entries) BrandPick(e.key, e.value)],
                           ),

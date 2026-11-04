@@ -13,6 +13,8 @@ Exercise? substituteFor(Exercise ex, Set<EquipmentType> available, {Set<String> 
   for (final c in exercisesOf(ex.group)) {
     if (c.id == ex.id || c.activity || c.warmupOnly || exclude.contains(c.id) || !c.canDoWith(available)) continue;
     var s = 0.0;
+    // 같은 동작 계열(레그 컬↔라잉 레그 컬, 바벨 벤치↔체스트프레스 머신 등)이 있으면 그걸 먼저.
+    if (hasFamily(ex.id) && familyOf(c.id) == familyOf(ex.id)) s += 10;
     for (final m in c.emphasis) {
       if (ex.emphasis.contains(m)) s += 3;
       // '윗가슴' vs '윗가슴·전면 어깨'처럼 부분 일치도 조금 쳐준다.

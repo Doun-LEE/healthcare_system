@@ -2,6 +2,7 @@ import 'package:fit_routine/data/brands.dart';
 import 'package:fit_routine/data/catalog.dart';
 import 'package:fit_routine/engine/progression.dart';
 import 'package:fit_routine/engine/session_generator.dart';
+import 'package:fit_routine/engine/substitute.dart';
 import 'package:fit_routine/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,6 +64,13 @@ void main() {
       final ids = _gen(legs, [MuscleGroup.legs], avoid: {'leg_curl'}, seed: seed).map((e) => e.exerciseId);
       expect(ids, isNot(contains('lying_leg_curl')), reason: 'seed $seed: $ids');
     }
+  });
+
+  test('다른 헬스장 대체: 같은 동작 계열을 먼저 고른다', () {
+    final seatedOnly = _gym([EquipmentType.legCurl, EquipmentType.dumbbell, EquipmentType.legPress]).availableTypes;
+    expect(substituteFor(exerciseById('lying_leg_curl')!, seatedOnly)!.id, 'leg_curl');
+    final machineOnly = _gym([EquipmentType.chestPress, EquipmentType.pecDeck]).availableTypes;
+    expect(substituteFor(exerciseById('bb_bench')!, machineOnly)!.id, 'chest_press_m');
   });
 
   test('라잉 인클라인 체스트 프레스 기구·운동이 있다', () {

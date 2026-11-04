@@ -31,4 +31,20 @@ void main() {
         PartnerGym(id: 'fg', name: '친구짐', types: {EquipmentType.bodyweight, EquipmentType.legPress, EquipmentType.dumbbell}));
     expect(g.equipment.map((e) => e.type).toSet(), {EquipmentType.legPress, EquipmentType.dumbbell});
   });
+
+  test("'한 대 더'는 같은 종류를 이름을 붙여 하나 더 넣고, 다시 열어도 중복 정리에서 지워지지 않는다", () async {
+    final store = MemoryStore();
+    await store.save(AppData(currentUserId: 'u', profiles: [UserProfile(id: 'u', name: '도운', onboarded: true)], gyms: [
+      Gym(id: 'g1', name: '짐', equipment: [GymEquipment(id: 'a', type: EquipmentType.shoulderPressPlateLoaded)]),
+    ]));
+    final s = AppState(store);
+    await s.load();
+    await s.addEquipment('g1', EquipmentType.shoulderPressPlateLoaded, another: true);
+    final names = s.gyms.single.equipment.map((e) => e.displayName).toList();
+    expect(names.length, 2);
+    expect(names.toSet().length, 2, reason: '이름이 겹치지 않게 붙는다: $names');
+    final again = AppState(store);
+    await again.load();
+    expect(again.gyms.single.equipment.length, 2);
+  });
 }
