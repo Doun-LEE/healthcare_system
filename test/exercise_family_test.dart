@@ -1,3 +1,4 @@
+import 'package:fit_routine/data/brands.dart';
 import 'package:fit_routine/data/catalog.dart';
 import 'package:fit_routine/engine/progression.dart';
 import 'package:fit_routine/engine/session_generator.dart';
@@ -68,6 +69,12 @@ void main() {
     final ex = exerciseById('lying_incline_press_m')!;
     expect(ex.canDoWith(_gym([EquipmentType.lyingInclinePress]).availableTypes), isTrue);
     expect(exerciseById('cs_row_m')!.name, '시티드 로우 머신');
+  });
+
+  test('바이킹 프레스: 서서 하는 별도 기구·운동, 뉴텍에도 있다', () {
+    expect(exerciseById('viking_press')!.canDoWith(_gym([EquipmentType.vikingPress]).availableTypes), isTrue);
+    final newtech = equipmentBrands.firstWhere((b) => b.key == 'newtech');
+    expect(newtech.models.any((m) => m.type == EquipmentType.vikingPress), isTrue);
   });
 
   test('유산소 구간별 레벨: 시간 가중 평균 레벨, 총 시간으로 완주 판단', () {

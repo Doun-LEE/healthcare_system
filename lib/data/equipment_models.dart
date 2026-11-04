@@ -142,6 +142,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       // 어깨
       EquipmentType.shoulderPress => _pressMachine(arms: true, tall: true),
       EquipmentType.shoulderPressPlateLoaded => _pressMachine(arms: true, tall: true, plateLoaded: true),
+      EquipmentType.vikingPress => _pressMachine(arms: true, tall: true, plateLoaded: true),
       EquipmentType.lateralRaiseMachine => _lateralRaiseMachine(),
       EquipmentType.rearDeltMachine => _pecDeck(),
       // 팔

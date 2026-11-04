@@ -96,6 +96,7 @@ enum EquipmentType {
 
   // ── 어깨 ──
   shoulderPress('숄더 프레스 머신', EquipmentCategory.shoulder, ['shoulder press', '숄더프레스']),
+  vikingPress('바이킹 프레스(서서 미는 숄더 프레스)', EquipmentCategory.shoulder, ['viking press', '바이킹', '바이킹프레스', '스탠딩 숄더 프레스 머신', '햄머 스탠딩 숄더']),
   shoulderPressPlateLoaded('해머 숄더 프레스(플레이트 로디드)', EquipmentCategory.shoulder, ['hammer shoulder press', 'iso shoulder', '해머 프레스', '해머프레스', '해머 숄더', '아이소 숄더']),
   lateralRaiseMachine('레터럴 레이즈 머신', EquipmentCategory.shoulder, ['lateral raise machine', '사레레 머신']),
   rearDeltMachine('리어 델트 머신', EquipmentCategory.shoulder, ['rear delt machine', 'reverse fly']),
@@ -520,6 +521,7 @@ enum LoadMechanism {
       case EquipmentType.latPulldownPlateLoaded:
       case EquipmentType.monsterGlute:
       case EquipmentType.shoulderPressPlateLoaded:
+      case EquipmentType.vikingPress:
       case EquipmentType.highRow:
       case EquipmentType.lowRow:
       case EquipmentType.tBarRow:

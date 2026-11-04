@@ -538,6 +538,12 @@ const List<EquipmentInfo> equipmentCatalog = [
     groups: [MuscleGroup.shoulder],
   ),
   EquipmentInfo(
+    type: EquipmentType.vikingPress,
+    summary: '서서 레버를 머리 위로 밀어 올리는 플레이트 로디드 머신. 오버헤드 프레스처럼 서서 하지만 궤도가 고정돼 있다.',
+    strengths: ['전면 어깨·승모 고중량', '서서 하는 오버헤드 프레스', '코어 안정'],
+    groups: [MuscleGroup.shoulder],
+  ),
+  EquipmentInfo(
     type: EquipmentType.lateralRaiseMachine,
     summary: '측면 삼각근 전용 머신. 반동 없이 측면만 고립.',
     strengths: ['측면 어깨 고립(넓은 어깨)', '반동 차단', '드롭세트'],
@@ -1539,6 +1545,13 @@ const List<Exercise> exerciseCatalog = [
     compound: true, repRange: [8, 12], priority: 3,
   ),
   Exercise(
+    id: 'viking_press', name: '바이킹 프레스', group: MuscleGroup.shoulder,
+    emphasis: ['전면 어깨', '승모 상부', '코어'], equipment: [EquipmentType.vikingPress],
+    loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.9,
+    compound: true, repRange: [8, 12], priority: 3,
+    description: '서서 레버를 머리 위로 미는 숄더 프레스. 앉아서 하는 숄더 프레스보다 승모·코어까지 같이 쓴다.',
+  ),
+  Exercise(
     id: 'lateral_raise_m', name: '레터럴 레이즈 머신', group: MuscleGroup.shoulder,
     emphasis: ['측면 어깨 고립', '반동 차단'], equipment: [EquipmentType.lateralRaiseMachine],
     loadType: LoadType.machine, refLift: RefLift.ohp, ratio: 0.5,
@@ -2217,7 +2230,7 @@ const Map<InjuryArea, Set<String>> injuryExclusions = {
     'stairs', 'curved_sprint', 'treadmill_run', 'sled_push',
   },
   InjuryArea.shoulder: {
-    'ohp', 'db_shoulder_press', 'shoulder_press_m', 'shoulder_press_pl', 'fixed_bb_press',
+    'ohp', 'db_shoulder_press', 'shoulder_press_m', 'shoulder_press_pl', 'viking_press', 'fixed_bb_press',
     'upright_row', 'dips', 'tri_dips', 'assisted_dip', 'dip_m', 'bb_bench', 'decline_bb',
     'behind_neck', 'pullup', 'lat_pulldown', 'overhead_tri', 'ski_erg', 'battle_rope', 'versa',
   },
