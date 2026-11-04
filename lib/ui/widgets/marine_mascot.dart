@@ -58,6 +58,35 @@ class _MarinePainter extends CustomPainter {
 
   static const _skin = Color(0xFFD9A066);
   static const _skinDark = Color(0xFFB07A45);
+  static const _skinHi = Color(0xFFF2C893);
+  static const _skinDeep = Color(0xFF8A5530);
+
+  /// 원통형 명암(왼쪽 위 빛): 밝은 면 → 기본 → 어두운 면.
+  static Paint _cyl(Rect r) => Paint()
+    ..shader = const LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [_skinHi, _skin, _skinDark, _skinDeep],
+      stops: [0.0, 0.35, 0.8, 1.0],
+    ).createShader(r);
+
+  /// 근육 덩어리 볼륨: 가운데 위가 밝고 가장자리가 어둡다.
+  static Paint _bulge(Rect r) => Paint()
+    ..shader = const RadialGradient(
+      center: Alignment(-0.35, -0.45),
+      radius: 0.95,
+      colors: [_skinHi, _skin, _skinDark],
+      stops: [0.0, 0.5, 1.0],
+    ).createShader(r);
+
+  static final _softShadow = Paint()
+    ..color = const Color(0x66301A0C)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2);
+
+  /// 땀 광택(하이라이트).
+  static final _sheen = Paint()
+    ..color = const Color(0x8CFFFFFF)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.9);
   static const _line = Color(0xFF2B1D14);
   static const _camo = Color(0xFF4F6B3A);
   static const _camoDark = Color(0xFF34492A);
@@ -79,7 +108,6 @@ class _MarinePainter extends CustomPainter {
       ..strokeWidth = 1.7
       ..strokeCap = StrokeCap.round;
     final skin = Paint()..color = _skin;
-    final shade = Paint()..color = _skinDark;
     final vein = Paint()
       ..color = const Color(0xFF8E5A3A)
       ..style = PaintingStyle.stroke
@@ -92,9 +120,11 @@ class _MarinePainter extends CustomPainter {
       canvas.translate(c.dx, c.dy);
       canvas.rotate(deg * math.pi / 180);
       final r = Rect.fromCenter(center: Offset.zero, width: w, height: len);
-      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), skin);
-      canvas.drawOval(Rect.fromCenter(center: Offset(-1, -len * 0.16), width: w * 0.8, height: len * 0.46), shade);
-      canvas.drawOval(Rect.fromCenter(center: Offset(-2, -len * 0.2), width: w * 0.5, height: len * 0.28), skin);
+      canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), _cyl(r));
+      final bi = Rect.fromCenter(center: Offset(-1, -len * 0.18), width: w * 0.86, height: len * 0.5);
+      canvas.drawOval(bi.shift(const Offset(1.2, 1.6)), _softShadow);
+      canvas.drawOval(bi, _bulge(bi));
+      canvas.drawOval(Rect.fromCenter(center: Offset(-w * 0.18, -len * 0.27), width: w * 0.22, height: len * 0.14), _sheen);
       final v = Path()
         ..moveTo(3, len * 0.05)
         ..lineTo(1, len * 0.18)
@@ -138,7 +168,17 @@ class _MarinePainter extends CustomPainter {
       ..lineTo(84, 90)
       ..lineTo(16, 90)
       ..close();
-    canvas.drawPath(torso, skin);
+    canvas.drawPath(torso, Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_skinHi, _skin, _skinDark, _skinDeep],
+        stops: [0.0, 0.3, 0.75, 1.0],
+      ).createShader(const Rect.fromLTWH(4, 36, 92, 54)));
+    // 어깨(삼각근) 볼륨
+    for (final r in const [Rect.fromLTWH(4, 42, 22, 18), Rect.fromLTWH(74, 42, 22, 18)]) {
+      canvas.drawOval(r, _bulge(r));
+    }
     // 가슴: 각진 판 두 장
     final pecL = Path()
       ..moveTo(20, 50)
@@ -152,16 +192,27 @@ class _MarinePainter extends CustomPainter {
       ..lineTo(74, 66)
       ..lineTo(52, 64)
       ..close();
-    canvas.drawPath(pecL, shade);
-    canvas.drawPath(pecR, shade);
+    // 가슴 아래 그림자(가슴이 튀어나와 보이게)
+    canvas.drawPath(pecL.shift(const Offset(0.8, 2.4)), _softShadow);
+    canvas.drawPath(pecR.shift(const Offset(0.8, 2.4)), _softShadow);
+    canvas.drawPath(pecL, _bulge(const Rect.fromLTWH(20, 50, 28, 16)));
+    canvas.drawPath(pecR, _bulge(const Rect.fromLTWH(52, 50, 28, 16)));
+    canvas.drawOval(const Rect.fromLTWH(26, 52, 9, 3.5), _sheen);
+    canvas.drawOval(const Rect.fromLTWH(57, 52, 9, 3.5), _sheen);
     canvas.drawPath(pecL, thin);
     canvas.drawPath(pecR, thin);
-    // 복근 6칸 + 옆구리 + 핏줄
-    canvas.drawLine(const Offset(50, 64), const Offset(50, 88), line);
-    for (final y in [71.0, 79.0]) {
-      canvas.drawLine(Offset(36, y), Offset(48, y + 1), thin);
-      canvas.drawLine(Offset(52, y + 1), Offset(64, y), thin);
+    // 복근 6칸: 선 대신 볼록한 블록(사이 홈은 어둡게)
+    canvas.drawRect(const Rect.fromLTWH(35, 64, 30, 25), Paint()..color = _skinDeep.withValues(alpha: 0.55));
+    for (final row in const [65.5, 72.5, 79.5]) {
+      for (final x in const [36.5, 50.8]) {
+        final r = Rect.fromLTWH(x, row, 12.7, 6.2);
+        canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(2.6)), _bulge(r));
+      }
     }
+    for (final o in const [Offset(39, 66.5), Offset(53, 66.5), Offset(39, 73.5)]) {
+      canvas.drawOval(Rect.fromLTWH(o.dx, o.dy, 4, 1.6), _sheen);
+    }
+    canvas.drawLine(const Offset(50, 64), const Offset(50, 88), thin);
     canvas.drawLine(const Offset(35, 64), const Offset(33, 88), thin);
     canvas.drawLine(const Offset(65, 64), const Offset(67, 88), thin);
     canvas.drawLine(const Offset(23, 72), const Offset(29, 84), vein);
@@ -187,8 +238,11 @@ class _MarinePainter extends CustomPainter {
           canvas.translate(c.dx, c.dy);
           canvas.rotate(deg * math.pi / 180);
           final r = Rect.fromCenter(center: Offset.zero, width: 40, height: 16);
-          canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), skin);
-          canvas.drawOval(Rect.fromCenter(center: const Offset(-8, -1), width: 16, height: 10), shade);
+          canvas.drawRRect(RRect.fromRectAndRadius(r.shift(const Offset(0, 2)), const Radius.circular(8)), _softShadow);
+          canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), Paint()
+            ..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [_skinHi, _skin, _skinDeep], stops: [0.0, 0.45, 1.0]).createShader(r));
+          canvas.drawOval(Rect.fromCenter(center: const Offset(-8, -1), width: 16, height: 10), _bulge(Rect.fromCenter(center: const Offset(-8, -1), width: 16, height: 10)));
+          canvas.drawOval(Rect.fromCenter(center: const Offset(-4, -4), width: 10, height: 2.4), _sheen);
           canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(8)), line);
           // 주먹
           canvas.drawCircle(const Offset(17, 0), 7, skin);
@@ -216,7 +270,10 @@ class _MarinePainter extends CustomPainter {
       ..lineTo(43, 40)
       ..lineTo(38, 31)
       ..close();
-    canvas.drawPath(head, skin);
+    canvas.drawPath(head, Paint()
+      ..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_skinHi, _skin, _skinDark]).createShader(const Rect.fromLTWH(38, 18, 24, 22)));
+    canvas.drawRect(const Rect.fromLTWH(43, 38.5, 14, 1.8), _softShadow);
+    canvas.drawOval(const Rect.fromLTWH(41, 20, 6, 1.8), _sheen);
     final stub = Paint()..color = _skinDark.withValues(alpha: 0.55);
     for (final p in const [Offset(42, 35), Offset(45, 38), Offset(49, 39), Offset(51, 39), Offset(55, 38), Offset(58, 35), Offset(43, 32), Offset(57, 32)]) {
       canvas.drawCircle(p, 0.8, stub);

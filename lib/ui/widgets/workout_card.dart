@@ -167,6 +167,24 @@ class WorkoutSummaryCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: Stack(children: [
+          // 상남자·해병대: 가공한 실사 사진을 위쪽에 깔고 아래로 갈수록 배경색으로 녹인다.
+          if (style.photo != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 230,
+              child: ShaderMask(
+                blendMode: BlendMode.dstIn,
+                shaderCallback: (r) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x99000000), Color(0x55000000), Color(0x00000000)],
+                  stops: [0.0, 0.55, 1.0],
+                ).createShader(r),
+                child: Image.asset(style.photo!, fit: BoxFit.cover, alignment: Alignment.centerRight),
+              ),
+            ),
           // 은은한 빛
           Positioned(
             right: -70,

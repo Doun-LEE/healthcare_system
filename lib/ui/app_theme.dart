@@ -20,6 +20,20 @@ enum AppThemeStyle {
   static AppThemeStyle parse(String? id) =>
       AppThemeStyle.values.firstWhere((e) => e.id == id, orElse: () => AppThemeStyle.basic);
 
+  /// 테마 배경 사진(가공본). 출처는 [photoCredit].
+  String? get photo => switch (this) {
+        AppThemeStyle.tough => 'assets/themes/tough_bg.jpg',
+        AppThemeStyle.marine => 'assets/themes/marine_bg.jpg',
+        _ => null,
+      };
+
+  /// 배경 사진 출처(라이선스 표시). 사진을 듀오톤으로 가공해 썼다.
+  String? get photoCredit => switch (this) {
+        AppThemeStyle.tough => '배경 사진: Anastase Maragos / Unsplash (Unsplash License), 색 보정',
+        AppThemeStyle.marine => '배경 사진: 대한민국 국군 "해병대 교육훈련단 특수수색교육"(2013) / Wikimedia Commons, CC BY-SA 2.0, 잘라내고 색 보정(가공본도 CC BY-SA 2.0)',
+        _ => null,
+      };
+
   /// 대표색(시드).
   Color get seed => switch (this) {
         AppThemeStyle.basic => const Color(0xFF7CB342),

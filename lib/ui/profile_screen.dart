@@ -374,6 +374,11 @@ class ProfileScreen extends StatelessWidget {
                   ),
               ]);
             }),
+            if (AppThemeStyle.parse(u.theme).photoCredit != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(AppThemeStyle.parse(u.theme).photoCredit!, style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+              ),
           ]),
 
           // 계정

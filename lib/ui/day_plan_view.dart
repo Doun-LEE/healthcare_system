@@ -1439,6 +1439,7 @@ class ThemedQuoteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = themeStyleOf(context);
     final quote = style.quoteFor(date);
+    if (style.photo != null) return _PhotoQuoteBanner(style: style, quote: quote, plan: plan);
     if (style != AppThemeStyle.cute && style != AppThemeStyle.marine) return QuoteBanner(quote: quote);
     final hour = DateTime.now().hour;
     final mood = plan != null && plan!.isFinished
@@ -1457,6 +1458,58 @@ class ThemedQuoteBanner extends StatelessWidget {
         // 해병대: 빨간 명찰 색 말풍선에 흰 글씨(각진 느낌은 테마 모서리가 맡는다).
         bubbleColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.primary : null,
         textColor: style == AppThemeStyle.marine ? Theme.of(context).colorScheme.onPrimary : null,
+      ),
+    );
+  }
+}
+
+/// 상남자·해병대: 가공한 실사 배경 위에 오늘의 한마디(해병대는 악병장이 함께).
+class _PhotoQuoteBanner extends StatelessWidget {
+  const _PhotoQuoteBanner({required this.style, required this.quote, this.plan});
+  final AppThemeStyle style;
+  final String quote;
+  final DayPlan? plan;
+
+  @override
+  Widget build(BuildContext context) {
+    final marine = style == AppThemeStyle.marine;
+    final accent = marine ? const Color(0xFFFFD24D) : const Color(0xFFFF7A3D);
+    final mood = plan != null && plan!.isFinished ? MascotMood.cheer : MascotMood.happy;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(style.radius.clamp(4.0, 16.0)),
+        child: SizedBox(
+          height: 118,
+          child: Stack(fit: StackFit.expand, children: [
+            Image.asset(style.photo!, fit: BoxFit.cover, alignment: Alignment.centerRight),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xE6000000), Color(0x99000000), Color(0x00000000)],
+                  stops: [0.0, 0.5, 0.9],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, marine ? 96 : 16, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(width: 26, height: 3, color: accent),
+                const SizedBox(height: 8),
+                Text(
+                  quote,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 15.5, fontWeight: FontWeight.w800, height: 1.3,
+                      shadows: [Shadow(color: Colors.black87, blurRadius: 6)]),
+                ),
+              ]),
+            ),
+            if (marine) Positioned(right: 4, bottom: -2, child: MarineMascot(mood: mood, size: 92)),
+          ]),
+        ),
       ),
     );
   }
