@@ -45,6 +45,7 @@ class GymScreen extends StatelessWidget {
               const PopupMenuItem(value: 'add', child: Text('헬스장 추가')),
               const PopupMenuItem(value: 'import', child: Text('친구 헬스장 가져오기')),
               if (gym != null && gym.isShared) PopupMenuItem(value: 'resync', child: Text('${gym.sharedName ?? '친구'} 님 데이터로 다시 동기화')),
+              if (gym != null && state.cloudSignedIn) const PopupMenuItem(value: 'restore', child: Text('백업에서 기구 되살리기')),
               if (gym != null) const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
               if (gym != null) const PopupMenuItem(value: 'standard', child: Text('대중적인 기본 기구 일괄 추가')),
               if (gym != null) const PopupMenuItem(value: 'delete', child: Text('이 헬스장 삭제')),
@@ -100,6 +101,60 @@ class GymScreen extends StatelessWidget {
     );
   }
 
+  /// 백업 슬롯을 골라 이 헬스장의 기구만 그때 상태로 되돌린다.
+  Future<void> _restoreFromBackup(BuildContext context, AppState state, Gym gym) async {
+    List<BackupInfo> list;
+    try {
+      list = await CloudSync.instance.listBackups();
+    } catch (_) {
+      list = const [];
+    }
+    if (!context.mounted) return;
+    if (list.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('백업이 없어요.')));
+      return;
+    }
+    final b = await showAppSheet<BackupInfo>(
+      context: context,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          ListTile(title: Text('${gym.name} 기구를 언제 상태로 되돌릴까요?'), subtitle: const Text('이 헬스장 기구만 바뀌고 운동 기록은 그대로예요. 지금 상태도 먼저 백업해요.')),
+          for (final x in list)
+            ListTile(
+              leading: Icon(x.auto ? Icons.history : Icons.save_outlined),
+              title: Text(x.label),
+              subtitle: Text('${x.at.month}/${x.at.day} ${x.at.hour}:${x.at.minute.toString().padLeft(2, '0')}'),
+              onTap: () => Navigator.pop(c, x),
+            ),
+        ]),
+      ),
+    );
+    if (b == null || !context.mounted) return;
+    final eq = await state.gymEquipmentInBackup(b, gym);
+    if (!context.mounted) return;
+    if (eq == null || eq.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('그 백업에는 ${gym.name} 기구가 없어요. 다른 백업을 골라보세요.')));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('기구 ${eq.length}개로 되돌릴까요?'),
+        content: Text('${eq.take(6).map((e) => e.displayName).join(', ')}${eq.length > 6 ? ' 외 ${eq.length - 6}개' : ''} · 지금 ${gym.equipment.length}개 → ${eq.length}개'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('되돌리기')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await state.restoreGymEquipment(gym, eq);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${gym.name} 기구 ${eq.length}개를 되살렸어요.')));
+    }
+  }
+
   Future<void> _gymMenu(BuildContext context, AppState state, String v) async {
     final gym = state.activeGym;
     switch (v) {
@@ -112,6 +167,8 @@ class GymScreen extends StatelessWidget {
         if (gym == null) return;
         final msg = await state.resyncSharedGym(gym);
         if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      case 'restore':
+        if (gym != null) await _restoreFromBackup(context, state, gym);
       case 'rename':
         if (gym == null) return;
         final name = await _prompt(context, '헬스장 이름', gym.name, initial: gym.name);

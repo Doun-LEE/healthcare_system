@@ -984,11 +984,22 @@ class AppState extends ChangeNotifier {
   /// 친구 헬스장을 내 목록으로 가져온다. [mode]: 'new'(새로 추가) · 'merge'(같은 이름의 내 헬스장에 기구 합치기, 내 설정 우선)
   /// · 'replace'(같은 이름의 내 헬스장 기구를 친구 데이터로 교체). 가져온 헬스장은 원본과 연결돼 '다시 동기화'할 수 있다.
   Future<Gym> importPartnerGym(PartnerLink from, PartnerGym g, {String mode = 'new', String? targetGymId}) async {
-    final copies = [for (final e in g.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = false)];
+    var copies = [for (final e in g.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = false)];
+    // 친구가 아직 옛 버전이라 기구 데이터가 없으면 종류 목록으로라도 만든다(직접 등록한 기구만, 딸린 기능 제외).
+    final fromTypes = copies.isEmpty;
+    if (copies.isEmpty) {
+      final implied = {for (final t in g.types) ...?impliedEquipment[t]};
+      copies = [
+        for (final t in g.types)
+          if (t != EquipmentType.bodyweight && !implied.contains(t)) GymEquipment(id: newId(), type: t),
+      ];
+    }
     Gym target;
     if (mode != 'new' && targetGymId != null && gymById(targetGymId) != null) {
       target = gymById(targetGymId)!;
-      if (mode == 'replace') {
+      // 교체 전에 지금 상태를 백업해 둔다. 받은 데이터가 비어 있으면 교체하지 않고 합치기만 한다.
+      if (mode == 'replace') await _backupBefore('헬스장 교체 전 자동 저장');
+      if (mode == 'replace' && !fromTypes) {
         target.equipment
           ..clear()
           ..addAll(copies);
@@ -1018,6 +1029,11 @@ class AppState extends ChangeNotifier {
     final pp = await CloudSync.instance.fetchPartner(g.sharedFrom!);
     final src = pp?.gyms.where((x) => x.id == g.sharedGymId).firstOrNull;
     if (src == null) return '${g.sharedName ?? '친구'} 님의 헬스장을 찾지 못했어요(삭제됐거나 아직 새 버전으로 접속 안 함).';
+    // 친구 앱이 옛 버전이면 기구 데이터가 비어 온다. 그럴 땐 내 기구를 지우지 않는다.
+    if (src.equipment.isEmpty) {
+      return '${g.sharedName ?? '친구'} 님 앱이 아직 새 버전이 아니라 기구 데이터가 없어요. 지금 기구 ${g.equipment.length}개는 그대로 뒀어요.';
+    }
+    await _backupBefore('헬스장 동기화 전 자동 저장');
     final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
     g.equipment
       ..clear()
@@ -1026,6 +1042,32 @@ class AppState extends ChangeNotifier {
     g.syncedAt = DateTime.now();
     await _save();
     return '${src.name} 기구 ${src.equipment.length}개를 ${g.sharedName ?? '친구'} 님 데이터로 맞췄어요.';
+  }
+
+  /// 위험한 덮어쓰기 전에 클라우드 백업 슬롯에 지금 상태를 남긴다(실패해도 진행).
+  Future<void> _backupBefore(String label) async {
+    if (!cloudSignedIn || _data.isEmpty) return;
+    try {
+      await CloudSync.instance.saveBackup(_data, label: label, auto: true);
+    } catch (_) {}
+  }
+
+  /// 백업 슬롯에서 이 헬스장의 기구 목록만 꺼내 본다(같은 id, 없으면 같은 이름). 없으면 null.
+  Future<List<GymEquipment>?> gymEquipmentInBackup(BackupInfo b, Gym g) async {
+    final data = await CloudSync.instance.loadBackup(b.id);
+    if (data == null) return null;
+    final old = data.gyms.where((x) => x.id == g.id).firstOrNull ??
+        data.gyms.where((x) => Gym.nameKey(x.name) == Gym.nameKey(g.name)).firstOrNull;
+    return old?.equipment;
+  }
+
+  /// 이 헬스장의 기구만 백업 때 상태로 되돌린다(다른 기록은 그대로). 지금 상태는 먼저 백업한다.
+  Future<void> restoreGymEquipment(Gym g, List<GymEquipment> equipment) async {
+    await _backupBefore('기구 되살리기 전 자동 저장');
+    g.equipment
+      ..clear()
+      ..addAll([for (final e in equipment) GymEquipment.fromJson(e.toJson())]);
+    await _save();
   }
 
   /// 관리자(겹치는 헬스장 데이터를 정리할 사람). 계정 이메일로 판단한다.
