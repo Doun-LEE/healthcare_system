@@ -57,6 +57,6 @@ void main() {
     // 최고 기록: 140kg × 1
     expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('140kg × 1')), findsOneWidget);
     // 세트가 이름 아래 줄로 내려가 잘리지 않는다(같은 세트 묶기 포함)
-    expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('50kg×12 ×3')), findsOneWidget);
+    expect(find.text('50kg×12 ×3'), findsOneWidget);
   });
 }

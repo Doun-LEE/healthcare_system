@@ -119,6 +119,7 @@ class WorkoutSummaryCard extends StatelessWidget {
     double bestW = 0;
     int bestR = 0;
     String? bestName;
+    String? bestId;
     for (final e in plan.exercises) {
       final ex = exerciseById(e.exerciseId);
       for (final s in e.sets) {
@@ -134,11 +135,25 @@ class WorkoutSummaryCard extends StatelessWidget {
             bestW = w;
             bestR = r;
             bestName = ex?.name;
+            bestId = e.exerciseId;
           }
         }
       }
     }
     final shown = showAll ? done : done.take(8).toList();
+    // 부위별 완료 세트(유산소는 분 대신 구간 수로 세지 않고 따로 표시).
+    final groupSets = <MuscleGroup, int>{};
+    for (final e in done) {
+      if (exerciseById(e.exerciseId)?.loadType == LoadType.cardio) continue;
+      groupSets[e.effectiveGroup] = (groupSets[e.effectiveGroup] ?? 0) + e.sets.where((x) => x.completed).length;
+    }
+    final splitOrder = groupSets.keys.toList()..sort((a, b) => groupSets[b]!.compareTo(groupSets[a]!));
+    const sectionOrder = [MuscleGroup.cardio, MuscleGroup.legs, MuscleGroup.back, MuscleGroup.chest, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs];
+    final sections = <MuscleGroup, List<PlannedExercise>>{};
+    for (final e in shown) {
+      sections.putIfAbsent(e.effectiveGroup, () => []).add(e);
+    }
+    final sectionKeys = sections.keys.toList()..sort((a, b) => sectionOrder.indexOf(a).compareTo(sectionOrder.indexOf(b)));
     const wd = ['월', '화', '수', '목', '금', '토', '일'];
     final percent = (plan.completionRatio * 100).round();
     final radius = style.radius.clamp(10.0, 26.0);
@@ -239,6 +254,10 @@ class WorkoutSummaryCard extends StatelessWidget {
                   _Stat(look: look, label: '볼륨', value: volume >= 1000 ? '${(volume / 1000).toStringAsFixed(1)}t' : '${volume.round()}kg'),
                   if (cardioMin > 0) ...[const SizedBox(width: 6), _Stat(look: look, label: '유산소', value: '$cardioMin분')],
                 ]),
+                if (splitOrder.length > 1) ...[
+                  const SizedBox(height: 10),
+                  _SplitBar(look: look, order: splitOrder, sets: groupSets),
+                ],
                 if (bestName != null && bestW > 0) ...[
                   const SizedBox(height: 10),
                   Container(
@@ -271,18 +290,22 @@ class WorkoutSummaryCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Container(height: 1, color: look.line),
                 const SizedBox(height: 8),
-                for (var i = 0; i < shown.length; i++)
-                  _ExerciseLine(look: look, index: i + 1, e: shown[i], equipment: equipmentLabel?.call(shown[i]), setsText: _setsText(shown[i])),
+                for (final g in sectionKeys) ...[
+                  _SectionHeader(look: look, group: g, sets: groupSets[g], exercises: sections[g]!),
+                  for (final e in sections[g]!)
+                    _ExerciseLine(look: look, e: e, equipment: equipmentLabel?.call(e), best: e.exerciseId == bestId && bestW > 0),
+                ],
                 if (!showAll && done.length > 8)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4, left: 30),
+                    padding: const EdgeInsets.only(top: 6),
                     child: Text('외 ${done.length - 8}개 더', style: TextStyle(color: look.faint, fontSize: 12)),
                   ),
                 const SizedBox(height: 10),
                 Container(height: 1, color: look.line),
                 const SizedBox(height: 8),
                 Row(children: [
-                  Expanded(child: Text(look.tagline, style: TextStyle(color: look.faint, fontSize: 11))),
+                  Expanded(child: Text(look.tagline, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.faint, fontSize: 11))),
+                  const SizedBox(width: 8),
                   Text('${plan.exercises.length}개 계획 · $percent% 완료', style: TextStyle(color: look.faint, fontSize: 11)),
                 ]),
               ],
@@ -294,38 +317,6 @@ class WorkoutSummaryCard extends StatelessWidget {
   }
 
   static String _kg(double w) => w % 1 == 0 ? w.toInt().toString() : w.toString();
-
-  /// 세트별 실제 수행을 그대로. 같은 세트가 이어지면 "50kg×15 ×2"처럼 묶는다.
-  String _setsText(PlannedExercise e) {
-    final ex = exerciseById(e.exerciseId);
-    final doneSets = e.sets.where((s) => s.completed).toList();
-    if (doneSets.isEmpty) return '';
-    if (ex?.loadType == LoadType.cardio) {
-      final m = doneSets.fold<int>(0, (a, s) => a + (s.doneReps ?? s.targetReps));
-      final spec = cardioLevels[e.exerciseId];
-      final lvs = [for (final s in doneSets) if (s.effectiveLevel != null) s.effectiveLevel!];
-      if (spec == null || lvs.isEmpty) return '$m분';
-      if (lvs.toSet().length == 1) return '$m분 · ${spec.format(lvs.first)}';
-      return '$m분 · ${[for (final s in doneSets) if (s.effectiveLevel != null) '${s.doneReps ?? s.targetReps}분 ${spec.format(s.effectiveLevel!)}'].join(' → ')}';
-    }
-    final parts = <String>[];
-    for (final s in doneSets) {
-      final w = s.doneWeight ?? s.targetWeight;
-      final r = s.doneReps ?? s.targetReps;
-      parts.add(w > 0 ? '${_kg(w)}kg×$r' : '$r회');
-    }
-    final out = <String>[];
-    var k = 0;
-    while (k < parts.length) {
-      var n = 1;
-      while (k + n < parts.length && parts[k + n] == parts[k]) {
-        n++;
-      }
-      out.add(n > 1 ? '${parts[k]} ×$n' : parts[k]);
-      k += n;
-    }
-    return out.join(' · ');
-  }
 }
 
 class _RingPainter extends CustomPainter {
@@ -372,48 +363,176 @@ class _Stat extends StatelessWidget {
       );
 }
 
-/// 운동 한 줄: 번호 · 이름(한 줄) / 기구 · 세트(줄바꿈 허용) — 이름이 잘리지 않게 세트는 아래 줄에.
-class _ExerciseLine extends StatelessWidget {
-  const _ExerciseLine({required this.look, required this.index, required this.e, required this.equipment, required this.setsText});
+String _kgText(double w) => w % 1 == 0 ? w.toInt().toString() : w.toString();
+
+/// 세트 칩 하나(같은 세트가 이어지면 "×2"로 묶는다).
+class _Chip {
+  _Chip(this.label, this.top);
+  final String label;
+  final bool top;
+}
+
+/// 운동 하나의 세트를 칩으로. 근력은 '무게kg×횟수', 맨몸은 '횟수회', 유산소는 '분 · 레벨' 구간별.
+List<_Chip> _chipsFor(PlannedExercise e) {
+  final ex = exerciseById(e.exerciseId);
+  final done = e.sets.where((s) => s.completed).toList();
+  if (done.isEmpty) return const [];
+  if (ex?.loadType == LoadType.cardio) {
+    final spec = cardioLevels[e.exerciseId];
+    return [
+      for (final s in done)
+        _Chip('${s.doneReps ?? s.targetReps}분${spec != null && s.effectiveLevel != null ? ' · ${spec.format(s.effectiveLevel!)}' : ''}', false),
+    ];
+  }
+  final maxW = done.map((s) => s.doneWeight ?? s.targetWeight).fold<double>(0, math.max);
+  final raw = <(String, bool)>[
+    for (final s in done)
+      () {
+        final w = s.doneWeight ?? s.targetWeight;
+        final r = s.doneReps ?? s.targetReps;
+        return (w > 0 ? '${_kgText(w)}kg×$r' : '$r회', w > 0 && w == maxW);
+      }(),
+  ];
+  final out = <_Chip>[];
+  var k = 0;
+  var topMarked = false;
+  while (k < raw.length) {
+    var n = 1;
+    while (k + n < raw.length && raw[k + n].$1 == raw[k].$1) {
+      n++;
+    }
+    final top = raw[k].$2 && !topMarked && raw.any((x) => x.$1 != raw[k].$1);
+    if (top) topMarked = true;
+    out.add(_Chip(n > 1 ? '${raw[k].$1} ×$n' : raw[k].$1, top));
+    k += n;
+  }
+  return out;
+}
+
+/// 운동 오른쪽에 크게 보여줄 값: 최고 무게 / 총 횟수 / 총 시간.
+String _headline(PlannedExercise e) {
+  final ex = exerciseById(e.exerciseId);
+  final done = e.sets.where((s) => s.completed).toList();
+  if (done.isEmpty) return '';
+  if (ex?.loadType == LoadType.cardio) return '${done.fold<int>(0, (a, s) => a + (s.doneReps ?? s.targetReps))}분';
+  final maxW = done.map((s) => s.doneWeight ?? s.targetWeight).fold<double>(0, math.max);
+  if (maxW > 0) return '${_kgText(maxW)}kg';
+  return '${done.fold<int>(0, (a, s) => a + (s.doneReps ?? s.targetReps))}회';
+}
+
+/// 부위별 세트 비중 막대 + 범례.
+class _SplitBar extends StatelessWidget {
+  const _SplitBar({required this.look, required this.order, required this.sets});
   final CardLook look;
-  final int index;
+  final List<MuscleGroup> order;
+  final Map<MuscleGroup, int> sets;
+
+  Color _shade(int i) => look.accent.withValues(alpha: (1.0 - i * 0.16).clamp(0.3, 1.0));
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          height: 7,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < order.length; i++) ...[
+              if (i > 0) SizedBox(width: 2, child: ColoredBox(color: look.bg1)),
+              Expanded(flex: sets[order[i]]!, child: ColoredBox(color: _shade(i))),
+            ],
+          ]),
+        ),
+      ),
+      const SizedBox(height: 5),
+      Wrap(spacing: 10, runSpacing: 2, children: [
+        for (var i = 0; i < order.length; i++)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 7, height: 7, decoration: BoxDecoration(color: _shade(i), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 4),
+            Text('${order[i].label} ${sets[order[i]]}', style: TextStyle(color: look.muted, fontSize: 10.5)),
+          ]),
+      ]),
+    ]);
+  }
+}
+
+/// 부위 소제목: "하체 ───── 12세트".
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.look, required this.group, required this.sets, required this.exercises});
+  final CardLook look;
+  final MuscleGroup group;
+  final int? sets;
+  final List<PlannedExercise> exercises;
+
+  @override
+  Widget build(BuildContext context) {
+    final right = group == MuscleGroup.cardio
+        ? '${exercises.fold<int>(0, (a, e) => a + e.sets.where((s) => s.completed).fold<int>(0, (b, s) => b + (s.doneReps ?? s.targetReps)))}분'
+        : '${sets ?? 0}세트';
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 2),
+      child: Row(children: [
+        Text(group.label, style: TextStyle(color: look.accent, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
+        const SizedBox(width: 8),
+        Expanded(child: Container(height: 1, color: look.line)),
+        const SizedBox(width: 8),
+        Text(right, style: TextStyle(color: look.faint, fontSize: 10.5, fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+}
+
+/// 운동 하나: 이름 + 오른쪽 큰 값(최고 무게 등) / 기구 / 세트 칩.
+class _ExerciseLine extends StatelessWidget {
+  const _ExerciseLine({required this.look, required this.e, required this.equipment, this.best = false});
+  final CardLook look;
   final PlannedExercise e;
   final String? equipment;
-  final String setsText;
+  final bool best;
 
   @override
   Widget build(BuildContext context) {
     final name = exerciseById(e.exerciseId)?.name ?? '';
     final eq = (equipment ?? '').trim();
+    final chips = _chipsFor(e);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3.5),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          width: 20,
-          height: 20,
-          margin: const EdgeInsets.only(top: 1),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: look.accent.withValues(alpha: look.dark ? 0.18 : 0.22), borderRadius: BorderRadius.circular(7)),
-          child: Text('$index', style: TextStyle(color: look.dark ? look.accent : look.fg, fontSize: 10.5, fontWeight: FontWeight.w800)),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.fg, fontSize: 13.5, fontWeight: FontWeight.w600, height: 1.2)),
-            const SizedBox(height: 1),
-            RichText(
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              text: TextSpan(
-                style: TextStyle(color: look.muted, fontSize: 11.5, height: 1.3),
-                children: [
-                  if (eq.isNotEmpty) TextSpan(text: '$eq  ', style: TextStyle(color: look.faint)),
-                  TextSpan(text: setsText),
-                ],
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+          Expanded(
+            child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: look.fg, fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.2)),
+          ),
+          if (best) const Padding(padding: EdgeInsets.only(right: 3), child: Text('🏆', style: TextStyle(fontSize: 11))),
+          Text(_headline(e), style: TextStyle(color: best ? look.accent : look.fg, fontSize: 13.5, fontWeight: FontWeight.w800)),
+        ]),
+        if (eq.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Text(eq, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.faint, fontSize: 10.5)),
+          ),
+        if (chips.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(spacing: 4, runSpacing: 4, children: [
+            for (final c in chips)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: c.top ? look.accent.withValues(alpha: look.dark ? 0.18 : 0.2) : look.tile,
+                  borderRadius: BorderRadius.circular(6),
+                  border: c.top ? Border.all(color: look.accent.withValues(alpha: 0.7)) : null,
+                ),
+                child: Text(c.label,
+                    style: TextStyle(
+                      color: c.top ? look.fg : look.muted,
+                      fontSize: 10.5,
+                      fontWeight: c.top ? FontWeight.w700 : FontWeight.w500,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    )),
               ),
-            ),
           ]),
-        ),
+        ],
       ]),
     );
   }
