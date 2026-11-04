@@ -5,6 +5,7 @@ import '../engine/planner.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'app_theme.dart';
 import 'copy_routine.dart';
 import 'day_page.dart';
 import 'day_plan_view.dart';
@@ -139,7 +140,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(state.planOn(d)?.isRest == true || state.planOn(d)?.skipped == true
-                      ? '${d.month}/${d.day} 휴식일로 표시했어요.'
+                      ? AppThemeStyle.parse(state.currentUser?.theme).restLine('${d.month}/${d.day}')
                       : d.isBefore(today)
                           ? '${d.month}/${d.day} 휴식 표시를 지웠어요.'
                           : '${d.month}/${d.day} 운동일로 되돌렸어요.'),

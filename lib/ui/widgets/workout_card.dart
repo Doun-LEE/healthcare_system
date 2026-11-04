@@ -86,7 +86,7 @@ class CardLook {
             glow: Color(0xFFFF5A6B),
             mascot: MarineHero(size: 78),
             badge: MarineEmblem(size: 26),
-            tagline: '#FitRoutine · 악! 임무 완수! 우라!',
+            tagline: '#FitRoutine · 악! 임무 완수! 필승!',
           ),
       };
 }
