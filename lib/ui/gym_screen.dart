@@ -220,7 +220,13 @@ class GymScreen extends StatelessWidget {
       showDragHandle: true,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (c) => _EquipmentPicker(have: gym.equipment.map((e) => e.type).toSet()),
+      builder: (c) => _EquipmentPicker(
+        have: gym.equipment.map((e) => e.type).toSet(),
+        owners: {
+          for (final t in {for (final e in gym.equipment) ...e.allTypes})
+            t: [for (final e in gym.equipment) if (e.allTypes.contains(t)) e.displayName],
+        },
+      ),
     );
     if (result == null || !context.mounted) return;
     final custom = result.custom;
@@ -401,8 +407,11 @@ final Map<EquipmentType, List<String>> _exerciseNamesByType = () {
 
 /// 카탈로그 전체(80여 종)에서 검색·분류로 골라 여러 개를 한 번에 추가하는 선택기.
 class _EquipmentPicker extends StatefulWidget {
-  const _EquipmentPicker({required this.have});
+  const _EquipmentPicker({required this.have, this.owners = const {}});
   final Set<EquipmentType> have;
+
+  /// 기구 종류 → 그 종류로 등록된(또는 그 기능을 포함한) 실제 기구 이름들.
+  final Map<EquipmentType, List<String>> owners;
 
   @override
   State<_EquipmentPicker> createState() => _EquipmentPickerState();
@@ -606,7 +615,11 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                   title: Text(info.type.label,
                       style: rem ? TextStyle(decoration: TextDecoration.lineThrough, color: cs.onSurfaceVariant) : null),
                   subtitle: Text(
-                    has ? (rem ? '체크 해제됨 · 적용하면 보유 목록에서 빠져요' : '이미 보유 · 체크를 풀면 제거') : info.strengths.take(3).join(' · '),
+                    has
+                        ? (rem ? '체크 해제됨 · 적용하면 보유 목록에서 빠져요' : '보유: ${(widget.owners[info.type] ?? const []).join(', ')} · 체크를 풀면 제거')
+                        : (widget.owners[info.type]?.isNotEmpty ?? false)
+                            ? '${widget.owners[info.type]!.join(', ')}에 포함된 기능'
+                            : info.strengths.take(3).join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
