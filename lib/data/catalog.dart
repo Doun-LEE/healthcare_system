@@ -2269,6 +2269,14 @@ const _families = <String, List<String>>{
   'chest_fly': ['pec_deck', 'cable_fly', 'db_fly', 'incline_db_fly', 'low_cable_fly'],
   'tri_pushdown': ['tri_pushdown', 'tri_ext_m'],
   'machine_curl': ['bicep_curl_m', 'cable_curl'],
+  // 같은 동작 패턴(기구만 다른 것): 연속 운동일에 같은 패턴이 반복되지 않게, 한 세션엔 하나만.
+  'flat_press': ['bb_bench', 'db_bench', 'chest_press_m', 'hammer_chest', 'lying_chest_press_m', 'smith_bench'],
+  'incline_press': ['incline_bb', 'incline_db', 'incline_press_m', 'lying_incline_press_m', 'smith_incline'],
+  'decline_press': ['decline_bb', 'decline_db', 'decline_press_m'],
+  'hinge': ['deadlift', 'rack_pull', 'rdl', 'bb_stiff_deadlift', 'db_stiff_deadlift', 'trap_deadlift', 'sumo_deadlift', 'good_morning'],
+  'squat': ['bb_squat', 'front_squat', 'hack_squat', 'ssb_squat', 'pendulum_squat', 'v_squat', 'belt_squat', 'reverse_hack', 'landmine_squat', 'goblet_squat', 'smith_squat'],
+  'leg_press': ['leg_press', 'h_leg_press', 'single_leg_press'],
+  'overhead_press': ['ohp', 'db_shoulder_press', 'shoulder_press_m', 'shoulder_press_pl', 'viking_press', 'fixed_bb_press', 'arnold_press', 'kb_press', 'landmine_press'],
 };
 
 final Map<String, String> _familyOf = {

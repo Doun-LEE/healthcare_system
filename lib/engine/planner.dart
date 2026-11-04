@@ -200,6 +200,14 @@ class Planner {
       }
       return out;
     }
+    // 바로 직전 운동일 하나의 운동.
+    Set<String> lastDayIds(DateTime d) {
+      for (var k = 1; k <= 14; k++) {
+        final ids = idsByDay[dateKey(d.subtract(Duration(days: k)))];
+        if (ids != null && ids.isNotEmpty) return ids;
+      }
+      return const {};
+    }
     final totalDays = input.to.difference(input.from).inDays + 1;
 
     for (var i = 0; i < totalDays; i++) {
@@ -264,6 +272,7 @@ class Planner {
         groups: groups,
         available: input.dayAvailable[key] ?? input.available,
         avoidIds: recentIds(date),
+        lastDayIds: lastDayIds(date),
         pinned: input.dayPinned[key] ?? const [],
         progress: input.progress,
         profile: input.profile,

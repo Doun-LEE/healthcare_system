@@ -36,6 +36,7 @@ class SessionRequest {
     this.extraInjuries = const {},
     this.cardioOverride,
     this.avoidIds = const {},
+    this.lastDayIds = const {},
     this.pinned = const [],
     this.recovery = const {},
     this.boost = const {},
@@ -53,6 +54,9 @@ class SessionRequest {
 
   /// 전날·전전날 한 운동(같은 자세·무게가 연일 겹치지 않게 피한다).
   final Set<String> avoidIds;
+
+  /// 바로 직전 운동일에 한 운동(같은 운동·같은 계열이 연달아 오지 않게 더 강하게 피한다).
+  final Set<String> lastDayIds;
 
   /// 사용자가 고정한 운동(다시 짜도 그대로 남긴다).
   final List<PlannedExercise> pinned;
@@ -443,6 +447,7 @@ class SessionGenerator {
     final pickedIds = picked.map((p) => p.exerciseId).toSet();
     final pickedFamilies = {for (final id in pickedIds) familyOf(id)};
     final avoidFamilies = {for (final id in req.avoidIds) familyOf(id)};
+    final lastFamilies = {for (final id in req.lastDayIds) familyOf(id)};
     final now = req.now ?? DateTime.now();
     final armsHint = g == MuscleGroup.arms ? armsEmphasisFor(dayGroups) : const <String>[];
     final compoundCount = picked.where((p) {
@@ -463,6 +468,7 @@ class SessionGenerator {
           : avoidFamilies.contains(familyOf(ex.id))
               ? 5.0
               : 0.0;
+      final lastPenalty = lastFamilies.contains(familyOf(ex.id)) ? 8.0 : 0.0;
       if (!ex.canDoWith(req.available)) continue;
       if (excludedByInjury(ex, req.injuries)) continue;
 
@@ -508,7 +514,7 @@ class SessionGenerator {
           (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable)) {
         score += 0.5;
       }
-      score -= repeatPenalty;
+      score -= repeatPenalty + lastPenalty;
       // 같은 동작을 전용 머신과 케이블(멀티스테이션)로 다 할 수 있으면 전용 머신을 먼저.
       // 머신이 없으면 케이블(멀티스테이션)이 그 자리를 대신한다.
       if (eq == EquipmentType.cableMachine || eq == EquipmentType.functionalTrainer) {
