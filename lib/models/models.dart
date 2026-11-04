@@ -3,6 +3,8 @@
 /// 모든 모델은 JSON(Map) 직렬화를 지원해 [LocalStore]에 그대로 저장된다.
 library;
 
+import 'dart:convert';
+
 import '../data/catalog.dart' show exerciseById;
 
 /// 운동 부위. 요구사항 6번의 7개 부위를 그대로 사용한다.
@@ -741,9 +743,17 @@ class GymEquipment {
       );
 }
 
+/// 기구 목록 비교용 문자열(사진 유무 제외, id 순). 공개 프로필로 받은 친구 기구와 그대로 비교된다.
+String equipmentSignature(List<GymEquipment> list) {
+  final rows = [for (final e in list) e.toJson()..remove('hasPhoto')]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}'));
+  return jsonEncode(rows);
+}
+
 class Gym {
-  Gym({required this.id, required this.name, List<GymEquipment>? equipment, this.sharedFrom, this.sharedGymId, this.sharedName, this.syncedAt})
-      : equipment = equipment ?? [];
+  Gym({required this.id, required this.name, List<GymEquipment>? equipment, this.sharedFrom, this.sharedGymId, this.sharedName, this.syncedAt,
+      this.equipEditedAt, Map<String, DateTime>? syncDeclined})
+      : equipment = equipment ?? [],
+        syncDeclined = syncDeclined ?? {};
 
   final String id;
   String name;
@@ -757,6 +767,15 @@ class Gym {
 
   bool get isShared => sharedFrom != null && sharedGymId != null;
 
+  /// 기구 내용(이름·무게 설정 등)이 실제로 바뀐 시각. 연결된 친구 헬스장과 누가 더 최근에 고쳤는지 비교한다.
+  DateTime? equipEditedAt;
+
+  /// 친구 uid → 그 친구의 수정(그 시각까지)을 '동기화 안 함'으로 넘긴 기록. 더 새 수정이 오면 다시 묻는다.
+  final Map<String, DateTime> syncDeclined;
+
+  /// 기구 내용 비교용 문자열(사진 유무 제외, id 순).
+  String get equipSignature => equipmentSignature(equipment);
+
   /// 겹침 판단용 이름 키(공백·괄호·대소문자 무시).
   static String nameKey(String name) => name.toLowerCase().replaceAll(RegExp(r'[\s()\[\]·._-]'), '');
 
@@ -768,6 +787,8 @@ class Gym {
         if (sharedGymId != null) 'sharedGymId': sharedGymId,
         if (sharedName != null) 'sharedName': sharedName,
         if (syncedAt != null) 'syncedAt': syncedAt!.toIso8601String(),
+        if (equipEditedAt != null) 'equipEditedAt': equipEditedAt!.toIso8601String(),
+        if (syncDeclined.isNotEmpty) 'syncDeclined': {for (final e in syncDeclined.entries) e.key: e.value.toIso8601String()},
       };
 
   factory Gym.fromJson(Map<String, dynamic> j) => Gym(
@@ -780,6 +801,11 @@ class Gym {
         sharedGymId: j['sharedGymId'] as String?,
         sharedName: j['sharedName'] as String?,
         syncedAt: j['syncedAt'] == null ? null : DateTime.tryParse(j['syncedAt'] as String),
+        equipEditedAt: j['equipEditedAt'] == null ? null : DateTime.tryParse(j['equipEditedAt'] as String),
+        syncDeclined: {
+          for (final e in ((j['syncDeclined'] as Map?) ?? const {}).entries)
+            if (DateTime.tryParse('${e.value}') != null) '${e.key}': DateTime.parse('${e.value}'),
+        },
       );
 
   /// 보유 기구 + 그 기구가 대신할 수 있는 기구(하프랙→스쿼트랙, 펑셔널 트레이너→케이블 등).

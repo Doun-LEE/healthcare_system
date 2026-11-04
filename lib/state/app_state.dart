@@ -554,10 +554,22 @@ class AppState extends ChangeNotifier {
     _entityJson
       ..clear()
       ..addAll(_entities(_data));
+    _equipSig
+      ..clear()
+      ..addAll({for (final g in _data.gyms) g.id: g.equipSignature});
   }
+
+  /// 헬스장별 기구 내용 서명. 내가 기구를 고치면(동기화로 받은 게 아니라) 기구 수정 시각을 찍는다.
+  final Map<String, String> _equipSig = {};
 
   void _trackEdits() {
     final now = DateTime.now();
+    for (final g in _data.gyms) {
+      final sig = g.equipSignature;
+      final before = _equipSig[g.id];
+      if (before != null && before != sig) g.equipEditedAt = now;
+      _equipSig[g.id] = sig;
+    }
     final cur = _entities(_data);
     for (final e in cur.entries) {
       if (_entityJson[e.key] != e.value) _data.editedAt[e.key] = now;
@@ -1019,6 +1031,9 @@ class AppState extends ChangeNotifier {
     target.sharedGymId = g.id;
     target.sharedName = from.display;
     target.syncedAt = DateTime.now();
+    // 원본 그대로 받았으면 원본의 수정 시각을, 합쳐서 내용이 달라졌으면 지금을(친구에게 '수정됨'으로 보이게).
+    target.equipEditedAt = target.equipSignature == equipmentSignature(copies) ? g.editedAt : DateTime.now();
+    _equipSig[target.id] = target.equipSignature;
     await _save();
     return target;
   }
@@ -1040,8 +1055,86 @@ class AppState extends ChangeNotifier {
       ..addAll([for (final e in src.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = photos.contains(e.id))]);
     g.name = src.name;
     g.syncedAt = DateTime.now();
+    g.equipEditedAt = src.editedAt;
+    _equipSig[g.id] = g.equipSignature;
     await _save();
     return '${src.name} 기구 ${src.equipment.length}개를 ${g.sharedName ?? '친구'} 님 데이터로 맞췄어요.';
+  }
+
+  /// 연결된 친구 헬스장에서 온 '수정됨' 알림(동기화할지 묻는다).
+  List<GymUpdate> gymUpdates = const [];
+  DateTime? _gymCheckAt;
+
+  /// 헬스장 id → 연결된 친구 헬스장들(바뀐 게 없어도). '친구 데이터로 동기화' 버튼용.
+  Map<String, List<GymUpdate>> gymLinks = const {};
+
+  /// 연결된 헬스장(내가 친구 것을 가져왔거나, 친구가 내 것을 가져간 곳)을 친구 공개 프로필과 비교해
+  /// 친구가 더 최근에 기구를 고쳤으면 [gymUpdates]에 올린다. 자동으로 바꾸지 않고 사용자에게 묻는다.
+  Future<void> checkLinkedGyms({bool force = false}) async {
+    if (!cloudSignedIn || gyms.isEmpty) return;
+    final now = DateTime.now();
+    if (!force && _gymCheckAt != null && now.difference(_gymCheckAt!).inMinutes < 10) return;
+    _gymCheckAt = now;
+    final myUid = CloudSync.instance.user!.uid;
+    final out = <GymUpdate>[];
+    final links = <String, List<GymUpdate>>{};
+    for (final p in partners.where((p) => !p.pending)) {
+      PartnerProfile? pp;
+      try {
+        pp = await CloudSync.instance.fetchPartner(p.uid).timeout(const Duration(seconds: 10));
+      } catch (_) {
+        continue;
+      }
+      if (pp == null) continue;
+      for (final rg in pp.gyms) {
+        for (final g in gyms) {
+          final linked = (g.sharedFrom == p.uid && g.sharedGymId == rg.id) || (rg.linkFrom == myUid && rg.linkGym == g.id);
+          if (linked && rg.equipment.isNotEmpty) {
+            links.putIfAbsent(g.id, () => []).add(GymUpdate(gym: g, friendUid: p.uid, friendName: p.display, remote: rg));
+          }
+          final u = gymUpdateFor(g, p.uid, p.display, rg, myUid);
+          if (u != null) out.add(u);
+        }
+      }
+    }
+    gymUpdates = out;
+    gymLinks = links;
+    notifyListeners();
+  }
+
+  /// [g]와 친구 헬스장 [rg]가 연결돼 있고, 친구가 나보다 나중에 기구를 고쳤으면 알림을 만든다.
+  static GymUpdate? gymUpdateFor(Gym g, String friendUid, String friendName, PartnerGym rg, String myUid) {
+    final linked = (g.sharedFrom == friendUid && g.sharedGymId == rg.id) || (rg.linkFrom == myUid && rg.linkGym == g.id);
+    final at = rg.editedAt;
+    if (!linked || at == null || rg.equipment.isEmpty) return null;
+    if (equipmentSignature(rg.equipment) == g.equipSignature) return null;
+    final mine = g.equipEditedAt;
+    if (mine != null && !at.isAfter(mine)) return null;
+    final declined = g.syncDeclined[friendUid];
+    if (declined != null && !at.isAfter(declined)) return null;
+    return GymUpdate(gym: g, friendUid: friendUid, friendName: friendName, remote: rg);
+  }
+
+  /// 친구 수정 받아들이기: 기구를 친구 것으로 맞춘다(같은 기구의 내 사진 표시는 유지). 지금 상태는 먼저 백업.
+  Future<void> acceptGymUpdate(GymUpdate u) async {
+    await _backupBefore('헬스장 동기화 전 자동 저장');
+    final g = u.gym;
+    final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
+    g.equipment
+      ..clear()
+      ..addAll([for (final e in u.remote.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = photos.contains(e.id))]);
+    g.equipEditedAt = u.remote.editedAt;
+    g.syncedAt = DateTime.now();
+    _equipSig[g.id] = g.equipSignature;
+    gymUpdates = [for (final x in gymUpdates) if (x.gym.id != u.gym.id || x.friendUid != u.friendUid) x];
+    await _save();
+  }
+
+  /// 이번 수정은 동기화하지 않는다(친구가 또 고치면 다시 묻는다).
+  Future<void> declineGymUpdate(GymUpdate u) async {
+    if (u.remote.editedAt != null) u.gym.syncDeclined[u.friendUid] = u.remote.editedAt!;
+    gymUpdates = [for (final x in gymUpdates) if (x.gym.id != u.gym.id || x.friendUid != u.friendUid) x];
+    await _save();
   }
 
   /// 위험한 덮어쓰기 전에 클라우드 백업 슬롯에 지금 상태를 남긴다(실패해도 진행).
@@ -2268,6 +2361,7 @@ class AppState extends ChangeNotifier {
   Future<void> refreshInbox() async {
     watchChats();
     if (!cloudSignedIn) return;
+    unawaited(checkLinkedGyms().catchError((_) {}));
     try {
       final raw = await CloudSync.instance.readInbox();
       // 같은 파트너가 같은 날짜로 여러 번 보낸 루틴(수정할 때마다 전송)은 가장 최근 것 하나만 남긴다.
@@ -3013,5 +3107,36 @@ class AppState extends ChangeNotifier {
       if (weeks > 200) break;
     }
     return weeks;
+  }
+}
+
+
+/// 연결된 친구 헬스장의 기구가 바뀌었다는 알림.
+class GymUpdate {
+  GymUpdate({required this.gym, required this.friendUid, required this.friendName, required this.remote});
+  final Gym gym;
+  final String friendUid;
+  final String friendName;
+  final PartnerGym remote;
+
+  /// 바뀐 내용 요약: 추가·빠짐·설정 변경 개수.
+  ({int added, int removed, int changed}) get diff {
+    final mine = {for (final e in gym.equipment) e.id: equipmentSignature([e])};
+    final theirs = {for (final e in remote.equipment) e.id: equipmentSignature([e])};
+    return (
+      added: theirs.keys.where((k) => !mine.containsKey(k)).length,
+      removed: mine.keys.where((k) => !theirs.containsKey(k)).length,
+      changed: theirs.keys.where((k) => mine.containsKey(k) && mine[k] != theirs[k]).length,
+    );
+  }
+
+  String get summary {
+    final d = diff;
+    final parts = [
+      if (d.added > 0) '추가 ${d.added}',
+      if (d.removed > 0) '빠짐 ${d.removed}',
+      if (d.changed > 0) '설정 변경 ${d.changed}',
+    ];
+    return parts.isEmpty ? '기구 정보 변경' : parts.join(' · ');
   }
 }

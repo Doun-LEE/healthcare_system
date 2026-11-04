@@ -44,7 +44,7 @@ class GymScreen extends StatelessWidget {
             itemBuilder: (_) => [
               const PopupMenuItem(value: 'add', child: Text('헬스장 추가')),
               const PopupMenuItem(value: 'import', child: Text('친구 헬스장 가져오기')),
-              if (gym != null && gym.isShared) PopupMenuItem(value: 'resync', child: Text('${gym.sharedName ?? '친구'} 님 데이터로 다시 동기화')),
+              if (gym != null && state.cloudSignedIn) const PopupMenuItem(value: 'resync', child: Text('친구 데이터로 동기화')),
               if (gym != null && state.cloudSignedIn) const PopupMenuItem(value: 'restore', child: Text('백업에서 기구 되살리기')),
               if (gym != null) const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
               if (gym != null) const PopupMenuItem(value: 'standard', child: Text('대중적인 기본 기구 일괄 추가')),
@@ -99,6 +99,62 @@ class GymScreen extends StatelessWidget {
                 )
               : _EquipmentList(gym: gym),
     );
+  }
+
+  /// 연결된 친구(내가 가져온 원본 주인, 또는 내 헬스장을 가져간 친구) 데이터로 이 헬스장 기구를 맞춘다.
+  /// 바뀐 게 없어도 언제든 누를 수 있다.
+  Future<void> _syncFromFriend(BuildContext context, AppState state, Gym gym) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(content: Text('연결된 친구 헬스장을 확인하는 중…'), duration: Duration(seconds: 2)));
+    await state.checkLinkedGyms(force: true);
+    if (!context.mounted) return;
+    final links = state.gymLinks[gym.id] ?? const <GymUpdate>[];
+    if (links.isEmpty) {
+      if (gym.isShared) {
+        final msg = await state.resyncSharedGym(gym);
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text('${gym.name}과 연결된 친구 헬스장이 없어요. 친구가 이 헬스장을 가져가거나, 메뉴의 "친구 헬스장 가져오기"로 연결하세요. (친구 앱이 옛 버전이면 안 보여요)')));
+      }
+      return;
+    }
+    final GymUpdate? pick = links.length == 1
+        ? links.first
+        : await showAppSheet<GymUpdate>(
+            context: context,
+            builder: (c) => SafeArea(
+              child: ListView(shrinkWrap: true, children: [
+                const ListTile(title: Text('누구 데이터로 맞출까요?')),
+                for (final l in links)
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: Text('${l.friendName} 님 · ${l.remote.name}'),
+                    subtitle: Text(l.gym.equipSignature == equipmentSignature(l.remote.equipment) ? '지금과 같음' : '차이: ${l.summary}'),
+                    onTap: () => Navigator.pop(c, l),
+                  ),
+              ]),
+            ),
+          );
+    if (pick == null || !context.mounted) return;
+    final same = pick.gym.equipSignature == equipmentSignature(pick.remote.equipment);
+    if (same) {
+      messenger.showSnackBar(SnackBar(content: Text('${pick.friendName} 님 데이터와 이미 같아요.')));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('${pick.friendName} 님 데이터로 동기화할까요?'),
+        content: Text('${pick.summary} · 기구 ${gym.equipment.length}개 → ${pick.remote.equipment.length}개. 내 사진은 유지되고, 지금 상태는 백업해 둬요.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('동기화')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await state.acceptGymUpdate(pick);
+    messenger.showSnackBar(SnackBar(content: Text('${gym.name} 기구를 ${pick.friendName} 님 데이터로 맞췄어요.')));
   }
 
   /// 백업 슬롯을 골라 이 헬스장의 기구만 그때 상태로 되돌린다.
@@ -164,9 +220,7 @@ class GymScreen extends StatelessWidget {
       case 'import':
         await _importFriendGym(context, state);
       case 'resync':
-        if (gym == null) return;
-        final msg = await state.resyncSharedGym(gym);
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        if (gym != null) await _syncFromFriend(context, state, gym);
       case 'restore':
         if (gym != null) await _restoreFromBackup(context, state, gym);
       case 'rename':

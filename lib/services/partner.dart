@@ -142,6 +142,10 @@ class PartnerProfile {
             'types': g.availableTypes.map((t) => t.name).toList(),
             // 실제 기구 데이터(사진은 기기에만 있으므로 hasPhoto 는 뺀다)
             'equipment': [for (final e in g.equipment) e.toJson()..remove('hasPhoto')],
+            // 연결된 헬스장 동기화용: 기구를 마지막으로 고친 시각, 어느 친구 헬스장에서 가져왔는지.
+            if (g.equipEditedAt != null) 'editedAt': g.equipEditedAt!.toUtc().toIso8601String(),
+            if (g.isShared) 'linkFrom': g.sharedFrom,
+            if (g.isShared) 'linkGym': g.sharedGymId,
           },
       ],
       'weights': {for (final p in progress.entries) if (p.value.workingWeight > 0) p.key: p.value.workingWeight},
@@ -257,6 +261,9 @@ class PartnerProfile {
               for (final e in ((g['equipment'] as List?) ?? const []))
                 if (e is Map) ?_safeEquipment(Map<String, dynamic>.from(e)),
             ],
+            editedAt: g['editedAt'] is String ? DateTime.tryParse(g['editedAt'] as String) : null,
+            linkFrom: g['linkFrom'] as String?,
+            linkGym: g['linkGym'] as String?,
           ),
       ],
     );
@@ -272,7 +279,13 @@ GymEquipment? _safeEquipment(Map<String, dynamic> j) {
 }
 
 class PartnerGym {
-  const PartnerGym({required this.id, required this.name, required this.types, this.equipment = const []});
+  const PartnerGym({required this.id, required this.name, required this.types, this.equipment = const [], this.editedAt, this.linkFrom, this.linkGym});
+  /// 그 사람이 기구를 마지막으로 고친 시각(옛 버전이면 null).
+  final DateTime? editedAt;
+
+  /// 이 헬스장을 다른 사람 헬스장에서 가져왔으면 그 사람 uid·헬스장 id.
+  final String? linkFrom;
+  final String? linkGym;
   final String id;
   final String name;
   final Set<EquipmentType> types;

@@ -13,6 +13,7 @@ import 'widgets/level_card.dart';
 import 'widgets/place.dart';
 import 'widgets/partner_widgets.dart';
 import 'friends_screen.dart';
+import 'widgets/gym_update_banner.dart';
 
 // 하단 탭 순서: 오늘 · 달력 · 홈 · 기록 · 헬스장 · 내 정보
 const _tabToday = 0, _tabCalendar = 1, _tabStats = 3, _tabProfile = 5;
@@ -63,6 +64,7 @@ class HomeScreen extends StatelessWidget {
           ThemedQuoteBanner(date: now, plan: plan),
           const SizedBox(height: 4),
           const InboxBanner(),
+          const GymUpdateBanner(),
           const SizedBox(height: 6),
           LevelCard(profile: user, compact: true, onTap: () => PartnerProfileScreen.openMine(context, onEdit: () => onGoToTab(_tabProfile))),
           const SizedBox(height: 6),
