@@ -218,8 +218,9 @@ class SessionGenerator {
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final mainNames = [for (final e in main) exerciseById(e.exerciseId)?.name ?? ''];
     // 본 운동과 같은 계열(풀업 ↔ 어시스트 풀업, 벤치 ↔ 덤벨 벤치 등)은 워밍업으로 넣지 않는다.
+    final mainFamilies = {for (final id in mainIds) familyOf(id)};
     bool sameFamily(Exercise ex) {
-      if (mainIds.contains(ex.id)) return true;
+      if (mainIds.contains(ex.id) || mainFamilies.contains(familyOf(ex.id))) return true;
       for (final id in mainIds) {
         if (id.contains(ex.id) || ex.id.contains(id)) return true;
       }
@@ -437,6 +438,8 @@ class SessionGenerator {
     List<MuscleGroup> dayGroups,
   ) {
     final pickedIds = picked.map((p) => p.exerciseId).toSet();
+    final pickedFamilies = {for (final id in pickedIds) familyOf(id)};
+    final avoidFamilies = {for (final id in req.avoidIds) familyOf(id)};
     final now = req.now ?? DateTime.now();
     final armsHint = g == MuscleGroup.arms ? armsEmphasisFor(dayGroups) : const <String>[];
     final compoundCount = picked.where((p) {
@@ -449,9 +452,14 @@ class SessionGenerator {
     var bestScore = double.negativeInfinity;
     for (final ex in exercisesOf(g)) {
       if (ex.warmupOnly || ex.activity || _reserved.contains(ex.id)) continue;
-      if (pickedIds.contains(ex.id)) continue;
-      // 전날·전전날 한 운동은 웬만하면 피한다(같은 자세·무게가 연일 겹치지 않게).
-      final repeatPenalty = req.avoidIds.contains(ex.id) ? 6.0 : 0.0;
+      // 같은 운동은 물론 같은 계열(딥스 ↔ 트라이셉스 딥스 등)도 한 세션에 두 번 넣지 않는다.
+      if (pickedIds.contains(ex.id) || pickedFamilies.contains(familyOf(ex.id))) continue;
+      // 직전 운동일에 한 운동·같은 계열(레그 컬 ↔ 라잉 레그 컬)은 웬만하면 피한다.
+      final repeatPenalty = req.avoidIds.contains(ex.id)
+          ? 6.0
+          : avoidFamilies.contains(familyOf(ex.id))
+              ? 5.0
+              : 0.0;
       if (!ex.canDoWith(req.available)) continue;
       if (excludedByInjury(ex, req.injuries)) continue;
 
@@ -498,6 +506,15 @@ class SessionGenerator {
         score += 0.5;
       }
       score -= repeatPenalty;
+      // 같은 동작을 전용 머신과 케이블(멀티스테이션)로 다 할 수 있으면 전용 머신을 먼저.
+      // 머신이 없으면 케이블(멀티스테이션)이 그 자리를 대신한다.
+      if (eq == EquipmentType.cableMachine || eq == EquipmentType.functionalTrainer) {
+        final machineSibling = familySiblings(ex.id).any((id) {
+          final s = exerciseById(id);
+          return s != null && s.loadType == LoadType.machine && s.canDoWith(req.available) && !excludedByInjury(s, req.injuries);
+        });
+        if (machineSibling) score -= 4.0;
+      }
       // 데이터 기반 첨삭: 아직 회복 안 된 근육(70% 미만)을 주동근으로 쓰면 감점, 부족한 근육이면 가점.
       if (req.recovery.isNotEmpty || req.boost.isNotEmpty) {
         final mm = musclesFor(ex);

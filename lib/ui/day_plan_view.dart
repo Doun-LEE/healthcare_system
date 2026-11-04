@@ -1113,18 +1113,18 @@ class _ExerciseCard extends StatelessWidget {
                 onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw, planning: editable && !logging),
               ),
             if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) _CardioStatsLine(stats: pe.cardio!),
-            if ((editable || logging) && !isCardio)
+            if (editable || logging)
               Row(children: [
                 TextButton.icon(
                   onPressed: pe.sets.length > 1 ? () => state.removeSet(plan, pe) : null,
                   icon: const Icon(Icons.remove_circle_outline, size: 18),
-                  label: const Text('세트 빼기'),
+                  label: Text(isCardio ? '구간 빼기' : '세트 빼기'),
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                 ),
                 TextButton.icon(
                   onPressed: () => state.addSet(plan, pe),
                   icon: const Icon(Icons.add_circle_outline, size: 18),
-                  label: const Text('세트 추가'),
+                  label: Text(isCardio ? '구간 추가 (레벨 바꿔 기록)' : '세트 추가'),
                   style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                 ),
               ]),

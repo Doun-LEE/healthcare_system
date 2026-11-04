@@ -75,6 +75,7 @@ enum EquipmentType {
   declineChestPress('디클라인 체스트 프레스 머신', EquipmentCategory.chest, ['decline chest press']),
   chestPressPlateLoaded('해머 체스트 프레스(플레이트 로디드)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소', '해머 프레스', '해머프레스', '해머 체스트']),
   lyingChestPress('라잉 체스트 프레스 머신(누워서 미는)', EquipmentCategory.chest, ['lying chest press', 'horizontal bench press', 'iso-lateral bench press', 'bench press machine', '라잉', '라잉 체스트', '누워서', '벤치형', '플레이트 벤치']),
+  lyingInclinePress('라잉 인클라인 체스트 프레스 머신(누워서 미는)', EquipmentCategory.chest, ['lying incline press', 'incline bench press machine', 'super incline bench', '라잉 인클라인', '누워서 인클라인', '인클라인 벤치 프레스']),
   pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
   cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신', '케이블', '암풀다운', '케이블 크런치', '페이스풀']),
   functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
@@ -83,7 +84,7 @@ enum EquipmentType {
   latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀', '암풀다운', 'arm pulldown', '풀다운']),
   latPulldownPlateLoaded('플레이트 로디드 랫풀다운(아이소 풀다운)', EquipmentCategory.back, ['iso lateral pulldown', 'hammer pulldown', '해머 풀다운', '아이소 풀다운', '아이소 래터럴 풀다운']),
   seatedRow('시티드 로우(케이블)', EquipmentCategory.back, ['seated row', 'cable row', '로우']),
-  chestSupportedRow('체스트 서포티드 로우 머신', EquipmentCategory.back, ['chest supported row', 'seated row machine']),
+  chestSupportedRow('시티드 로우 머신(가슴 패드)', EquipmentCategory.back, ['chest supported row', 'seated row machine', '체스트 서포티드 로우']),
   highRow('하이 로우(플레이트 로디드)', EquipmentCategory.back, ['high row', 'hammer high row', '해머 하이로우']),
   lowRow('로우 로우(플레이트 로디드·아이소 래터럴 로우)', EquipmentCategory.back, ['low row', 'hammer row', '해머 로우', 'iso row', 'iso lateral row', '아이소 래터럴 로우', '래터럴 로우', '레터럴 로우', '아이소 로우']),
   tBarRow('티바 로우 머신', EquipmentCategory.back, ['t bar row', '티바']),
@@ -515,6 +516,7 @@ enum LoadMechanism {
         return LoadMechanism.free;
       case EquipmentType.chestPressPlateLoaded:
       case EquipmentType.lyingChestPress:
+      case EquipmentType.lyingInclinePress:
       case EquipmentType.latPulldownPlateLoaded:
       case EquipmentType.monsterGlute:
       case EquipmentType.shoulderPressPlateLoaded:

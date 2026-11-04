@@ -91,7 +91,9 @@ class AppState extends ChangeNotifier {
     // 파트너 헬스장이면 그 사람이 등록한 기구 데이터(별칭·무게 단위)를 그대로 쓴다.
     final list = plan.atOtherGym ? plan.venueEquipment : (gymOf(plan)?.equipment ?? const <GymEquipment>[]);
     final exact = list.where((e) => e.type == type).toList();
-    final pool = exact.isNotEmpty ? exact : list.where((e) => e.allTypes.contains(type)).toList();
+    var pool = exact.isNotEmpty ? exact : list.where((e) => e.allTypes.contains(type)).toList();
+    // 전용 기구가 없으면 그 역할을 하는 기구(멀티스테이션 → 케이블·펙덱 등)로 대신한다.
+    if (pool.isEmpty) pool = list.where((e) => e.allTypes.any((t) => impliedEquipment[t]?.contains(type) ?? false)).toList();
     if (pool.isEmpty) return null;
     return pool.firstWhere((e) => e.hasPhoto, orElse: () => pool.firstWhere((e) => e.brand != null, orElse: () => pool.first));
   }
@@ -158,6 +160,7 @@ class AppState extends ChangeNotifier {
         }
       }
     }
+    _fillImplied(g, m, (e) => e.maxWeightKg == null ? null : e.maxWeightKg! / e.displayFactor);
     return m;
   }
 
@@ -171,7 +174,24 @@ class AppState extends ChangeNotifier {
         }
       }
     }
+    _fillImplied(g, m, (e) {
+      final st = e.effectiveStep / e.displayFactor;
+      return st > 0 ? st : null;
+    });
     return m;
+  }
+
+  /// 전용 기구가 없는 종류는 그 역할을 하는 기구(멀티스테이션 등)의 값으로 채운다.
+  void _fillImplied(Gym? g, Map<EquipmentType, double> m, double? Function(GymEquipment) value) {
+    for (final e in g?.equipment ?? const <GymEquipment>[]) {
+      final v = value(e);
+      if (v == null) continue;
+      for (final t in e.allTypes) {
+        for (final sub in impliedEquipment[t] ?? const <EquipmentType>[]) {
+          m.putIfAbsent(sub, () => v);
+        }
+      }
+    }
   }
 
   Map<EquipmentType, double> maxForPlan(DayPlan? p) => p != null && p.atOtherGym
@@ -1709,8 +1729,10 @@ class AppState extends ChangeNotifier {
   Future<void> addSet(DayPlan plan, PlannedExercise ex) async {
     _markCustom(plan);
     final last = ex.sets.last;
+    // 유산소는 구간 추가: 직전 구간 레벨에서 5분으로 시작(레벨·시간은 바꿔서 기록).
+    final cardio = exerciseById(ex.exerciseId)?.loadType == LoadType.cardio;
     ex.sets.add(SetEntry(
-        targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level, extra: true));
+        targetReps: cardio ? 5 : last.targetReps, targetWeight: last.targetWeight, level: last.effectiveLevel ?? last.level, extra: true));
     await _save();
     await resyncPartnerDay(plan);
   }

@@ -66,9 +66,16 @@ class Progression {
     // ── 유산소: 분 → 레벨 순으로 올린다 ──
     if (ex.loadType == LoadType.cardio) {
       final spec = cardioLevels[ex.id];
-      final doneLevel = done.first.effectiveLevel;
+      // 구간마다 레벨을 다르게 했으면 시간 가중 평균 레벨을 새 기준으로 삼는다.
+      final leveled = done.where((s) => s.effectiveLevel != null).toList();
+      final lvMin = leveled.fold<int>(0, (a, s) => a + max(1, s.effectiveReps));
+      final doneLevel = leveled.isEmpty
+          ? null
+          : (leveled.fold<double>(0, (a, s) => a + s.effectiveLevel! * max(1, s.effectiveReps)) / lvMin).round();
       if (doneLevel != null) current.level = doneLevel; // 사용자가 바꾼 레벨이 새 기준
-      if (allHit) {
+      final targetMin = planned.sets.where((s) => !s.extra).fold<int>(0, (a, s) => a + s.targetReps);
+      final doneMin = done.fold<int>(0, (a, s) => a + s.effectiveReps);
+      if (doneMin >= targetMin) {
         current.consecutiveSuccess += 1;
         current.consecutiveFail = 0;
         final easy = rpe != null && rpe <= 4;

@@ -122,6 +122,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.declineChestPress => _pressMachine(arms: true),
       EquipmentType.chestPressPlateLoaded => _pressMachine(arms: true, plateLoaded: true),
       EquipmentType.lyingChestPress => _lyingPress(),
+      EquipmentType.lyingInclinePress => _lyingPress(),
       EquipmentType.pecDeck => _pecDeck(),
       EquipmentType.cableMachine => _cable(),
       EquipmentType.functionalTrainer => _cable(),

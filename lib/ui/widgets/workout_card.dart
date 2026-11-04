@@ -301,10 +301,12 @@ class WorkoutSummaryCard extends StatelessWidget {
     final doneSets = e.sets.where((s) => s.completed).toList();
     if (doneSets.isEmpty) return '';
     if (ex?.loadType == LoadType.cardio) {
-      final m = doneSets.first.doneReps ?? doneSets.first.targetReps;
-      final lv = doneSets.first.effectiveLevel;
+      final m = doneSets.fold<int>(0, (a, s) => a + (s.doneReps ?? s.targetReps));
       final spec = cardioLevels[e.exerciseId];
-      return '$m분${lv != null && spec != null ? ' · ${spec.format(lv)}' : ''}';
+      final lvs = [for (final s in doneSets) if (s.effectiveLevel != null) s.effectiveLevel!];
+      if (spec == null || lvs.isEmpty) return '$m분';
+      if (lvs.toSet().length == 1) return '$m분 · ${spec.format(lvs.first)}';
+      return '$m분 · ${[for (final s in doneSets) if (s.effectiveLevel != null) '${s.doneReps ?? s.targetReps}분 ${spec.format(s.effectiveLevel!)}'].join(' → ')}';
     }
     final parts = <String>[];
     for (final s in doneSets) {

@@ -468,6 +468,12 @@ const List<EquipmentInfo> equipmentCatalog = [
     groups: [MuscleGroup.chest],
   ),
   EquipmentInfo(
+    type: EquipmentType.lyingInclinePress,
+    summary: '인클라인 벤치에 누워서 위로 미는 프레스 머신. 인클라인 바벨 벤치처럼 눕지만 궤도가 고정돼 안전하다.',
+    strengths: ['윗가슴', '보조자 없이 고중량', '좌우 독립(아이소 래터럴형)'],
+    groups: [MuscleGroup.chest],
+  ),
+  EquipmentInfo(
     type: EquipmentType.functionalTrainer,
     summary: '양쪽 도르래 높이를 자유롭게 바꾸는 듀얼 케이블. 케이블 운동 전부 가능.',
     strengths: ['전 부위 케이블 운동', '회전·기능성 동작', '피크 수축'],
@@ -1146,7 +1152,7 @@ const List<Exercise> exerciseCatalog = [
     id: 'cable_curl', name: '케이블 컬', group: MuscleGroup.arms,
     emphasis: ['이두', '피크 수축'], equipment: [EquipmentType.cableMachine],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.35,
-    repRange: [12, 15], priority: 1,
+    repRange: [12, 15], priority: 2,
   ),
   Exercise(
     id: 'cgbp', name: '클로즈그립 벤치프레스', group: MuscleGroup.arms,
@@ -1164,7 +1170,7 @@ const List<Exercise> exerciseCatalog = [
     id: 'overhead_tri', name: '오버헤드 트라이셉스 익스텐션', group: MuscleGroup.arms,
     emphasis: ['삼두 장두'], equipment: [EquipmentType.cableMachine, EquipmentType.dumbbell],
     loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.25,
-    repRange: [10, 15], priority: 2,
+    repRange: [10, 15], priority: 3,
     description: '팔을 머리 위로 올리면 삼두 장두가 늘어나 가장 잘 먹는다.',
   ),
   Exercise(
@@ -1357,7 +1363,7 @@ const List<Exercise> exerciseCatalog = [
     description: '머신 무게 = 덜어주는 무게. 체중의 절반에서 시작해 점점 줄인다.',
   ),
   Exercise(
-    id: 'cs_row_m', name: '체스트 서포티드 로우 머신', group: MuscleGroup.back,
+    id: 'cs_row_m', name: '시티드 로우 머신', group: MuscleGroup.back,
     emphasis: ['등 두께(능형근)', '허리 부담 0'], equipment: [EquipmentType.chestSupportedRow],
     loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
     compound: true, repRange: [8, 12], priority: 3,
@@ -1777,6 +1783,13 @@ const List<Exercise> exerciseCatalog = [
     loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.85,
     compound: true, repRange: [8, 12], priority: 2,
     description: '벤치에 누워서 미는 머신. 바벨 벤치프레스 대신 안전하게 고중량.',
+  ),
+  Exercise(
+    id: 'lying_incline_press_m', name: '라잉 인클라인 체스트 프레스 머신', group: MuscleGroup.chest,
+    emphasis: ['윗가슴', '전면 어깨'], equipment: [EquipmentType.lyingInclinePress],
+    loadType: LoadType.machine, refLift: RefLift.bench, ratio: 0.75,
+    compound: true, repRange: [8, 12], priority: 2,
+    description: '인클라인 벤치에 누워서 미는 머신. 인클라인 바벨 벤치 대신 안전하게 고중량으로 윗가슴.',
   ),
   Exercise(
     id: 'incline_db_fly', name: '인클라인 덤벨 플라이', group: MuscleGroup.chest,
@@ -2231,6 +2244,36 @@ final Map<String, Exercise> _byId = {
 };
 
 Exercise? exerciseById(String id) => _byId[id];
+
+/// 사실상 같은 동작인 운동 묶음. 한 세션에 둘을 같이 넣지 않고, 직전 운동일에 한 것과도 겹치지 않게 본다.
+/// (예: 레그 컬 ↔ 라잉 레그 컬, 딥스 ↔ 트라이셉스 딥스 ↔ 딥 머신)
+const _families = <String, List<String>>{
+  'ham_curl': ['leg_curl', 'lying_leg_curl', 'nordic_curl'],
+  'dip': ['dips', 'tri_dips', 'assisted_dip', 'dip_m'],
+  'pullup': ['pullup', 'assisted_pullup', 'chinup'],
+  'pushup': ['pushup', 'decline_pushup', 'trx_pushup'],
+  // 머신·멀티스테이션(케이블)·덤벨로 같은 동작을 하는 것들: 한 세션엔 하나만.
+  'chest_fly': ['pec_deck', 'cable_fly', 'db_fly', 'incline_db_fly', 'low_cable_fly'],
+  'tri_pushdown': ['tri_pushdown', 'tri_ext_m'],
+  'machine_curl': ['bicep_curl_m', 'cable_curl'],
+};
+
+final Map<String, String> _familyOf = {
+  for (final f in _families.entries)
+    for (final id in f.value) id: f.key,
+};
+
+/// 운동의 계열 키. 묶음에 없으면 자기 id.
+String familyOf(String exerciseId) => _familyOf[exerciseId] ?? exerciseId;
+
+/// 같은 계열에 다른 운동이 있는지(계열 안에서 기구 우선순위를 따질 때).
+bool hasFamily(String exerciseId) => _familyOf.containsKey(exerciseId);
+
+/// 같은 계열의 다른 운동 id들.
+List<String> familySiblings(String exerciseId) {
+  final f = _familyOf[exerciseId];
+  return f == null ? const [] : [for (final id in _families[f]!) if (id != exerciseId) id];
+}
 
 List<Exercise> exercisesOf(MuscleGroup g) =>
     exerciseCatalog.where((e) => e.group == g).toList();
