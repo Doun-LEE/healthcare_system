@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/store_io.dart' if (dart.library.js_interop) 'core/store_web.dart';
 import 'firebase_options.dart';
 import 'services/cloud_sync.dart';
+import 'services/app_update.dart';
 import 'services/error_report.dart';
 import 'services/supa_sync.dart';
+import 'services/web_reload.dart';
 import 'state/app_state.dart';
 import 'ui/app_theme.dart';
 import 'ui/home_shell.dart';
@@ -26,6 +29,17 @@ Future<void> main() async {
   final state = AppState(await createStore());
   await state.load();
   runApp(FitRoutineApp(state: state));
+  if (kIsWeb) _autoUpdateWeb();
+}
+
+/// 웹: 서버에 더 새 버전이 올라가 있으면 캐시를 비우고 한 번 새로고침한다(앱을 연 직후라 잃을 게 없다).
+Future<void> _autoUpdateWeb() async {
+  final deployed = await WebReload.deployedVersion();
+  if (deployed == null) return;
+  final mine = await AppUpdate.currentVersionOnly();
+  if (AppUpdate.compare(deployed, mine) <= 0 || WebReload.triedFor(deployed)) return;
+  WebReload.markTried(deployed);
+  await WebReload.hardReload();
 }
 
 class FitRoutineApp extends StatelessWidget {

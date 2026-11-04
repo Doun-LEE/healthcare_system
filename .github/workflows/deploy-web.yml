@@ -68,6 +68,7 @@ jobs:
 
       # firebase-tools를 직접 실행한다. 실패하면 원인 문구를 annotation(공개)으로 남겨
       # 로그인 없이도 실패 이유를 볼 수 있게 한다(키 내용은 출력하지 않음).
+      # 웹 앱(Hosting)이 먼저다. 보안 규칙 배포는 권한이 없어도 웹 배포를 막지 않도록 따로 돈다.
       - name: Deploy to Firebase Hosting
         if: env.FB_SA != ''
         shell: bash
@@ -79,16 +80,34 @@ jobs:
           fi
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           set +e
-          npx -y firebase-tools@latest deploy --only hosting,firestore:rules --project healthcare-system-b55c0 --non-interactive > deploy.log 2>&1
+          npx -y firebase-tools@latest deploy --only hosting --project healthcare-system-b55c0 --non-interactive > deploy.log 2>&1
           code=$?
           set -e
           cat deploy.log
-          rm -f "$RUNNER_TEMP/sa.json"
           if [ $code -ne 0 ]; then
+            rm -f "$RUNNER_TEMP/sa.json"
             grep -iE "error|denied|permission|not found|not enabled|failed|403|404" deploy.log | grep -v "^\s*$" | head -6 | while IFS= read -r l; do echo "::error::$l"; done
             exit $code
           fi
-          echo "::notice::Firebase Hosting + Firestore 규칙 배포 완료 https://healthcare-system-b55c0.web.app"
+          echo "::notice::Firebase Hosting 배포 완료 https://healthcare-system-b55c0.web.app"
+
+      - name: Deploy Firestore rules (권한 없으면 경고만)
+        if: env.FB_SA != ''
+        continue-on-error: true
+        shell: bash
+        run: |
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          set +e
+          npx -y firebase-tools@latest deploy --only firestore:rules --project healthcare-system-b55c0 --non-interactive > rules.log 2>&1
+          code=$?
+          set -e
+          cat rules.log
+          rm -f "$RUNNER_TEMP/sa.json"
+          if [ $code -ne 0 ]; then
+            echo "::warning::Firestore 보안 규칙은 배포되지 않았어요(서비스 계정에 'Firebase Rules 관리자' 역할이 없음). 웹 앱 배포는 정상입니다."
+            exit $code
+          fi
+          echo "::notice::Firestore 보안 규칙 배포 완료"
 
       - name: Pages = redirect to new address
         if: env.FB_SA != ''

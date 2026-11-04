@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/app_update.dart';
+import '../../services/web_reload.dart';
 
 /// 내 정보 화면의 "앱 정보" — 현재 버전, 새 버전 확인/다운로드.
 class VersionSection extends StatefulWidget {
@@ -24,13 +25,16 @@ class _VersionSectionState extends State<VersionSection> {
     super.initState();
     AppUpdate.currentVersion().then((v) => mounted ? setState(() => _current = v) : null);
     AppUpdate.currentVersionOnly().then((v) => mounted ? setState(() => _currentOnly = v) : null);
-    // 앱을 열 때 한 번 조용히 확인한다 (APK 에서만 의미 있음).
-    if (!kIsWeb) _check(silent: true);
+    // 앱을 열 때 한 번 조용히 확인한다.
+    _check(silent: true);
   }
 
   Future<void> _check({bool silent = false}) async {
     setState(() => _checking = true);
-    final r = await AppUpdate.latest();
+    // 웹은 GitHub 릴리스(APK)가 아니라 실제로 배포된 웹 버전과 비교한다.
+    final r = kIsWeb
+        ? await WebReload.deployedVersion().then((v) => v == null ? null : ReleaseInfo(version: v, apkUrl: null, notes: '', pageUrl: ''))
+        : await AppUpdate.latest();
     if (!mounted) return;
     setState(() {
       _latest = r;
@@ -80,14 +84,21 @@ class _VersionSectionState extends State<VersionSection> {
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Text(_latest!.notes.trim(), maxLines: 6, overflow: TextOverflow.ellipsis, style: text.bodySmall),
             ),
-          FilledButton.icon(
-            onPressed: () => _open(_latest!.apkUrl ?? _latest!.pageUrl),
-            icon: const Icon(Icons.download),
-            label: Text('v${_latest!.version} 다운로드 후 설치'),
-          ),
+          if (kIsWeb)
+            FilledButton.icon(
+              onPressed: WebReload.hardReload,
+              icon: const Icon(Icons.refresh),
+              label: Text('v${_latest!.version}로 새로고침'),
+            )
+          else
+            FilledButton.icon(
+              onPressed: () => _open(_latest!.apkUrl ?? _latest!.pageUrl),
+              icon: const Icon(Icons.download),
+              label: Text('v${_latest!.version} 다운로드 후 설치'),
+            ),
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Text('다운로드가 끝나면 알림에서 파일을 열어 "설치"를 누르세요. 데이터는 그대로 유지됩니다.',
+            child: Text(kIsWeb ? '데이터는 계정에 저장돼 있어 새로고침해도 그대로예요.' : '다운로드가 끝나면 알림에서 파일을 열어 "설치"를 누르세요. 데이터는 그대로 유지됩니다.',
                 style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ),
         ],
