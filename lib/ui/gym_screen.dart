@@ -422,6 +422,8 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
   EquipmentCategory? _category;
   final _selected = <EquipmentType>{};
   final _removed = <EquipmentType>{};
+  /// 이미 있는 종류를 한 대 더(다른 기구로) 추가.
+  final _more = <EquipmentType>{};
 
   /// 브랜드 탭
   bool _byBrand = false;
@@ -614,15 +616,24 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                   ),
                   title: Text(info.type.label,
                       style: rem ? TextStyle(decoration: TextDecoration.lineThrough, color: cs.onSurfaceVariant) : null),
-                  subtitle: Text(
+                  subtitle: Row(children: [
+                    Expanded(child: Text(
                     has
                         ? (rem ? '체크 해제됨 · 적용하면 보유 목록에서 빠져요' : '보유: ${(widget.owners[info.type] ?? const []).join(', ')} · 체크를 풀면 제거')
                         : (widget.owners[info.type]?.isNotEmpty ?? false)
                             ? '${widget.owners[info.type]!.join(', ')}에 포함된 기능'
                             : info.strengths.take(3).join(' · '),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                  ),
+                  )),
+                    if (has && !rem)
+                      TextButton.icon(
+                        onPressed: () => setState(() => _more.contains(info.type) ? _more.remove(info.type) : _more.add(info.type)),
+                        icon: Icon(_more.contains(info.type) ? Icons.check : Icons.add, size: 16),
+                        label: Text(_more.contains(info.type) ? '한 대 더 ✓' : '한 대 더'),
+                        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                      ),
+                  ]),
                   dense: true,
                 );
               },
@@ -634,10 +645,10 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               children: [
                 Expanded(
                   child: Text(
-                    _selected.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
+                    _selected.isEmpty && _more.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
                         ? (_byBrand ? '브랜드 모델을 체크해서 추가' : '체크해서 추가 · 보유 기구는 체크를 풀어 제거')
                         : [
-                            if (_selected.isNotEmpty) '${_selected.length}개 추가',
+                            if (_selected.isNotEmpty || _more.isNotEmpty) '${_selected.length + _more.length}개 추가',
                             if (_brandPicked.isNotEmpty) '브랜드 ${_brandPicked.length}개',
                             if (_removed.isNotEmpty) '${_removed.length}개 제거',
                           ].join(' · '),
@@ -645,18 +656,18 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: _selected.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
+                  onPressed: _selected.isEmpty && _more.isEmpty && _removed.isEmpty && _brandPicked.isEmpty
                       ? null
                       : () => Navigator.pop(
                           context,
                           PickerResult(
-                            add: _selected.toList(),
+                            add: [..._selected, ..._more],
                             remove: _removed.toList(),
                             named: [for (final e in _brandPicked.entries) BrandPick(e.key, e.value)],
                           ),
                         ),
-                  icon: Icon(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
-                  label: Text(_selected.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
+                  icon: Icon(_selected.isEmpty && _more.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? Icons.check : Icons.add),
+                  label: Text(_selected.isEmpty && _more.isEmpty && _brandPicked.isEmpty && _removed.isNotEmpty ? '적용' : '추가'),
                 ),
               ],
             ),
