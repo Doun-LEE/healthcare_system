@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'copy_routine.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
@@ -43,6 +44,7 @@ class DayPage extends StatelessWidget {
           PopupMenuButton<String>(
             onSelected: (v) => _menu(context, state, v, plan),
             itemBuilder: (_) => [
+              if (!isPast && (plan == null || !plan.isFinished)) const PopupMenuItem(value: 'copy', child: Text('지난 내 루틴 그대로 가져오기')),
               if (!isPast) const PopupMenuItem(value: 'import', child: Text('친구 루틴 불러오기')),
               if (!isPast && (plan == null || plan.isRest)) const PopupMenuItem(value: 'regen', child: Text('이 날 루틴 만들기')),
               if (!isPast && plan != null && !plan.isFinished) const PopupMenuItem(value: 'regen', child: Text('루틴 다시 생성')),
@@ -86,6 +88,8 @@ class DayPage extends StatelessWidget {
   Future<void> _menu(BuildContext context, AppState state, String v, DayPlan? plan) async {
     final d = dateOnly(date);
     switch (v) {
+      case 'copy':
+        await copyPastRoutineDialog(context, d);
       case 'import':
         await importRoutineDialog(context, d);
       case 'regen':

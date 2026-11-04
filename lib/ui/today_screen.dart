@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'copy_routine.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
@@ -33,6 +34,12 @@ class TodayScreen extends StatelessWidget {
               tooltip: '파트너와 운동',
               icon: Icon(plan?.partnerName != null ? Icons.group : Icons.group_outlined),
               onPressed: () => showPartnerPicker(context, now),
+            ),
+          if (plan == null || !plan.isFinished)
+            IconButton(
+              tooltip: '지난 내 루틴 그대로 가져오기',
+              icon: const Icon(Icons.history),
+              onPressed: () => copyPastRoutineDialog(context, now),
             ),
           IconButton(
             tooltip: '루틴 불러오기 (공유 코드)',
@@ -114,6 +121,12 @@ class _Empty extends StatelessWidget {
               },
               icon: const Icon(Icons.auto_awesome),
               label: const Text('오늘부터 1주일 루틴 생성'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => copyPastRoutineDialog(context, state.today),
+              icon: const Icon(Icons.history),
+              label: const Text('지난 내 루틴 그대로 가져오기'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(

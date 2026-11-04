@@ -2765,6 +2765,82 @@ class AppState extends ChangeNotifier {
   /// 공유 코드를 특정 날짜의 계획으로 가져온다. 운동·세트·횟수는 그대로,
   /// 무게는 내 이력/신체 스펙으로 다시 계산하고, 기구는 내 헬스장에 맞춘다.
   /// 코드가 잘못됐거나 그날이 이미 완료됐으면 null.
+  /// 루틴을 가져올 수 있는 내 지난 운동일(최근순). 실제로 한 날을 우선으로 보여준다.
+  List<DayPlan> pastRoutines({int days = 60}) {
+    final t = today;
+    final from = t.subtract(Duration(days: days));
+    return myPlans
+        .where((p) => !p.isRest && !p.skipped && p.date.isBefore(t) && !p.date.isBefore(from)
+            && p.exercises.any((e) => !e.warmup))
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  /// 지난 날 [source]의 루틴을 [date]에 그대로 넣는다(운동·순서·세트·횟수·무게·장소).
+  /// 실제로 한 날이면 그때 한 횟수·무게를, 아니면 계획했던 값을 목표로 쓴다.
+  /// 파트너 날이면 함께하는 사람 정보는 유지하고 루틴만 바꿔 다시 보낸다.
+  Future<DayPlan?> copyRoutineFrom(DayPlan source, DateTime date) async {
+    final u = currentUser;
+    if (u == null) return null;
+    final d = dateOnly(date);
+    final existing = planOn(d);
+    if (existing != null && existing.isFinished) return null;
+    final did = source.isFinished || source.exercises.any((e) => e.anyCompleted);
+    final exercises = <PlannedExercise>[
+      for (final e in source.exercises)
+          PlannedExercise(
+            exerciseId: e.exerciseId,
+            equipmentType: e.equipmentType,
+            restSeconds: e.restSeconds,
+            groupOverride: e.groupOverride,
+            warmup: e.warmup,
+            oneSide: e.oneSide,
+            sets: [
+              for (final s in e.sets)
+                if (!s.extra || s.completed)
+                  SetEntry(
+                    targetReps: did && s.completed ? s.effectiveReps : s.targetReps,
+                    targetWeight: did && s.completed ? s.effectiveWeight : s.targetWeight,
+                    level: did && s.completed ? s.effectiveLevel : s.level,
+                  ),
+            ],
+            note: '${source.date.month}/${source.date.day} 루틴 그대로',
+          ),
+    ]..removeWhere((e) => e.sets.isEmpty);
+    if (exercises.isEmpty) return null;
+    final title = '${source.displayTitle.split(' · ').first} (${source.date.month}/${source.date.day} 복사)';
+    final plan = DayPlan(
+      id: existing?.id ?? newId(),
+      userId: u.id,
+      date: d,
+      kind: DayKind.workout,
+      focus: List.of(source.focus),
+      exercises: exercises,
+      estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
+      intensityFactor: existing?.intensityFactor ?? 1.0,
+      loadFactor: existing?.loadFactor ?? 1.0,
+      condition: existing?.condition,
+      title: existing?.partnerName != null ? '$title · ${existing!.partnerName}와 함께' : title,
+      members: List.of(existing?.members ?? const <GroupMember>[]),
+      memberWeights: {...?existing?.memberWeights},
+      partnerName: existing?.partnerName,
+      partnerWeights: {...?existing?.partnerWeights},
+    );
+    // 장소: 파트너 날이면 그날 정한 곳, 아니면 그때 운동한 곳.
+    if (existing != null && existing.partnerName != null) {
+      _copyVenue(existing, plan);
+    } else {
+      _copyVenue(source, plan);
+    }
+    plan.custom = true;
+    if (existing != null) _data.plans.remove(existing);
+    _data.plans.add(plan);
+    await _save();
+    if (plan.partnerName != null) await resyncPartnerDay(plan);
+    await _rebalanceIfFocusChanged(plan, existing?.isRest == false ? existing!.focus : const []);
+    return plan;
+  }
+
   Future<DayPlan?> importRoutine(String code, DateTime date) async {
     final u = currentUser;
     if (u == null) return null;

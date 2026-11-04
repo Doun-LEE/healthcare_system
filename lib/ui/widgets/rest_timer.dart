@@ -2,6 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/ding.dart';
+import '../../state/app_state.dart';
 import 'app_sheet.dart';
 
 /// 세트 간 휴식 타이머. 하단 시트로 띄운다.
@@ -47,7 +51,9 @@ class _RestTimerSheetState extends State<RestTimerSheet> with WidgetsBindingObse
     if (_remaining <= 0 && !_alerted) {
       _alerted = true;
       HapticFeedback.heavyImpact();
-      SystemSound.play(SystemSoundType.alert);
+      // 다른 앱에 있다 한참 뒤 돌아온 경우엔 늦은 소리를 내지 않는다.
+      final tooLate = DateTime.now().difference(_endsAt).inSeconds > 5;
+      if (!tooLate && (context.read<AppState>().currentUser?.restSound ?? true)) Ding.play();
     }
   }
 

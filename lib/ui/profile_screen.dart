@@ -212,6 +212,13 @@ class ProfileScreen extends StatelessWidget {
                 subtitle: const Text('끄면 하체 날은 회복을 위해 유산소를 뺍니다'),
                 onChanged: (v) => _edit(state, (p) => p.cardioOnLegDays = v),
               ),
+            SwitchListTile(
+              value: u.restSound,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('휴식 끝 알림음'),
+              subtitle: const Text('세트 사이 휴식이 끝나면 띵 소리(무음 모드면 진동만)'),
+              onChanged: (v) => _edit(state, (p) => p.restSound = v),
+            ),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(

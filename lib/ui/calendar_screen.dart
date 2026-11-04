@@ -5,6 +5,7 @@ import '../engine/planner.dart';
 import '../data/catalog.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'copy_routine.dart';
 import 'day_page.dart';
 import 'day_plan_view.dart';
 import 'widgets/place.dart';
@@ -441,6 +442,7 @@ class _DaySummary extends StatelessWidget {
                     child: Wrap(spacing: 8, children: [
                       OutlinedButton.icon(onPressed: onMake, icon: const Icon(Icons.add), label: const Text('이 날 루틴 만들기')),
                       PartnerDayButton(date: date),
+                      TextButton.icon(onPressed: () => copyPastRoutineDialog(context, date), icon: const Icon(Icons.history), label: const Text('지난 루틴 가져오기')),
                       TextButton.icon(onPressed: onImport, icon: const Icon(Icons.download_outlined), label: const Text('친구 루틴 불러오기')),
                     ]),
                   ),
