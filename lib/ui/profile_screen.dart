@@ -285,37 +285,27 @@ class ProfileScreen extends StatelessWidget {
               },
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             ),
-            if (u.warmupMode == 'custom')
-              for (final key in ['all', 'back', 'chest', 'shoulder', 'arms', 'legs', 'abs'])
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(
-                      width: 52,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(key == 'all' ? '매번' : MuscleGroup.parse(key).label, style: text.labelMedium),
-                      ),
-                    ),
-                    Expanded(
-                      child: Wrap(spacing: 6, runSpacing: 4, children: [
+            if (u.warmupMode == 'custom') ...[
+              const SizedBox(height: 8),
+              Card(
+                margin: EdgeInsets.zero,
+                clipBehavior: Clip.antiAlias,
+                child: Column(children: [
+                  for (final (i, key) in const ['all', 'back', 'chest', 'shoulder', 'arms', 'legs', 'abs'].indexed) ...[
+                    if (i > 0) Divider(height: 1, indent: 56, color: cs.outlineVariant.withValues(alpha: 0.5)),
+                    _WarmupGroupRow(
+                      groupKey: key,
+                      ids: [
                         for (final id in (key == 'all' ? u.warmupIds : (u.warmupByGroupIds[key] ?? const <String>[])))
-                          if (exerciseById(id) != null)
-                            InputChip(
-                              label: Text(exerciseById(id)!.name),
-                              onDeleted: () => _edit(state, (p) => key == 'all' ? p.warmupIds.remove(id) : p.warmupByGroupIds[key]?.remove(id)),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                        ActionChip(
-                          avatar: const Icon(Icons.add, size: 16),
-                          label: Text(key == 'all' ? '매번 할 것' : '이 부위 날'),
-                          onPressed: () => _pickWarmups(context, state, key),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ]),
+                          if (exerciseById(id) != null) id,
+                      ],
+                      onAdd: () => _pickWarmups(context, state, key),
+                      onRemove: (id) => _edit(state, (p) => key == 'all' ? p.warmupIds.remove(id) : p.warmupByGroupIds[key]?.remove(id)),
                     ),
-                  ]),
-                ),
+                  ],
+                ]),
+              ),
+            ],
             const SizedBox(height: 12),
             Text('운동 구역 순서', style: text.labelLarge),
             Text('손잡이를 끌어 하루 루틴에서 어떤 구역을 먼저 할지 정합니다.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
@@ -693,4 +683,76 @@ class _NumFieldState extends State<_NumField> {
           onSubmitted: (_) => _commit(),
         ),
       );
+}
+
+
+/// 워밍업 직접 정하기: 부위 한 줄(아이콘·이름·개수·추가 버튼 + 고른 운동 칩).
+class _WarmupGroupRow extends StatelessWidget {
+  const _WarmupGroupRow({required this.groupKey, required this.ids, required this.onAdd, required this.onRemove});
+  final String groupKey;
+  final List<String> ids;
+  final VoidCallback onAdd;
+  final void Function(String id) onRemove;
+
+  static IconData _icon(String key) => switch (key) {
+        'all' => Icons.repeat_rounded,
+        'back' => Icons.rowing_rounded,
+        'chest' => Icons.fitness_center_rounded,
+        'shoulder' => Icons.sports_gymnastics_rounded,
+        'arms' => Icons.sports_mma_rounded,
+        'legs' => Icons.directions_run_rounded,
+        _ => Icons.self_improvement_rounded,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final all = groupKey == 'all';
+    final title = all ? '매번' : '${MuscleGroup.parse(groupKey).label} 날';
+    final hint = all ? '모든 날 웨이트 전에' : '${MuscleGroup.parse(groupKey).label} 운동이 있는 날에만';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: all ? cs.primary : cs.primaryContainer,
+            child: Icon(_icon(groupKey), size: 18, color: all ? cs.onPrimary : cs.onPrimaryContainer),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(ids.isEmpty ? title : '$title · ${ids.length}개', style: text.titleSmall),
+              Text(ids.isEmpty ? '$hint · 비어 있음' : hint, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ]),
+          ),
+          IconButton(
+            tooltip: '$title 워밍업 추가',
+            icon: Icon(Icons.add_circle_outline_rounded, color: cs.primary),
+            onPressed: onAdd,
+          ),
+        ]),
+        if (ids.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 44, top: 6, right: 8),
+            child: Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final id in ids)
+                Chip(
+                  label: Text(exerciseById(id)!.name),
+                  labelStyle: text.labelMedium?.copyWith(color: cs.onSecondaryContainer),
+                  backgroundColor: cs.secondaryContainer,
+                  side: BorderSide.none,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                  deleteIconColor: cs.onSecondaryContainer,
+                  deleteButtonTooltipMessage: '빼기',
+                  onDeleted: () => onRemove(id),
+                ),
+            ]),
+          ),
+      ]),
+    );
+  }
 }
