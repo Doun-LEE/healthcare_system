@@ -374,10 +374,9 @@ class ProfileScreen extends StatelessWidget {
                   ),
               ]);
             }),
-            if (AppThemeStyle.parse(u.theme).photoCredit != null)
-              Padding(
+            Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(AppThemeStyle.parse(u.theme).photoCredit!, style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                child: Text(AppThemeStyle.parse(u.theme).photoCredit, style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               ),
           ]),
 

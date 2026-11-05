@@ -28,11 +28,20 @@ enum AppThemeStyle {
         _ => null,
       };
 
-  /// 배경 사진 출처(라이선스 표시). 사진을 듀오톤으로 가공해 썼다.
-  String? get photoCredit => switch (this) {
-        AppThemeStyle.tough => '배경 사진: Anastase Maragos / Unsplash (Unsplash License), 색 보정',
+  /// 모든 화면 뒤에 깔리는 세로 배경 사진([ThemeBackdrop]).
+  String get backdrop => switch (this) {
+        AppThemeStyle.basic => 'assets/themes/basic_bg.jpg',
+        AppThemeStyle.cute => 'assets/themes/cute_bg.jpg',
+        AppThemeStyle.tough => 'assets/themes/tough_bg_full.jpg',
+        AppThemeStyle.marine => 'assets/themes/marine_bg_full.jpg',
+      };
+
+  /// 배경 사진 출처(라이선스 표시). 잘라내고 색 보정해서 썼다.
+  String get photoCredit => switch (this) {
+        AppThemeStyle.basic => '배경 사진: Margaret Young / Unsplash (Unsplash License), 잘라내고 흐림 처리',
+        AppThemeStyle.cute => '배경 사진: Derick McKinney / Unsplash (Unsplash License), 잘라내고 색 보정',
+        AppThemeStyle.tough => '배경 사진: Ambitious Studio* | Rick Barrett, Anastase Maragos / Unsplash (Unsplash License), 색 보정',
         AppThemeStyle.marine => '배경 사진: 대한민국 국군 "해병대 교육훈련단 특수수색교육"(2013) / Wikimedia Commons, CC BY-SA 2.0, 잘라내고 색 보정(가공본도 CC BY-SA 2.0) · 캐릭터 원본 사진: Brian Lee / Unsplash (Unsplash License), 채색·합성',
-        _ => null,
       };
 
   /// 대표색(시드).
