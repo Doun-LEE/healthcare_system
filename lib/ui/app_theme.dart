@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
+import 'widgets/theme_backdrop.dart';
 
 /// 사용자가 고르는 앱 디자인. 프로필의 `theme` 문자열(id)로 저장된다.
 /// 색·모양뿐 아니라 말투(인사·완료 문구·명언)도 테마가 정한다.
@@ -233,6 +234,19 @@ const _marineQuotes = [
 
 /// 테마 하나를 ThemeData 로 만든다. 세 디자인 모두 라이트/다크를 지원한다.
 ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
+  final t = _buildBaseTheme(style, brightness);
+  // 화면 배경은 테마별 그림(ThemeBackdrop)이 페이지마다 깔리므로 Scaffold 는 투명하게.
+  const defaults = PageTransitionsTheme();
+  return t.copyWith(
+    scaffoldBackgroundColor: Colors.transparent,
+    pageTransitionsTheme: PageTransitionsTheme(builders: {
+      for (final p in TargetPlatform.values)
+        p: BackdropPageTransitionsBuilder(style, defaults.builders[p] ?? const ZoomPageTransitionsBuilder()),
+    }),
+  );
+}
+
+ThemeData _buildBaseTheme(AppThemeStyle style, Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final r = style.radius;
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
