@@ -950,7 +950,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'straight_arm_pd', name: '스트레이트암 풀다운', group: MuscleGroup.back,
-    emphasis: ['광배 고립', '광배 하부'], equipment: [EquipmentType.cableMachine],
+    emphasis: ['광배 고립', '광배 하부'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.3,
     repRange: [12, 15], priority: 1,
   ),
@@ -968,7 +968,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'face_pull', name: '페이스 풀', group: MuscleGroup.back,
-    emphasis: ['후면 어깨', '등 상부', '회전근개'], equipment: [EquipmentType.cableMachine, EquipmentType.resistanceBand],
+    emphasis: ['후면 어깨', '등 상부', '회전근개'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown, EquipmentType.resistanceBand],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.25,
     repRange: [12, 20], priority: 1,
   ),
@@ -1052,7 +1052,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'calf_raise', name: '카프 레이즈', group: MuscleGroup.legs,
-    emphasis: ['종아리'], equipment: [EquipmentType.calfRaise, EquipmentType.legPress, EquipmentType.hackSquat, EquipmentType.smithMachine, EquipmentType.bodyweight],
+    emphasis: ['종아리'], equipment: [EquipmentType.calfRaise, EquipmentType.legPress, EquipmentType.horizontalLegPress, EquipmentType.hackSquat, EquipmentType.smithMachine, EquipmentType.bodyweight],
     loadType: LoadType.machine, refLift: RefLift.squat, ratio: 0.9,
     repRange: [12, 20], priority: 1,
   ),
@@ -1116,7 +1116,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'upright_row', name: '업라이트 로우', group: MuscleGroup.shoulder,
-    emphasis: ['측면 어깨', '승모 상부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.cableMachine, EquipmentType.ezBar, EquipmentType.fixedBarbell],
+    emphasis: ['측면 어깨', '승모 상부'], equipment: [EquipmentType.barbell, EquipmentType.dumbbell, EquipmentType.cableMachine, EquipmentType.ezBar, EquipmentType.fixedBarbell, EquipmentType.smithMachine, EquipmentType.seatedRow],
     loadType: LoadType.barbell, refLift: RefLift.ohp, ratio: 0.6,
     repRange: [10, 12], priority: 1,
   ),
@@ -1156,7 +1156,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'cable_curl', name: '케이블 컬', group: MuscleGroup.arms,
-    emphasis: ['이두', '피크 수축'], equipment: [EquipmentType.cableMachine],
+    emphasis: ['이두', '피크 수축'], equipment: [EquipmentType.cableMachine, EquipmentType.seatedRow],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.35,
     repRange: [12, 15], priority: 2,
   ),
@@ -1168,7 +1168,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'tri_pushdown', name: '케이블 트라이셉스 푸시다운', group: MuscleGroup.arms,
-    emphasis: ['삼두 외측두'], equipment: [EquipmentType.cableMachine],
+    emphasis: ['삼두 외측두'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
     loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.3,
     repRange: [10, 15], priority: 3,
   ),
@@ -1207,7 +1207,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'cable_crunch', name: '케이블 크런치', group: MuscleGroup.abs,
-    emphasis: ['상복부', '점진적 과부하'], equipment: [EquipmentType.cableMachine],
+    emphasis: ['상복부', '점진적 과부하'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.5,
     repRange: [12, 15], priority: 2,
   ),
@@ -1846,7 +1846,7 @@ const List<Exercise> exerciseCatalog = [
   ),
   Exercise(
     id: 'single_arm_pulldown', name: '원암 랫풀다운', group: MuscleGroup.back,
-    emphasis: ['광배(넓이)', '좌우 균형'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
+    emphasis: ['광배(넓이)', '좌우 균형'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown, EquipmentType.latPulldownPlateLoaded],
     loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.4,
     unilateral: true, repRange: [10, 12], priority: 1,
   ),

@@ -97,7 +97,7 @@ List<BrandModel> _selectorized(String prefix) => [
 /// 원판(플레이트 로디드) 머신 표준 구성.
 List<BrandModel> _plateLoaded(String prefix) => [
       BrandModel('$prefix 체스트 프레스(플레이트)', EquipmentType.chestPressPlateLoaded, _plate),
-      BrandModel('$prefix 인클라인 프레스(플레이트)', EquipmentType.chestPressPlateLoaded, _plate),
+      BrandModel('$prefix 인클라인 프레스(플레이트)', EquipmentType.inclineChestPress, _plate),
       BrandModel('$prefix 디클라인 프레스(플레이트)', EquipmentType.declineChestPress, _plate),
       BrandModel('$prefix 라잉 체스트 프레스(누워서)', EquipmentType.lyingChestPress, _plate, perSide: true),
       BrandModel('$prefix 라잉 인클라인 체스트 프레스(누워서)', EquipmentType.lyingInclinePress, _plate, perSide: true),
@@ -142,7 +142,7 @@ final _legacyBrands = <EquipmentBrand>[
     note: '아이소래터럴(좌우 독립) 원판 머신과 MTS 라인이 대표적.',
     models: const [
       BrandModel('해머 아이소래터럴 체스트 프레스', EquipmentType.chestPressPlateLoaded, _plate),
-      BrandModel('해머 아이소래터럴 인클라인 프레스', EquipmentType.chestPressPlateLoaded, _plate),
+      BrandModel('해머 아이소래터럴 인클라인 프레스', EquipmentType.inclineChestPress, _plate),
       BrandModel('해머 아이소래터럴 디클라인 프레스', EquipmentType.declineChestPress, _plate),
       BrandModel('해머 아이소래터럴 와이드 체스트', EquipmentType.chestPressPlateLoaded, _plate),
       BrandModel('해머 아이소래터럴 숄더 프레스', EquipmentType.shoulderPressPlateLoaded, _plate),

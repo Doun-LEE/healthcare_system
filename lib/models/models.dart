@@ -719,17 +719,27 @@ class GymEquipment {
         if (emptyKg != null) 'emptyKg': emptyKg,
       };
 
-  factory GymEquipment.fromJson(Map<String, dynamic> j) => GymEquipment(
+  /// 예전 브랜드 목록은 플레이트 로디드 '인클라인' 프레스를 평 체스트프레스로 넣었다. 이름에 인클라인이 있으면 인클라인으로 바로잡는다.
+  static EquipmentType _fixIncline(EquipmentType t, String? name) =>
+      t == EquipmentType.chestPressPlateLoaded && name != null && RegExp('인클라인|incline', caseSensitive: false).hasMatch(name)
+          ? EquipmentType.inclineChestPress
+          : t;
+
+  factory GymEquipment.fromJson(Map<String, dynamic> j) {
+    final raw = EquipmentType.parse(j['type'] as String);
+    final name = j['customName'] as String?;
+    return GymEquipment(
         id: j['id'] as String,
-        type: EquipmentType.parse(j['type'] as String),
-        customName: j['customName'] as String?,
+        type: _fixIncline(raw, name),
+        customName: name,
         note: j['note'] as String?,
         maxWeightKg: (j['maxWeightKg'] as num?)?.toDouble(),
-        mechanism: j['mechanism'] == null ? null : LoadMechanism.parse(j['mechanism'] as String),
+        // 저장된 방식이 없으면 원래 종류 기준(플레이트 로디드면 원판)으로.
+        mechanism: j['mechanism'] == null ? LoadMechanism.defaultFor(raw) : LoadMechanism.parse(j['mechanism'] as String),
         stepKg: (j['stepKg'] as num?)?.toDouble(),
         extraTypes: [
           for (final n in ((j['extraTypes'] as List?) ?? const []))
-            if (EquipmentType.values.any((t) => t.name == n)) EquipmentType.parse(n as String),
+            if (EquipmentType.values.any((t) => t.name == n)) _fixIncline(EquipmentType.parse(n as String), name),
         ],
         brand: j['brand'] as String?,
         frameColor: (j['frameColor'] as num?)?.toInt(),
@@ -741,6 +751,7 @@ class GymEquipment {
         plateBasis: j['plateBasis'] as String?,
         emptyKg: (j['emptyKg'] as num?)?.toDouble(),
       );
+  }
 }
 
 /// 기구 목록 비교용 문자열(사진 유무 제외, id 순). 공개 프로필로 받은 친구 기구와 그대로 비교된다.
