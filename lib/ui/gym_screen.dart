@@ -859,7 +859,7 @@ class _EquipmentList extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D와 특징, 길게 누르면 수정',
+          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정',
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         ),
         for (final g in order)
@@ -919,6 +919,18 @@ class _EquipmentDetail extends StatelessWidget {
         builder: (_) => _EquipmentDetail(eq: eq, gymId: gymId),
       );
 
+  /// 상세 시트를 닫고 수정 창을 연다. 저장하면 상세 시트를 새 값으로 다시 띄운다.
+  Future<void> _edit(BuildContext context) async {
+    final state = context.read<AppState>();
+    final nav = Navigator.of(context);
+    final outer = nav.context;
+    nav.pop();
+    final edited = await _EquipmentEditor.show(outer, eq.type, existing: eq);
+    if (edited == null) return;
+    await state.updateEquipment(gymId, edited);
+    if (outer.mounted) await show(outer, edited, gymId);
+  }
+
   @override
   Widget build(BuildContext context) {
     final info = equipmentInfo(eq.type);
@@ -936,6 +948,25 @@ class _EquipmentDetail extends StatelessWidget {
           Text(eq.displayName, style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           if (eq.displayName != eq.type.label)
             Text(eq.type.label, style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              icon: const Icon(Icons.edit, size: 18),
+              label: Text(eq.type == EquipmentType.multiStation ? '수정 · 달린 스테이션 고르기' : '수정 (이름·무게·메모·다른 운동)'),
+              onPressed: () => _edit(context),
+            ),
+          ),
+          if (eq.type == EquipmentType.multiStation)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                eq.extraTypes.isEmpty
+                    ? '달린 스테이션: 기본 구성(케이블·랫풀다운·로우·체스트 프레스·펙덱·레그 익스텐션·레그 컬)'
+                    : '달린 스테이션: ${eq.extraTypes.map((t) => t.label).join(' · ')}',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
           const SizedBox(height: 12),
           EquipmentLookSection(gymId: gymId, equipmentId: eq.id),
           const SizedBox(height: 12),
