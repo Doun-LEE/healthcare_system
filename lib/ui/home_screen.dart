@@ -42,7 +42,13 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(style.greeting(now.hour, user.name)),
+        // 해병대 인사는 길어서 두 줄까지 작게 보여 준다.
+        title: Text(
+          style.greeting(now.hour, user.name),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: style == AppThemeStyle.marine ? Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 16, height: 1.25) : null,
+        ),
         actions: [
           IconButton(
             tooltip: '친구 · 채팅',

@@ -63,7 +63,7 @@ enum AppThemeStyle {
   // ───────── 말투 ─────────
 
   /// 홈 인사. [hour]는 0~23.
-  String greeting(int hour, String name) {
+  String greeting(int hour, String name, {int? day}) {
     final slot = hour < 5 ? 0 : hour < 11 ? 1 : hour < 17 ? 2 : 3;
     switch (this) {
       case AppThemeStyle.basic:
@@ -73,7 +73,14 @@ enum AppThemeStyle {
       case AppThemeStyle.tough:
         return '${const ['이 시간에 깨어 있나', '일어났으면 들어라', '오후다, 쇠 만질 시간', '저녁이다, 핑계 없다'][slot]}, $name';
       case AppThemeStyle.marine:
-        return '악!! ${const ['심야 점호다 아쎄이', '기상!! 아쎄이 기상이다', '오후 훈련이다 아쎄이', '야간 훈련이다 아쎄이'][slot]}, $name 해병! 필승!';
+        // 해병문학 말투. 같은 시간대라도 날마다 바뀐다.
+        final lines = const [
+          ['악! 이 시각에 깨어 있는 것은 기열 아니면 해병뿐인 것이다!', '악! 흐흐흐… 아쎄이, 잠이 오지 않는 것이냐?', '악! 심야 점호다 아쎄이! 기열찐빠는 잠이나 자는 것이다!'],
+          ['악! 아쎄이! 해병대에 온 것을 환영한다!', '악! 오늘도 오도짜세한 아침이 밝은 것이었다!', '악! 기상!! 기상이다 아쎄이! 해병대 만세!'],
+          ['악! 그렇다! 지금은 오후 훈련 시간인 것이었다!', '악! 오도짜세 해병은 점심 먹고 바로 랙으로 가는 것이다!', '악! 오후다 아쎄이! 빠지면 기열인 것이다!'],
+          ['악!! 야간 훈련이다 아쎄이!', '악! 퇴근했다고 쉬는 것은 기열이나 하는 것이다!', '악! 저녁이다 아쎄이! 오늘도 쇠질하러 가는 것이다!'],
+        ][slot];
+        return '${lines[(day ?? DateTime.now().day) % lines.length]} $name 해병! 필승!';
     }
   }
 
