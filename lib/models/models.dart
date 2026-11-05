@@ -852,7 +852,7 @@ const List<EquipmentType> multiStationOptions = [
   EquipmentType.shoulderPress,
   EquipmentType.legExtension,
   EquipmentType.legCurl,
-  EquipmentType.legPress,
+  EquipmentType.horizontalLegPress,
   EquipmentType.abCrunchMachine,
   EquipmentType.bicepCurlMachine,
   EquipmentType.tricepExtensionMachine,

@@ -421,7 +421,7 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
         elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(shape: stadium)),
         outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(shape: stadium)),
         textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(shape: stadium)),
-        segmentedButtonTheme: SegmentedButtonThemeData(style: SegmentedButton.styleFrom(shape: stadium)),
+        segmentedButtonTheme: SegmentedButtonThemeData(style: SegmentedButton.styleFrom(shape: stadium, selectedBackgroundColor: scheme.primary, selectedForegroundColor: scheme.onPrimary)),
         floatingActionButtonTheme: FloatingActionButtonThemeData(shape: stadium, backgroundColor: scheme.primaryContainer),
         dialogTheme: DialogThemeData(shape: shape),
         bottomSheetTheme: BottomSheetThemeData(
@@ -490,7 +490,7 @@ ThemeData buildAppTheme(AppThemeStyle style, Brightness brightness) {
           style: OutlinedButton.styleFrom(shape: sharp, side: BorderSide(color: scheme.outline, width: 1.5), textStyle: textTheme.labelLarge),
         ),
         textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(shape: sharp, textStyle: textTheme.labelLarge)),
-        segmentedButtonTheme: SegmentedButtonThemeData(style: SegmentedButton.styleFrom(shape: sharp, side: BorderSide(color: scheme.outline))),
+        segmentedButtonTheme: SegmentedButtonThemeData(style: SegmentedButton.styleFrom(shape: sharp, side: BorderSide(color: scheme.outline), selectedBackgroundColor: scheme.primary, selectedForegroundColor: scheme.onPrimary)),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
           shape: sharp,
           backgroundColor: scheme.primary,

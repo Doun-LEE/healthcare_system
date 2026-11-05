@@ -1070,6 +1070,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
       EquipmentType.treadmill, EquipmentType.bike, EquipmentType.rower, EquipmentType.stairClimber,
       EquipmentType.elliptical, EquipmentType.bodyweight,
     ].contains(widget.type);
+    final multi = widget.type == EquipmentType.multiStation;
     return AlertDialog(
       title: Text(widget.existing == null ? '${widget.type.label} 추가' : '${widget.type.label} 수정'),
       scrollable: true,
@@ -1080,6 +1081,25 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
             controller: _name,
             decoration: const InputDecoration(labelText: '별칭 (선택)', hintText: '예: 해머 체스트프레스'),
           ),
+          if (multi) ...[
+            const SizedBox(height: 10),
+            Align(alignment: Alignment.centerLeft, child: Text('달린 스테이션 (케이블 개수·구성은 헬스장마다 달라요)', style: Theme.of(context).textTheme.labelLarge)),
+            const SizedBox(height: 2),
+            Align(alignment: Alignment.centerLeft, child: Text(
+              _extra.isEmpty ? '안 고르면 기본 구성(케이블·랫풀다운·로우·체스트 프레스·펙덱·레그 익스텐션·레그 컬)으로 봐요. 실제로 달린 것만 고르세요.' : '고른 스테이션으로 하는 운동만 루틴에 나와요.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            )),
+            const SizedBox(height: 4),
+            Wrap(alignment: WrapAlignment.start, spacing: 6, runSpacing: 4, children: [
+              for (final t in multiStationOptions)
+                FilterChip(
+                  label: Text(t.label),
+                  selected: _extra.contains(t),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (v) => setState(() => v ? _extra.add(t) : _extra.remove(t)),
+                ),
+            ]),
+          ],
           if (isMachine) ...[
             const SizedBox(height: 10),
             Align(alignment: Alignment.centerLeft, child: Text('중량 방식', style: Theme.of(context).textTheme.labelLarge)),
@@ -1151,6 +1171,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               ),
             ],
           ],
+          if (!multi) ...[
           const SizedBox(height: 10),
           Align(alignment: Alignment.centerLeft, child: Text('무게 표시 기준', style: Theme.of(context).textTheme.labelLarge)),
           const SizedBox(height: 4),
@@ -1169,7 +1190,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
                 : '좌우에 원판을 따로 거는 머신(해머 등)은 한쪽 기준이 편해요.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
-          if (isMachine)
+          ],
+          if (isMachine && !multi)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _dual,
@@ -1181,24 +1203,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               }),
             ),
           const SizedBox(height: 10),
-          if (widget.type == EquipmentType.multiStation) ...[
-            Align(alignment: Alignment.centerLeft, child: Text('달린 스테이션 (케이블 개수·구성은 헬스장마다 달라요)', style: Theme.of(context).textTheme.labelLarge)),
-            const SizedBox(height: 2),
-            Text(
-              _extra.isEmpty ? '안 고르면 기본 구성(케이블·랫풀다운·로우·체스트 프레스·펙덱·레그 익스텐션·레그 컬)으로 봐요. 실제로 달린 것만 고르세요.' : '고른 스테이션으로 하는 운동만 루틴에 나와요.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 4),
-            Wrap(spacing: 6, runSpacing: 4, children: [
-              for (final t in multiStationOptions)
-                FilterChip(
-                  label: Text(t.label),
-                  selected: _extra.contains(t),
-                  visualDensity: VisualDensity.compact,
-                  onSelected: (v) => setState(() => v ? _extra.add(t) : _extra.remove(t)),
-                ),
-            ]),
-          ] else ...[
+          if (!multi) ...[
           Align(alignment: Alignment.centerLeft, child: Text('이 기구로 하는 다른 운동(다기능 머신)', style: Theme.of(context).textTheme.labelLarge)),
           Wrap(spacing: 6, runSpacing: 4, children: [
             for (final t in _extra)
@@ -1240,8 +1245,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               padColor: widget.existing?.padColor,
               shroud: widget.existing?.shroud,
               hasPhoto: widget.existing?.hasPhoto ?? false,
-              weightBasis: _basis,
-              dualStack: _dual,
+              weightBasis: multi ? null : _basis,
+              dualStack: !multi && _dual,
               plateBasis: isMachine && _mech == LoadMechanism.plate ? _plateBasis : null,
               emptyKg: isMachine && _mech == LoadMechanism.plate ? double.tryParse(_empty.text) : null,
             ),
