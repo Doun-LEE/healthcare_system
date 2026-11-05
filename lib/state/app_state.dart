@@ -965,6 +965,93 @@ class AppState extends ChangeNotifier {
 
   final _profileSaveDebounce = Debouncer(const Duration(milliseconds: 400));
 
+  // ───────── 체성분·3대 기록 이력 ─────────
+
+  /// 새로 잰 체성분을 기록하고 현재 값으로 쓴다. 잰 것만 넘기면 된다.
+  Future<void> addBodyMeasurement({double? weightKg, double? skeletalMuscleKg, double? bodyFatPct, DateTime? date}) async {
+    if (weightKg == null && skeletalMuscleKg == null && bodyFatPct == null) return;
+    await updateProfile((p) {
+      p.bodyLog
+        ..add(BodyEntry(date: date ?? DateTime.now(), weightKg: weightKg, skeletalMuscleKg: skeletalMuscleKg, bodyFatPct: bodyFatPct))
+        ..sort((a, b) => a.date.compareTo(b.date));
+      _applyLatestBody(p);
+    });
+  }
+
+  Future<void> removeBodyEntry(BodyEntry e) async {
+    await updateProfile((p) {
+      p.bodyLog.remove(e);
+      _applyLatestBody(p);
+    });
+  }
+
+  /// 항목별로 가장 최근에 잰 값을 현재 값으로.
+  static void _applyLatestBody(UserProfile p) {
+    for (final e in p.bodyLog.reversed) {
+      if (e.weightKg != null) {
+        p.weightKg = e.weightKg!;
+        break;
+      }
+    }
+    final smm = p.bodyLog.lastWhere((e) => e.skeletalMuscleKg != null, orElse: () => BodyEntry(date: DateTime(0)));
+    if (smm.skeletalMuscleKg != null) p.skeletalMuscleKg = smm.skeletalMuscleKg;
+    final fat = p.bodyLog.lastWhere((e) => e.bodyFatPct != null, orElse: () => BodyEntry(date: DateTime(0)));
+    if (fat.bodyFatPct != null) p.bodyFatPct = fat.bodyFatPct;
+  }
+
+  /// 3대+OHP 기록을 새로 남긴다(직접 입력). [kg]가 null이면 기록을 지운다(추정으로 돌아감).
+  Future<void> setLiftRecord(String lift, double? kg, {DateTime? date}) async {
+    await updateProfile((p) {
+      p.setLiftRecord(lift, kg);
+      if (kg != null) p.liftLog.add(LiftEntry(date: date ?? DateTime.now(), lift: lift, kg: kg));
+    });
+  }
+
+  Future<void> removeLiftEntry(LiftEntry e) async {
+    await updateProfile((p) {
+      p.liftLog.remove(e);
+      // 지운 게 현재 기록이었다면 남은 것 중 가장 최근 값으로.
+      final rest = p.liftLog.where((x) => x.lift == e.lift).toList()..sort((a, b) => a.date.compareTo(b.date));
+      if (p.liftRecord(e.lift) == e.kg) p.setLiftRecord(e.lift, rest.isEmpty ? null : rest.last.kg);
+    });
+  }
+
+  /// 운동 기록에서 3대+OHP 추정 1RM이 기존 기록보다 높으면 자동으로 갱신한다.
+  /// 1~10회 세트만 보고, Epley 공식(무게×(1+횟수/30))으로 추정한다. 갱신한 메시지를 돌려준다.
+  static List<String> applyLiftPrs(UserProfile u, DayPlan plan, DateTime now) {
+    const lifts = {'bb_squat': 'squat', 'bb_bench': 'bench', 'deadlift': 'deadlift', 'ohp': 'ohp'};
+    final msgs = <String>[];
+    for (final pe in plan.exercises) {
+      final lift = lifts[pe.exerciseId];
+      if (lift == null || pe.warmup || pe.skipMine) continue;
+      double best = 0;
+      String? note;
+      for (final st in pe.sets) {
+        if (!st.completed) continue;
+        final r = st.effectiveReps, w = st.effectiveWeight;
+        if (r < 1 || r > 10 || w <= 0) continue;
+        final e1 = r == 1 ? w : w * (1 + r / 30);
+        if (e1 > best) {
+          best = e1;
+          note = '${w % 1 == 0 ? w.toInt() : w}kg×$r';
+        }
+      }
+      if (best <= 0) continue;
+      best = (best * 2).round() / 2; // 0.5kg 단위
+      final old = u.liftRecord(lift);
+      if (old != null && best <= old) continue;
+      u.setLiftRecord(lift, best);
+      u.liftLog.add(LiftEntry(date: now, lift: lift, kg: best, auto: true, note: note));
+      final label = LiftEntry.labels[lift];
+      msgs.add(old == null
+          ? '🏆 $label 1RM 기록 등록: ${_kg(best)}kg ($note 기준 추정)'
+          : '🏆 $label 1RM 갱신: ${_kg(old)} → ${_kg(best)}kg ($note 기준 추정)');
+    }
+    return msgs;
+  }
+
+  static String _kg(double v) => v % 1 == 0 ? '${v.toInt()}' : v.toStringAsFixed(1);
+
   Future<void> deleteProfile(String id) async {
     _data.profiles.removeWhere((p) => p.id == id);
     _data.plans.removeWhere((p) => p.userId == id);
@@ -2255,6 +2342,14 @@ class AppState extends ChangeNotifier {
     }
     plan.finishedAt = now;
     if (plan.startedAt != null) plan.endedAt = now;
+    final me = currentUser;
+    if (me != null && plan.userId == me.id) {
+      msgs.addAll(applyLiftPrs(me, plan, now));
+      if (me.levelAuto) {
+        final a = LevelAssessor.assess(me);
+        if (a.hasData) me.level = a.level;
+      }
+    }
 
     // 계획 대비 실제 수행 → 다음 루틴 볼륨 보정.
     final u = currentUser;

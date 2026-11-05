@@ -83,6 +83,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         p.bench1rm = _num(_bench) ?? p.bench1rm;
         p.deadlift1rm = _num(_dead) ?? p.deadlift1rm;
         p.ohp1rm = _num(_ohp) ?? p.ohp1rm;
+        // 처음 입력한 값도 기록 이력의 첫 줄로 남긴다.
+        final now = DateTime.now();
+        if (_num(_weight) != null || _num(_smm) != null || _num(_fat) != null) {
+          p.bodyLog.add(BodyEntry(date: now, weightKg: _num(_weight), skeletalMuscleKg: _num(_smm), bodyFatPct: _num(_fat)));
+        }
+        for (final (lift, c) in [('squat', _squat), ('bench', _bench), ('deadlift', _dead), ('ohp', _ohp)]) {
+          final v = _num(c);
+          if (v != null) p.liftLog.add(LiftEntry(date: now, lift: lift, kg: v));
+        }
         p.goal = _goal;
         p.splitDays = _split;
         p.sessionMinutes = _minutes.round();

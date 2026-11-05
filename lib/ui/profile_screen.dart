@@ -14,6 +14,7 @@ import 'widgets/injury_chips.dart';
 import 'widgets/marine_mascot.dart';
 import 'widgets/mascot.dart';
 import 'widgets/backup_section.dart';
+import 'widgets/body_records.dart';
 import 'friends_screen.dart';
 import 'shared_gym_admin_screen.dart';
 import 'widgets/version_section.dart';
@@ -61,28 +62,17 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _NumField(label: '키 (cm)', value: u.heightCm, onChanged: (v) => _edit(state, (p) => p.heightCm = v)),
-            _NumField(label: '체중 (kg)', value: u.weightKg, onChanged: (v) => _edit(state, (p) => p.weightKg = v)),
-            _NumField(label: '나이', value: u.age.toDouble(), integer: true, onChanged: (v) => _edit(state, (p) => p.age = v.round())),
-            _NumField(label: '골격근량 (kg, 인바디)', value: u.skeletalMuscleKg, onChanged: (v) => _edit(state, (p) => p.skeletalMuscleKg = v)),
-            _NumField(label: '체지방률 (%, 인바디)', value: u.bodyFatPct, onChanged: (v) => _edit(state, (p) => p.bodyFatPct = v)),
-            const SizedBox(height: 14),
-            Text('3대 기록 (kg, 1RM 또는 최고 중량 · 선택)', style: text.labelLarge),
-            Text('입력하면 추정 대신 이 값으로 무게를 계산하고, 레벨 판정에도 쓰입니다. 비우면 신체 스펙으로 추정.',
-                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-            const SizedBox(height: 4),
-            Row(children: [
-              Expanded(child: _NumField(label: '스쿼트', value: u.squat1rm, onChanged: (v) => _edit(state, (p) => p.squat1rm = v > 0 ? v : null))),
-              const SizedBox(width: 8),
-              Expanded(child: _NumField(label: '벤치', value: u.bench1rm, onChanged: (v) => _edit(state, (p) => p.bench1rm = v > 0 ? v : null))),
-            ]),
-            Row(children: [
-              Expanded(child: _NumField(label: '데드리프트', value: u.deadlift1rm, onChanged: (v) => _edit(state, (p) => p.deadlift1rm = v > 0 ? v : null))),
-              const SizedBox(width: 8),
-              Expanded(child: _NumField(label: 'OHP', value: u.ohp1rm, onChanged: (v) => _edit(state, (p) => p.ohp1rm = v > 0 ? v : null))),
-            ]),
-            if (u.squat1rm != null || u.bench1rm != null || u.deadlift1rm != null)
-              Text('3대 합계: ${((u.squat1rm ?? 0) + (u.bench1rm ?? 0) + (u.deadlift1rm ?? 0)).round()}kg',
-                  style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+            _NumField(
+              label: '출생 연도 (지금 ${u.age}세 · 해마다 저절로 바뀌어요)',
+              value: u.birthYear.toDouble(),
+              integer: true,
+              onChanged: (v) {
+                final y = v.round();
+                if (y > 1900 && y <= DateTime.now().year) _edit(state, (p) => p.birthYear = y);
+              },
+            ),
+            BodyRecordsCard(user: u),
+            LiftRecordsCard(user: u),
             const SizedBox(height: 14),
             Text('레벨 판정', style: text.labelLarge),
             Text('키·체중·나이·성별·골격근·체지방·3대 기록으로 리프트별·체성분별 등급을 매기고 종합 레벨을 정합니다.',

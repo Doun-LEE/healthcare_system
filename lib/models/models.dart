@@ -257,6 +257,62 @@ enum InjuryArea {
 }
 
 /// 사용자 프로필. 로그인 시 선택되며 신체 스펙과 설정을 담는다.
+/// 체성분 측정 한 번(체중·골격근·체지방 중 잰 것만).
+class BodyEntry {
+  BodyEntry({required this.date, this.weightKg, this.skeletalMuscleKg, this.bodyFatPct});
+  final DateTime date;
+  final double? weightKg;
+  final double? skeletalMuscleKg;
+  final double? bodyFatPct;
+
+  Map<String, dynamic> toJson() => {
+        'date': date.toIso8601String(),
+        if (weightKg != null) 'w': weightKg,
+        if (skeletalMuscleKg != null) 'smm': skeletalMuscleKg,
+        if (bodyFatPct != null) 'fat': bodyFatPct,
+      };
+
+  factory BodyEntry.fromJson(Map<String, dynamic> j) => BodyEntry(
+        date: DateTime.parse(j['date'] as String),
+        weightKg: (j['w'] as num?)?.toDouble(),
+        skeletalMuscleKg: (j['smm'] as num?)?.toDouble(),
+        bodyFatPct: (j['fat'] as num?)?.toDouble(),
+      );
+}
+
+/// 3대+OHP 기록 한 번. [auto]면 운동 기록(무게×횟수)에서 추정해 자동 갱신한 것.
+class LiftEntry {
+  LiftEntry({required this.date, required this.lift, required this.kg, this.auto = false, this.note});
+  final DateTime date;
+
+  /// 'squat' · 'bench' · 'deadlift' · 'ohp'
+  final String lift;
+  final double kg;
+  final bool auto;
+
+  /// 자동 갱신의 근거(예: '100kg×5').
+  final String? note;
+
+  static const labels = {'squat': '스쿼트', 'bench': '벤치', 'deadlift': '데드리프트', 'ohp': 'OHP'};
+  String get label => labels[lift] ?? lift;
+
+  Map<String, dynamic> toJson() => {
+        'date': date.toIso8601String(),
+        'lift': lift,
+        'kg': kg,
+        if (auto) 'auto': true,
+        if (note != null) 'note': note,
+      };
+
+  factory LiftEntry.fromJson(Map<String, dynamic> j) => LiftEntry(
+        date: DateTime.parse(j['date'] as String),
+        lift: j['lift'] as String,
+        kg: (j['kg'] as num).toDouble(),
+        auto: (j['auto'] as bool?) ?? false,
+        note: j['note'] as String?,
+      );
+}
+
 class UserProfile {
   UserProfile({
     required this.id,
@@ -264,7 +320,10 @@ class UserProfile {
     this.sex = Sex.male,
     this.heightCm = 172,
     this.weightKg = 70,
-    this.age = 28,
+    int age = 28,
+    int? birthYear,
+    List<BodyEntry>? bodyLog,
+    List<LiftEntry>? liftLog,
     this.skeletalMuscleKg,
     this.bodyFatPct,
     this.level = TrainingLevel.beginner,
@@ -297,7 +356,10 @@ class UserProfile {
     Set<InjuryArea>? injuries,
     Set<InjuryArea>? cautions,
     this.theme = 'basic',
-  })  : injuries = injuries ?? {},
+  })  : birthYear = birthYear ?? (DateTime.now().year - age),
+        bodyLog = bodyLog ?? [],
+        liftLog = liftLog ?? [],
+        injuries = injuries ?? {},
         cautions = cautions ?? {},
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
         exerciseRank = exerciseRank ?? {},
@@ -311,7 +373,37 @@ class UserProfile {
   Sex sex;
   double heightCm;
   double weightKg;
-  int age;
+
+  /// 출생 연도. 나이는 여기서 계산해 해마다 저절로 바뀐다.
+  int birthYear;
+  int get age => DateTime.now().year - birthYear;
+  set age(int v) => birthYear = DateTime.now().year - v;
+
+  /// 체중·골격근·체지방 측정 기록(오래된 것부터). 현재 값은 [weightKg] 등에 있고, 측정할 때마다 여기에 쌓인다.
+  final List<BodyEntry> bodyLog;
+
+  /// 3대+OHP 기록 이력(오래된 것부터). 직접 입력하거나 운동 기록에서 자동 갱신된 것.
+  final List<LiftEntry> liftLog;
+
+  /// 리프트 이름('squat'·'bench'·'deadlift'·'ohp')의 현재 기록.
+  double? liftRecord(String lift) => switch (lift) {
+        'squat' => squat1rm,
+        'bench' => bench1rm,
+        'deadlift' => deadlift1rm,
+        _ => ohp1rm,
+      };
+  void setLiftRecord(String lift, double? kg) {
+    switch (lift) {
+      case 'squat':
+        squat1rm = kg;
+      case 'bench':
+        bench1rm = kg;
+      case 'deadlift':
+        deadlift1rm = kg;
+      default:
+        ohp1rm = kg;
+    }
+  }
   double? skeletalMuscleKg;
   double? bodyFatPct;
   TrainingLevel level;
@@ -395,6 +487,9 @@ class UserProfile {
         'heightCm': heightCm,
         'weightKg': weightKg,
         'age': age,
+        'birthYear': birthYear,
+        if (bodyLog.isNotEmpty) 'bodyLog': bodyLog.map((e) => e.toJson()).toList(),
+        if (liftLog.isNotEmpty) 'liftLog': liftLog.map((e) => e.toJson()).toList(),
         'skeletalMuscleKg': skeletalMuscleKg,
         'bodyFatPct': bodyFatPct,
         'level': level.name,
@@ -435,7 +530,10 @@ class UserProfile {
         sex: Sex.parse(j['sex'] as String),
         heightCm: (j['heightCm'] as num).toDouble(),
         weightKg: (j['weightKg'] as num).toDouble(),
-        age: j['age'] as int,
+        age: (j['age'] as num?)?.toInt() ?? 28,
+        birthYear: (j['birthYear'] as num?)?.toInt(),
+        bodyLog: [for (final e in (j['bodyLog'] as List?) ?? const []) BodyEntry.fromJson(Map<String, dynamic>.from(e as Map))],
+        liftLog: [for (final e in (j['liftLog'] as List?) ?? const []) LiftEntry.fromJson(Map<String, dynamic>.from(e as Map))],
         skeletalMuscleKg: (j['skeletalMuscleKg'] as num?)?.toDouble(),
         bodyFatPct: (j['bodyFatPct'] as num?)?.toDouble(),
         level: TrainingLevel.parse(j['level'] as String),
