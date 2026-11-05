@@ -71,7 +71,7 @@ enum EquipmentType {
   dipStation('딥스 스테이션', EquipmentCategory.bench, ['dip station', '패러렐 바']),
   assistedPullUp('어시스트 풀업/딥 머신', EquipmentCategory.bench, ['assisted pull up', 'assisted dip', '어시스티드']),
   ghd('GHD(글루트 햄 디벨로퍼)', EquipmentCategory.bench, ['ghd', 'glute ham developer']),
-  multiStation('멀티 스테이션(홈짐)', EquipmentCategory.bench, ['multi station', 'home gym', '멀티짐']),
+  multiStation('멀티 스테이션(홈짐·케이블 정글)', EquipmentCategory.bench, ['multi station', 'home gym', '멀티짐', '케이블 정글', '멀티 케이블', '4스테이션', '3스테이션', 'multi jungle']),
 
   // ── 가슴 ──
   chestPress('체스트 프레스 머신', EquipmentCategory.chest, ['chest press', '체스트프레스']),
@@ -628,6 +628,18 @@ class GymEquipment {
 
   List<EquipmentType> get allTypes => [type, ...extraTypes];
 
+  /// 이 기구가 대신하는 기구들(멀티 스테이션 → 케이블·랫풀다운 등).
+  /// 멀티 스테이션에 달린 스테이션을 직접 골랐으면(겸용 종류) 기본 구성 대신 고른 것만 쓴다.
+  Iterable<EquipmentType> get impliedTypes sync* {
+    for (final t in allTypes) {
+      if (t == EquipmentType.multiStation && extraTypes.isNotEmpty) continue;
+      yield* impliedEquipment[t] ?? const <EquipmentType>[];
+    }
+  }
+
+  /// 이 기구 하나로 할 수 있는 기구 종류 전부.
+  Set<EquipmentType> get coveredTypes => {...allTypes, ...impliedTypes};
+
   /// 브랜드 키(브랜드별 탭에서 추가한 경우). 3D 색상·프레임 스타일에 쓴다.
   String? brand;
 
@@ -821,13 +833,30 @@ class Gym {
 
   /// 보유 기구 + 그 기구가 대신할 수 있는 기구(하프랙→스쿼트랙, 펑셔널 트레이너→케이블 등).
   Set<EquipmentType> get availableTypes {
-    final s = {EquipmentType.bodyweight, for (final e in equipment) ...e.allTypes};
+    final s = {EquipmentType.bodyweight, for (final e in equipment) ...e.coveredTypes};
     for (final t in s.toList()) {
+      if (t == EquipmentType.multiStation) continue; // 기구별로 이미 반영(스테이션을 고른 경우 고른 것만)
       s.addAll(impliedEquipment[t] ?? const []);
     }
     return s;
   }
 }
+
+/// 멀티 스테이션(케이블 정글)에 달려 있을 수 있는 스테이션들. 기구 편집에서 골라 겸용 종류로 저장한다.
+const List<EquipmentType> multiStationOptions = [
+  EquipmentType.cableMachine,
+  EquipmentType.latPulldown,
+  EquipmentType.seatedRow,
+  EquipmentType.chestPress,
+  EquipmentType.pecDeck,
+  EquipmentType.shoulderPress,
+  EquipmentType.legExtension,
+  EquipmentType.legCurl,
+  EquipmentType.legPress,
+  EquipmentType.abCrunchMachine,
+  EquipmentType.bicepCurlMachine,
+  EquipmentType.tricepExtensionMachine,
+];
 
 /// 어떤 기구를 가지고 있으면 자동으로 "할 수 있는 것"으로 치는 기구들.
 const Map<EquipmentType, List<EquipmentType>> impliedEquipment = {

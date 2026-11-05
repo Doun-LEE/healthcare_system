@@ -961,7 +961,7 @@ class _ExerciseCard extends StatelessWidget {
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              state.equipmentLabelFor(plan, pe.equipmentType),
+                              [state.equipmentLabelFor(plan, pe.equipmentType), ?gripFor(pe.exerciseId, pe.equipmentType)].join(' · '),
                               style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
                               overflow: TextOverflow.ellipsis,
                             ),

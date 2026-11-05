@@ -924,9 +924,7 @@ class _EquipmentDetail extends StatelessWidget {
     final info = equipmentInfo(eq.type);
     final text = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
-    final exercises = exercisesForTypes({
-      for (final t in eq.allTypes) ...[t, ...?impliedEquipment[t]],
-    });
+    final exercises = exercisesForTypes(eq.coveredTypes);
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.8,
@@ -1152,6 +1150,24 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               }),
             ),
           const SizedBox(height: 10),
+          if (widget.type == EquipmentType.multiStation) ...[
+            Align(alignment: Alignment.centerLeft, child: Text('달린 스테이션 (케이블 개수·구성은 헬스장마다 달라요)', style: Theme.of(context).textTheme.labelLarge)),
+            const SizedBox(height: 2),
+            Text(
+              _extra.isEmpty ? '안 고르면 기본 구성(케이블·랫풀다운·로우·체스트 프레스·펙덱·레그 익스텐션·레그 컬)으로 봐요. 실제로 달린 것만 고르세요.' : '고른 스테이션으로 하는 운동만 루틴에 나와요.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 4),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final t in multiStationOptions)
+                FilterChip(
+                  label: Text(t.label),
+                  selected: _extra.contains(t),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (v) => setState(() => v ? _extra.add(t) : _extra.remove(t)),
+                ),
+            ]),
+          ] else ...[
           Align(alignment: Alignment.centerLeft, child: Text('이 기구로 하는 다른 운동(다기능 머신)', style: Theme.of(context).textTheme.labelLarge)),
           Wrap(spacing: 6, runSpacing: 4, children: [
             for (final t in _extra)
@@ -1165,6 +1181,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               },
             ),
           ]),
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: _note,

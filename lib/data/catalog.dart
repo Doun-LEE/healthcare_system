@@ -1173,6 +1173,27 @@ const List<Exercise> exerciseCatalog = [
     repRange: [10, 15], priority: 3,
   ),
   Exercise(
+    id: 'rope_pushdown', name: '로프 푸시다운', group: MuscleGroup.arms,
+    emphasis: ['삼두 외측두', '수축감'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
+    loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.25,
+    repRange: [12, 15], priority: 2,
+    description: '내리면서 로프를 양옆으로 벌려 끝까지 짜낸다. 일자 바보다 가볍게.',
+  ),
+  Exercise(
+    id: 'vbar_pushdown', name: 'V바 푸시다운', group: MuscleGroup.arms,
+    emphasis: ['삼두 내측두', '고중량'], equipment: [EquipmentType.cableMachine, EquipmentType.latPulldown],
+    loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.33,
+    repRange: [8, 12], priority: 2,
+    description: '손목이 편한 V자 손잡이라 무겁게 밀기 좋다. 팔꿈치는 옆구리에 고정.',
+  ),
+  Exercise(
+    id: 'ez_cable_curl', name: 'EZ바 케이블 컬', group: MuscleGroup.arms,
+    emphasis: ['이두', '손목 편한 그립'], equipment: [EquipmentType.cableMachine, EquipmentType.seatedRow],
+    loadType: LoadType.cable, refLift: RefLift.row, ratio: 0.35,
+    repRange: [10, 15], priority: 2,
+    description: '물결 모양 EZ바 손잡이로 손목 부담을 줄인 케이블 컬.',
+  ),
+  Exercise(
     id: 'overhead_tri', name: '오버헤드 트라이셉스 익스텐션', group: MuscleGroup.arms,
     emphasis: ['삼두 장두'], equipment: [EquipmentType.cableMachine, EquipmentType.dumbbell],
     loadType: LoadType.cable, refLift: RefLift.bench, ratio: 0.25,
@@ -2260,6 +2281,50 @@ Exercise? exerciseById(String id) => _byId[id];
 
 /// 사실상 같은 동작인 운동 묶음. 한 세션에 둘을 같이 넣지 않고, 직전 운동일에 한 것과도 겹치지 않게 본다.
 /// (예: 레그 컬 ↔ 라잉 레그 컬, 딥스 ↔ 트라이셉스 딥스 ↔ 딥 머신)
+/// 케이블로 할 때 끼우는 손잡이(로프·일자 바·EZ 바·V 바 등). 루틴 화면에 기구 이름 옆으로 보여준다.
+const Map<String, String> cableGrips = {
+  'tri_pushdown': '일자 바',
+  'rope_pushdown': '로프',
+  'vbar_pushdown': 'V 바',
+  'overhead_tri': '로프',
+  'cable_curl': '일자 바',
+  'ez_cable_curl': 'EZ 바',
+  'rope_hammer_curl': '로프',
+  'bayesian_curl': '한 손 손잡이',
+  'upright_row': '일자 바',
+  'front_raise': '일자 바·한 손 손잡이',
+  'face_pull': '로프',
+  'straight_arm_pd': '일자 바·로프',
+  'cable_crunch': '로프',
+  'lat_pulldown': '롱 바',
+  'underhand_pulldown': '롱 바(언더그립)',
+  'close_grip_pulldown': 'V 바',
+  'single_arm_pulldown': '한 손 손잡이',
+  'seated_row': 'V 바',
+  'wide_seated_row': '롱 바',
+  'single_arm_cable_row': '한 손 손잡이',
+  'cable_lateral': '한 손 손잡이',
+  'rear_delt_fly': '한 손 손잡이',
+  'cable_fly': '한 손 손잡이',
+  'low_cable_fly': '한 손 손잡이',
+  'cable_kickback': '발목 스트랩',
+  'cable_abduction': '발목 스트랩',
+  'cable_pull_through': '로프',
+  'woodchop': '한 손 손잡이',
+  'pallof_press': '한 손 손잡이',
+};
+
+const _cableTypes = {
+  EquipmentType.cableMachine,
+  EquipmentType.functionalTrainer,
+  EquipmentType.multiStation,
+  EquipmentType.latPulldown,
+  EquipmentType.seatedRow,
+};
+
+/// 이 운동을 [type] 기구로 할 때 끼울 손잡이. 케이블 계열이 아니면 null(덤벨로 하는 리어 델트 플라이 등).
+String? gripFor(String exerciseId, EquipmentType type) => _cableTypes.contains(type) ? cableGrips[exerciseId] : null;
+
 const _families = <String, List<String>>{
   'ham_curl': ['leg_curl', 'lying_leg_curl', 'nordic_curl'],
   'dip': ['dips', 'tri_dips', 'assisted_dip', 'dip_m'],
@@ -2267,8 +2332,8 @@ const _families = <String, List<String>>{
   'pushup': ['pushup', 'decline_pushup', 'trx_pushup'],
   // 머신·멀티스테이션(케이블)·덤벨로 같은 동작을 하는 것들: 한 세션엔 하나만.
   'chest_fly': ['pec_deck', 'cable_fly', 'db_fly', 'incline_db_fly', 'low_cable_fly'],
-  'tri_pushdown': ['tri_pushdown', 'tri_ext_m'],
-  'machine_curl': ['bicep_curl_m', 'cable_curl'],
+  'tri_pushdown': ['tri_pushdown', 'rope_pushdown', 'vbar_pushdown', 'tri_ext_m'],
+  'machine_curl': ['bicep_curl_m', 'cable_curl', 'ez_cable_curl'],
   // 같은 동작 패턴(기구만 다른 것): 연속 운동일에 같은 패턴이 반복되지 않게, 한 세션엔 하나만.
   'flat_press': ['bb_bench', 'db_bench', 'chest_press_m', 'hammer_chest', 'lying_chest_press_m', 'smith_bench'],
   'incline_press': ['incline_bb', 'incline_db', 'incline_press_m', 'lying_incline_press_m', 'smith_incline'],

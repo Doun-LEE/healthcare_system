@@ -39,4 +39,27 @@ void main() {
     final flat = GymEquipment.fromJson({'id': 'c', 'type': 'chestPressPlateLoaded', 'customName': '해머 아이소래터럴 체스트 프레스'});
     expect(flat.type, EquipmentType.chestPressPlateLoaded);
   });
+
+  test('멀티 스테이션: 스테이션을 고르면 고른 것만, 안 고르면 기본 구성', () {
+    final def = Gym(id: 'g', name: 'x', equipment: [GymEquipment(id: 'a', type: EquipmentType.multiStation)]).availableTypes;
+    expect(def, containsAll([EquipmentType.cableMachine, EquipmentType.legExtension, EquipmentType.pecDeck]));
+    final mine = Gym(id: 'g', name: 'x', equipment: [
+      GymEquipment(id: 'a', type: EquipmentType.multiStation, extraTypes: [EquipmentType.cableMachine, EquipmentType.latPulldown, EquipmentType.seatedRow]),
+    ]).availableTypes;
+    expect(mine, containsAll([EquipmentType.cableMachine, EquipmentType.latPulldown, EquipmentType.seatedRow]));
+    expect(mine.contains(EquipmentType.legExtension), isFalse);
+    expect(mine.contains(EquipmentType.pecDeck), isFalse);
+  });
+
+  test('케이블 손잡이: 로프·V바 푸시다운, EZ바 컬은 같은 동작 묶음이고 케이블일 때만 손잡이 표시', () {
+    expect(familyOf('rope_pushdown'), familyOf('tri_pushdown'));
+    expect(familyOf('vbar_pushdown'), familyOf('tri_pushdown'));
+    expect(familyOf('ez_cable_curl'), familyOf('cable_curl'));
+    expect(gripFor('rope_pushdown', EquipmentType.cableMachine), '로프');
+    expect(gripFor('tri_pushdown', EquipmentType.latPulldown), '일자 바');
+    expect(gripFor('rear_delt_fly', EquipmentType.dumbbell), isNull);
+    for (final id in cableGrips.keys) {
+      expect(exerciseById(id), isNotNull, reason: id);
+    }
+  });
 }

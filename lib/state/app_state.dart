@@ -93,7 +93,7 @@ class AppState extends ChangeNotifier {
     final exact = list.where((e) => e.type == type).toList();
     var pool = exact.isNotEmpty ? exact : list.where((e) => e.allTypes.contains(type)).toList();
     // 전용 기구가 없으면 그 역할을 하는 기구(멀티스테이션 → 케이블·펙덱 등)로 대신한다.
-    if (pool.isEmpty) pool = list.where((e) => e.allTypes.any((t) => impliedEquipment[t]?.contains(type) ?? false)).toList();
+    if (pool.isEmpty) pool = list.where((e) => e.impliedTypes.contains(type)).toList();
     if (pool.isEmpty) return null;
     return pool.firstWhere((e) => e.hasPhoto, orElse: () => pool.firstWhere((e) => e.brand != null, orElse: () => pool.first));
   }
@@ -186,10 +186,8 @@ class AppState extends ChangeNotifier {
     for (final e in g?.equipment ?? const <GymEquipment>[]) {
       final v = value(e);
       if (v == null) continue;
-      for (final t in e.allTypes) {
-        for (final sub in impliedEquipment[t] ?? const <EquipmentType>[]) {
-          m.putIfAbsent(sub, () => v);
-        }
+      for (final sub in e.impliedTypes) {
+        m.putIfAbsent(sub, () => v);
       }
     }
   }
