@@ -836,6 +836,19 @@ class _EquipmentList extends StatelessWidget {
   const _EquipmentList({required this.gym});
   final Gym gym;
 
+  /// 기구 빼기. 바로 지우고, 잘못 눌렀으면 '되돌리기'로 원래 자리에 복구.
+  Future<void> _remove(BuildContext context, AppState state, GymEquipment e) async {
+    final index = gym.equipment.indexOf(e);
+    final messenger = ScaffoldMessenger.of(context);
+    await state.removeEquipment(gym.id, e.id);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('${e.displayName} 뺐어요'),
+        action: SnackBarAction(label: '되돌리기', onPressed: () => state.restoreEquipment(gym.id, e, index)),
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
@@ -859,7 +872,7 @@ class _EquipmentList extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정',
+          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정 · 🗑로 빼기',
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
         ),
         for (final g in order)
@@ -878,7 +891,7 @@ class _EquipmentList extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 20),
                   child: Icon(Icons.delete, color: cs.onErrorContainer),
                 ),
-                onDismissed: (_) => state.removeEquipment(gym.id, e.id),
+                onDismissed: (_) => _remove(context, state, e),
                 child: ListTile(
                   leading: EquipmentThumb(eq: e),
                   title: Text(e.displayName),
@@ -893,6 +906,11 @@ class _EquipmentList extends StatelessWidget {
                     ].join(' · '),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete_outline, color: cs.onSurfaceVariant),
+                    tooltip: '이 기구 빼기',
+                    onPressed: () => _remove(context, state, e),
                   ),
                   onTap: () => _EquipmentDetail.show(context, e, gym.id),
                   onLongPress: () async {

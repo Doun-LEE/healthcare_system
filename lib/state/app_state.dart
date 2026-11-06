@@ -1396,6 +1396,14 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 지운 기구 되돌리기(원래 자리에).
+  Future<void> restoreEquipment(String gymId, GymEquipment eq, int index) async {
+    final g = _data.gyms.where((g) => g.id == gymId).firstOrNull;
+    if (g == null || g.equipment.any((e) => e.id == eq.id)) return;
+    g.equipment.insert(index.clamp(0, g.equipment.length), eq);
+    await _save();
+  }
+
   /// 대중적인 헬스장 기본 구성을 한 번에 추가.
   Future<void> addStandardEquipment(String gymId) async {
     const standard = [
