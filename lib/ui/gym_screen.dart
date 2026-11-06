@@ -14,6 +14,9 @@ import 'widgets/real_photos.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/app_sheet.dart';
 
+/// '기구 수정하기' 모드. 켜야만 기구 빼기(휴지통·밀어서 빼기)가 보인다(실수로 지우지 않게).
+final _equipEditing = ValueNotifier(false);
+
 /// 헬스장별 보유 기구 추가/수정/삭제 (요구사항 3) + 기구 3D/특징 보기.
 class GymScreen extends StatelessWidget {
   const GymScreen({super.key});
@@ -39,6 +42,20 @@ class GymScreen extends StatelessWidget {
                 ),
               ),
         actions: [
+          if (gym != null && gym.equipment.isNotEmpty)
+            ValueListenableBuilder<bool>(
+              valueListenable: _equipEditing,
+              builder: (_, editing, _) => editing
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: FilledButton.tonal(onPressed: () => _equipEditing.value = false, child: const Text('완료')),
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _equipEditing.value = true,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('기구 수정'),
+                    ),
+            ),
           PopupMenuButton<String>(
             onSelected: (v) => _gymMenu(context, state, v),
             itemBuilder: (_) => [
@@ -46,6 +63,8 @@ class GymScreen extends StatelessWidget {
               const PopupMenuItem(value: 'import', child: Text('친구 헬스장 가져오기')),
               if (gym != null && state.cloudSignedIn) const PopupMenuItem(value: 'resync', child: Text('친구 데이터로 동기화')),
               if (gym != null && state.cloudSignedIn) const PopupMenuItem(value: 'restore', child: Text('백업에서 기구 되살리기')),
+              if (gym != null && gym.equipment.isNotEmpty)
+                const PopupMenuItem(value: 'editEquip', child: Text('기구 수정하기(빼기)')),
               if (gym != null) const PopupMenuItem(value: 'rename', child: Text('이름 변경')),
               if (gym != null) const PopupMenuItem(value: 'standard', child: Text('대중적인 기본 기구 일괄 추가')),
               if (gym != null) const PopupMenuItem(value: 'delete', child: Text('이 헬스장 삭제')),
@@ -226,6 +245,8 @@ class GymScreen extends StatelessWidget {
   Future<void> _gymMenu(BuildContext context, AppState state, String v) async {
     final gym = state.activeGym;
     switch (v) {
+      case 'editEquip':
+        _equipEditing.value = true;
       case 'add':
         final name = await _prompt(context, '헬스장 이름', '예: 집 앞 피트니스');
         if (name != null) await state.addGym(name);
@@ -841,9 +862,23 @@ class _EquipmentList extends StatefulWidget {
 }
 
 class _EquipmentListState extends State<_EquipmentList> {
-  /// '기구 수정하기'를 눌렀을 때만 빼기(휴지통·밀어서 빼기)가 보인다. 실수로 지우지 않게.
-  bool _editing = false;
+  bool get _editing => _equipEditing.value;
   Gym get gym => widget.gym;
+
+  void _changed() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    _equipEditing.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    _equipEditing.removeListener(_changed);
+    _equipEditing.value = false; // 화면을 떠나면 수정 모드 끔
+    super.dispose();
+  }
 
   /// 기구 빼기. 바로 지우고, 잘못 눌렀으면 '되돌리기'로 원래 자리에 복구.
   Future<void> _remove(BuildContext context, AppState state, GymEquipment e) async {
@@ -881,20 +916,11 @@ class _EquipmentListState extends State<_EquipmentList> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Row(children: [
-            Expanded(
-              child: Text(
-                  _editing ? '${gym.equipment.length}개 기구 · 🗑를 누르거나 왼쪽으로 밀면 빠져요' : '${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정',
-                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-            ),
-            _editing
-                ? FilledButton.tonal(onPressed: () => setState(() => _editing = false), child: const Text('완료'))
-                : TextButton.icon(
-                    onPressed: () => setState(() => _editing = true),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('기구 수정하기'),
-                  ),
-          ]),
+          child: Text(
+              _editing
+                  ? '${gym.equipment.length}개 기구 · 🗑를 누르거나 왼쪽으로 밀면 빠져요 · 다 하면 위 ‘완료’'
+                  : '${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정 · 빼려면 위 ‘기구 수정’',
+              style: text.bodySmall?.copyWith(color: _editing ? cs.error : cs.onSurfaceVariant)),
         ),
         for (final g in order)
           if (byGroup[g] != null) ...[
