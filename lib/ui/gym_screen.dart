@@ -832,9 +832,18 @@ Future<String?> _prompt(BuildContext context, String title, String hint, {String
   );
 }
 
-class _EquipmentList extends StatelessWidget {
+class _EquipmentList extends StatefulWidget {
   const _EquipmentList({required this.gym});
   final Gym gym;
+
+  @override
+  State<_EquipmentList> createState() => _EquipmentListState();
+}
+
+class _EquipmentListState extends State<_EquipmentList> {
+  /// '기구 수정하기'를 눌렀을 때만 빼기(휴지통·밀어서 빼기)가 보인다. 실수로 지우지 않게.
+  bool _editing = false;
+  Gym get gym => widget.gym;
 
   /// 기구 빼기. 바로 지우고, 잘못 눌렀으면 '되돌리기'로 원래 자리에 복구.
   Future<void> _remove(BuildContext context, AppState state, GymEquipment e) async {
@@ -872,8 +881,20 @@ class _EquipmentList extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text('${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정 · 🗑로 빼기',
-              style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          child: Row(children: [
+            Expanded(
+              child: Text(
+                  _editing ? '${gym.equipment.length}개 기구 · 🗑를 누르거나 왼쪽으로 밀면 빠져요' : '${gym.equipment.length}개 기구 · 탭하면 3D·특징·수정',
+                  style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ),
+            _editing
+                ? FilledButton.tonal(onPressed: () => setState(() => _editing = false), child: const Text('완료'))
+                : TextButton.icon(
+                    onPressed: () => setState(() => _editing = true),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('기구 수정하기'),
+                  ),
+          ]),
         ),
         for (final g in order)
           if (byGroup[g] != null) ...[
@@ -884,7 +905,7 @@ class _EquipmentList extends StatelessWidget {
             for (final e in byGroup[g]!)
               Dismissible(
                 key: ValueKey(e.id),
-                direction: DismissDirection.endToStart,
+                direction: _editing ? DismissDirection.endToStart : DismissDirection.none,
                 background: Container(
                   color: cs.errorContainer,
                   alignment: Alignment.centerRight,
@@ -907,11 +928,13 @@ class _EquipmentList extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete_outline, color: cs.onSurfaceVariant),
-                    tooltip: '이 기구 빼기',
-                    onPressed: () => _remove(context, state, e),
-                  ),
+                  trailing: _editing
+                      ? IconButton(
+                          icon: Icon(Icons.delete_outline, color: cs.error),
+                          tooltip: '이 기구 빼기',
+                          onPressed: () => _remove(context, state, e),
+                        )
+                      : null,
                   onTap: () => _EquipmentDetail.show(context, e, gym.id),
                   onLongPress: () async {
                     final edited = await _EquipmentEditor.show(context, e.type, existing: e);
