@@ -889,6 +889,9 @@ class _EquipmentListState extends State<_EquipmentList> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(
         content: Text('${e.displayName} 뺐어요'),
+        // 되돌리기 버튼이 있어도 5초 뒤엔 사라지게(기본값은 계속 떠 있음)
+        duration: const Duration(seconds: 5),
+        persist: false,
         action: SnackBarAction(label: '되돌리기', onPressed: () => state.restoreEquipment(gym.id, e, index)),
       ));
   }
