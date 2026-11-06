@@ -346,6 +346,7 @@ class UserProfile {
     List<String>? sectionOrder,
     Map<String, double>? exerciseRank,
     Map<String, double>? groupRank,
+    Map<String, double>? exercisePref,
     this.activeGymId,
     this.inbodyScannedAt,
     this.squat1rm,
@@ -364,6 +365,7 @@ class UserProfile {
         sectionOrder = sectionOrder ?? List.of(defaultSectionOrder),
         exerciseRank = exerciseRank ?? {},
         groupRank = groupRank ?? {},
+        exercisePref = exercisePref ?? {},
         warmupIds = warmupIds ?? [],
         aiUsage = aiUsage ?? {},
         warmupByGroupIds = warmupByGroupIds ?? {};
@@ -462,6 +464,10 @@ class UserProfile {
   Map<String, double> exerciseRank;
   Map<String, double> groupRank;
 
+  /// 운동 선호도(-5~5). 다른 운동으로 바꾸면 뺀 운동 -1·넣은 운동 +1, 지우면 -0.5, 직접 추가하면 +0.5.
+  /// 루틴을 짤 때 점수에 반영해 좋아하는 운동을 더 자주, 바꿔 버린 운동은 덜 넣는다.
+  Map<String, double> exercisePref;
+
   static const defaultSectionOrder = ['upper', 'lower', 'abs', 'cardio'];
   String? activeGymId;
   DateTime? inbodyScannedAt;
@@ -512,6 +518,7 @@ class UserProfile {
         'sectionOrder': sectionOrder,
         'exerciseRank': exerciseRank,
         'groupRank': groupRank,
+        if (exercisePref.isNotEmpty) 'exercisePref': exercisePref,
         'activeGymId': activeGymId,
         'inbodyScannedAt': inbodyScannedAt?.toIso8601String(),
         'squat1rm': squat1rm,
@@ -564,6 +571,7 @@ class UserProfile {
             },
         exerciseRank: {for (final e in ((j['exerciseRank'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
         groupRank: {for (final e in ((j['groupRank'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
+        exercisePref: {for (final e in ((j['exercisePref'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
         activeGymId: j['activeGymId'] as String?,
         inbodyScannedAt: j['inbodyScannedAt'] == null
             ? null
@@ -1092,6 +1100,9 @@ class PlannedExercise {
   bool get allCompleted => sets.every((s) => s.completed);
   bool get anyCompleted => sets.any((s) => s.completed);
 
+  /// 본 세트(처방 무게가 가장 무거운 세트). 램프업으로 세트마다 무게가 다를 때 기준이 된다.
+  SetEntry get topSet => sets.reduce((a, b) => b.targetWeight >= a.targetWeight ? b : a);
+
   Map<String, dynamic> toJson() => {
         'exerciseId': exerciseId,
         'equipmentType': equipmentType.name,
@@ -1369,10 +1380,16 @@ class ExerciseProgress {
     this.consecutiveSuccess = 0,
     this.consecutiveFail = 0,
     this.level,
-  });
+    List<SetRecord>? lastSets,
+  }) : lastSets = lastSets ?? [];
 
   final String exerciseId;
+
+  /// 본 세트(가장 무거운 세트) 기준 작업 중량.
   double workingWeight;
+
+  /// 지난번에 실제로 한 세트들(순서대로). 다음 처방에서 세트별 무게 배치(램프업·피라미드)를 따라간다.
+  List<SetRecord> lastSets;
   int targetReps;
 
   /// 유산소 기구 강도 단계(현재 작업 레벨).
@@ -1391,6 +1408,7 @@ class ExerciseProgress {
         'consecutiveSuccess': consecutiveSuccess,
         'consecutiveFail': consecutiveFail,
         'level': level,
+        if (lastSets.isNotEmpty) 'lastSets': [for (final s in lastSets) s.toJson()],
       };
 
   factory ExerciseProgress.fromJson(Map<String, dynamic> j) =>
@@ -1405,7 +1423,22 @@ class ExerciseProgress {
         consecutiveSuccess: j['consecutiveSuccess'] as int,
         consecutiveFail: j['consecutiveFail'] as int,
         level: j['level'] as int?,
+        lastSets: [for (final e in (j['lastSets'] as List?) ?? const []) SetRecord.fromJson(Map<String, dynamic>.from(e as Map))],
       );
+}
+
+/// 한 세트의 실제 수행(무게·횟수)과 그때 목표 횟수.
+class SetRecord {
+  const SetRecord({required this.reps, required this.weight, required this.target});
+  final int reps;
+  final double weight;
+  final int target;
+
+  bool get hit => reps >= target;
+
+  Map<String, dynamic> toJson() => {'r': reps, 'w': weight, 't': target};
+  factory SetRecord.fromJson(Map<String, dynamic> j) =>
+      SetRecord(reps: j['r'] as int, weight: (j['w'] as num).toDouble(), target: j['t'] as int);
 }
 
 /// 'yyyy-MM-dd' 키. 날짜 비교/저장에 통일해서 사용한다.

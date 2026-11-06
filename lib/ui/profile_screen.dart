@@ -333,6 +333,23 @@ class ProfileScreen extends StatelessWidget {
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: () => state.resetOrderLearning(), child: const Text('학습한 순서 초기화')),
               ),
+            const SizedBox(height: 8),
+            Builder(builder: (_) {
+              String names(Iterable<MapEntry<String, double>> es) =>
+                  es.take(4).map((e) => exerciseById(e.key)?.name ?? e.key).join(', ');
+              final liked = u.exercisePref.entries.where((e) => e.value > 0).toList()..sort((a, b) => b.value.compareTo(a.value));
+              final disliked = u.exercisePref.entries.where((e) => e.value < 0).toList()..sort((a, b) => a.value.compareTo(b.value));
+              return Text(
+                '루틴에서 운동을 바꾸면 뺀 운동은 덜, 넣은 운동은 더 자주 나와요. 슈러그·카프 레이즈·리스트 컬처럼 안 하는 사람도 많은 운동은 직접 넣기 전엔 잘 안 넣어요.'
+                '${liked.isNotEmpty ? '\n선호: ${names(liked)}' : ''}${disliked.isNotEmpty ? '\n덜 넣음: ${names(disliked)}' : ''}',
+                style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+              );
+            }),
+            if (u.exercisePref.isNotEmpty)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(onPressed: () => state.resetExercisePref(), child: const Text('운동 선호 초기화')),
+              ),
           ]),
 
           // 앱 디자인

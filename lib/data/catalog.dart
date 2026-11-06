@@ -55,6 +55,9 @@ class Exercise {
 
   /// 1=보조, 2=주요, 3=핵심(세션에서 먼저 뽑힘).
   final int priority;
+
+  /// 안 하는 사람도 많은 운동(슈러그·카프 레이즈·리스트 컬 등). 선호가 없으면 루틴에 덜 넣는다.
+  bool get niche => nicheExerciseIds.contains(id);
   final String description;
 
   /// 자세에 따라 타깃이 바뀌는 운동(덤벨 풀오버: 등 ↔ 가슴). 루틴에서 타깃을 바꿀 수 있다.
@@ -2428,3 +2431,6 @@ List<Exercise> exercisesForTypes(Set<EquipmentType> types) {
         e,
   ];
 }
+
+/// 안 하는 사람도 많은 운동. 기본적으로 덜 넣고, 직접 추가하거나 바꿔 넣으면(선호 +) 다시 나온다.
+const nicheExerciseIds = {'shrug', 'calf_raise', 'seated_calf', 'wrist_curl', 'farmers_walk'};

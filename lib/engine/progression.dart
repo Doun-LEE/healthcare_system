@@ -52,16 +52,21 @@ class Progression {
     }
 
     final step = ex.loadType.increment;
-    final targetReps = planned.sets.first.targetReps;
+    // 세트마다 목표 횟수가 다를 수 있다(램프업: 가벼운 앞 세트는 횟수 ↑). 각 세트를 자기 목표로 판정.
     final allHit = done.length == planned.sets.length &&
-        done.every((s) => s.effectiveReps >= targetReps);
-    final overReps = done.every((s) => s.effectiveReps >= targetReps + 2);
+        done.every((s) => s.effectiveReps >= s.targetReps);
+    final overReps = done.every((s) => s.effectiveReps >= s.targetReps + 2);
     final maxDoneWeight =
         done.map((s) => s.effectiveWeight).fold<double>(0, max);
     final failedHalf =
-        done.where((s) => s.effectiveReps < targetReps).length * 2 >
+        done.where((s) => s.effectiveReps < s.targetReps).length * 2 >
                 planned.sets.length ||
             done.length * 2 < planned.sets.length;
+    if (ex.loadType != LoadType.cardio && ex.loadType != LoadType.bodyweight && maxDoneWeight > 0) {
+      current.lastSets = [
+        for (final s in done) SetRecord(reps: s.effectiveReps, weight: s.effectiveWeight, target: s.targetReps),
+      ];
+    }
 
     // ── 유산소: 분 → 레벨 순으로 올린다 ──
     if (ex.loadType == LoadType.cardio) {
@@ -129,7 +134,7 @@ class Progression {
       newWeight = maxDoneWeight;
     }
     // 사용자가 처방보다 낮춰서 했으면(컨디션 조정이 아닌 수동), 낮춘 무게가 새 기준.
-    final plannedWeight = planned.sets.first.targetWeight;
+    final plannedWeight = planned.topSet.targetWeight;
     final lowered = !lightDay && maxDoneWeight > 0 && maxDoneWeight < plannedWeight;
     if (lowered) newWeight = maxDoneWeight;
 

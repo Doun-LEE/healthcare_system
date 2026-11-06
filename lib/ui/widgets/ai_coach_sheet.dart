@@ -163,10 +163,13 @@ class _AiPreview extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final s = pe.sets.first;
     final isCardio = ex.loadType == LoadType.cardio;
-    final w = s.targetWeight;
+    final top = pe.topSet;
+    final w = top.targetWeight;
+    String f(double v) => '${v == v.roundToDouble() ? v.toInt() : v}';
+    final ramp = s.targetWeight < w ? '${f(s.targetWeight)}→' : '';
     final spec = isCardio
         ? '${s.targetReps}분'
-        : '${pe.sets.length}세트 × ${s.targetReps}회${w > 0 ? ' · ${w == w.roundToDouble() ? w.toInt() : w}kg' : ''}';
+        : '${pe.sets.length}세트 × ${top.targetReps}회${w > 0 ? ' · $ramp${f(w)}kg' : ''}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(

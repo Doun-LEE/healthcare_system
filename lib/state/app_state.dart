@@ -103,12 +103,17 @@ class AppState extends ChangeNotifier {
   String weightBasisLabel(DayPlan plan, EquipmentType type) => equipmentFor(plan, type)?.basisLabel ?? '';
 
   /// 앞으로 할 날의 처방(목표 무게·횟수)을 직접 바꾼다. 그 운동의 모든 세트에 적용.
-  Future<void> setTarget(DayPlan plan, PlannedExercise pe, {int? reps, double? weight, int? level}) async {
+  /// 처방 바꾸기. [index] 세트를 고른 값으로 하고, 나머지 세트도 같은 만큼 옮긴다
+  /// (램프업처럼 세트마다 무게가 다르면 그 간격을 유지).
+  Future<void> setTarget(DayPlan plan, PlannedExercise pe, {int index = 0, int? reps, double? weight, int? level}) async {
+    final ref = pe.sets[index.clamp(0, pe.sets.length - 1)];
+    final dw = weight == null ? 0.0 : weight - ref.targetWeight;
+    final dr = reps == null ? 0 : reps - ref.targetReps;
     for (var i = 0; i < pe.sets.length; i++) {
       final s0 = pe.sets[i];
       pe.sets[i] = SetEntry(
-        targetReps: reps ?? s0.targetReps,
-        targetWeight: weight ?? s0.targetWeight,
+        targetReps: max(1, s0.targetReps + dr),
+        targetWeight: max(0.0, s0.targetWeight + dw),
         level: level ?? s0.level,
         extra: s0.extra,
       );
@@ -304,7 +309,10 @@ class AppState extends ChangeNotifier {
         restSeconds: pe.restSeconds,
         sets: List.generate(
           pe.sets.length,
-          (_) => SetEntry(targetReps: base.sets.first.targetReps, targetWeight: base.sets.first.targetWeight, level: base.sets.first.level),
+          (k) {
+            final s = base.sets[min(k, base.sets.length - 1)];
+            return SetEntry(targetReps: s.targetReps, targetWeight: s.targetWeight, level: s.level);
+          },
         ),
         note: '${gym.name}에 ${pe.equipmentType.label} 없음 → ${ex.name} 대체',
         personal: pe.personal,
@@ -1985,8 +1993,29 @@ class AppState extends ChangeNotifier {
     await resyncPartnerDay(plan);
   }
 
+  /// 운동 선호도 조정(-5~5).
+  static void _bumpPref(UserProfile u, String id, double d) {
+    final v = ((u.exercisePref[id] ?? 0) + d).clamp(-5.0, 5.0);
+    if (v.abs() < 0.01) {
+      u.exercisePref.remove(id);
+    } else {
+      u.exercisePref[id] = v;
+    }
+  }
+
+  /// 교체·삭제로 배운 운동 선호도 초기화.
+  Future<void> resetExercisePref() async {
+    final u = currentUser;
+    if (u == null) return;
+    u.exercisePref.clear();
+    await _save();
+  }
+
   Future<void> removeExercise(DayPlan plan, PlannedExercise ex) async {
     _markCustom(plan);
+    final u = currentUser;
+    // 아직 하지 않은 본 운동을 지우면 그 운동은 조금 덜 넣는다.
+    if (u != null && plan.userId == u.id && !ex.warmup && !ex.anyCompleted) _bumpPref(u, ex.exerciseId, -0.5);
     plan.exercises.remove(ex);
     await _save();
     await resyncPartnerDay(plan);
@@ -1998,6 +2027,7 @@ class AppState extends ChangeNotifier {
     if (u == null || plan.isFinished) return null;
     final base = _planSingle(ex, u, plan);
     _markCustom(plan);
+    _bumpPref(u, ex.id, 0.5);
     final planned = PlannedExercise(
       exerciseId: base.exerciseId,
       equipmentType: base.equipmentType,
@@ -2188,6 +2218,11 @@ class AppState extends ChangeNotifier {
     // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
     // 워밍업 칸이었으면 바꾼 운동도 워밍업(가볍게)으로.
     plan.exercises[i] = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
+    // 본 운동을 바꿨으면 선호도 학습: 뺀 운동은 덜, 넣은 운동은 더 자주.
+    if (!old.warmup && old.exerciseId != to.id) {
+      _bumpPref(u, old.exerciseId, -1);
+      _bumpPref(u, to.id, 1);
+    }
     await _save();
     await resyncPartnerDay(plan);
   }
@@ -2320,12 +2355,13 @@ class AppState extends ChangeNotifier {
       final ex = exerciseById(pe.exerciseId);
       if (ex == null) continue;
       // 처음 하는 운동의 기준 무게. 컨디션으로 낮춘 날이면 배율을 되돌려 평소 무게로 잡는다.
+      final top = pe.topSet;
       final baseline = plan.loadFactor > 0 && plan.loadFactor != 1.0
-          ? LoadEstimator.roundTo(pe.sets.first.targetWeight / plan.loadFactor, ex.loadType.increment)
-          : pe.sets.first.targetWeight;
+          ? LoadEstimator.roundTo(top.targetWeight / plan.loadFactor, ex.loadType.increment)
+          : top.targetWeight;
       final baseReps = plan.loadFactor < 0.85 && ex.loadType != LoadType.cardio && ex.loadType != LoadType.bodyweight
-          ? pe.sets.first.targetReps - 2
-          : pe.sets.first.targetReps;
+          ? top.targetReps - 2
+          : top.targetReps;
       final cur = progress.putIfAbsent(
         pe.exerciseId,
         () => ExerciseProgress(

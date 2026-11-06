@@ -287,8 +287,8 @@ void main() {
         seed: 6,
       )).generate();
       final squat = plan.firstWhere((p) => p.exerciseId == 'bb_squat');
-      expect(squat.sets.first.targetWeight, 70);
-      expect(squat.sets.first.targetReps, 8); // 6 + 2
+      expect(squat.topSet.targetWeight, 70);
+      expect(squat.topSet.targetReps, 8); // 6 + 2
     });
 
     test('equipment step (pin 5kg) rounds prescribed weights', () {
@@ -308,7 +308,7 @@ void main() {
         seed: 8,
       )).generate();
       final lat = plan.firstWhere((p) => p.exerciseId == 'lat_pulldown');
-      expect(lat.sets.first.targetWeight % 5, 0);
+      expect(lat.topSet.targetWeight % 5, 0);
     });
 
     test('cardio level comes from the spec by level and goal', () {
@@ -338,8 +338,8 @@ void main() {
       )).generate();
       final squat = plan.where((p) => p.exerciseId == 'bb_squat').firstOrNull;
       expect(squat, isNotNull);
-      expect(squat!.sets.first.targetWeight, 100);
-      expect(squat.sets.first.targetReps, 6);
+      expect(squat!.topSet.targetWeight, 100);
+      expect(squat.topSet.targetReps, 6);
     });
   });
 

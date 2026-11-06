@@ -971,7 +971,7 @@ class _ExerciseCard extends StatelessWidget {
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (!isCardio && !isBw && myEq != null && myEq.sledMatters && pe.sets.isNotEmpty)
                           Builder(builder: (_) {
-                            final shown = pe.sets.first.effectiveWeight * myEq.displayFactor;
+                            final shown = pe.topSet.effectiveWeight * myEq.displayFactor;
                             final side = myEq.effectiveBasis == 'perSide' ? '한쪽 ' : '';
                             final String line;
                             if (myEq.emptyKg == null) {
@@ -1146,7 +1146,7 @@ class _ExerciseCard extends StatelessWidget {
     final result = await SetEditorSheet.show(
       context,
       title: planning
-          ? '${ex?.name ?? ''} 처방 바꾸기 (모든 세트)${basis.isEmpty ? '' : ' · $basis'}'
+          ? '${ex?.name ?? ''} ${i + 1}세트 기준 처방 바꾸기 (다른 세트도 같은 만큼)${basis.isEmpty ? '' : ' · $basis'}'
           : '${ex?.name ?? ''} ${i + 1}세트 실제 수행${basis.isEmpty ? '' : ' · $basis'}',
       targetReps: s.targetReps,
       targetWeight: s.targetWeight * f,
@@ -1162,7 +1162,7 @@ class _ExerciseCard extends StatelessWidget {
     if (result == null) return;
     final weight = showWeight ? result.$2 / f : null;
     if (planning) {
-      await state.setTarget(plan, pe, reps: result.$1, weight: weight, level: result.$3);
+      await state.setTarget(plan, pe, index: i, reps: result.$1, weight: weight, level: result.$3);
     } else {
       await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3); // 완료 체크는 체크박스로만
     }

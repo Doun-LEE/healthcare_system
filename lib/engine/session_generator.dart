@@ -300,7 +300,7 @@ class SessionGenerator {
       );
     }
     final base = _plan(ex);
-    final w = base.sets.first.targetWeight;
+    final w = base.topSet.targetWeight;
     final step = req.stepFor(ex, eq);
     final light = w > 0 ? max(step, LoadEstimator.roundTo(w * 0.5, step)) : 0.0;
     return PlannedExercise(
@@ -533,6 +533,10 @@ class SessionGenerator {
           if (req.boost.contains(m)) score += 1.5;
         }
       }
+      // 교체·추가·삭제 이력으로 배운 선호도. 안 하는 사람도 많은 운동은 선호가 없으면 덜 넣는다.
+      final pref = req.profile.exercisePref[ex.id] ?? 0;
+      score += pref * 1.5;
+      if (ex.niche && pref <= 0) score -= 2.0;
       score += _rng.nextDouble() * 0.6; // 동점 깨기 + 약간의 변화
 
       if (score > bestScore) {
@@ -611,10 +615,46 @@ class SessionGenerator {
       exerciseId: ex.id,
       equipmentType: equipment,
       restSeconds: rest,
-      sets: List.generate(
-          sets, (_) => SetEntry(targetReps: reps, targetWeight: weight)),
+      sets: setScheme(ex, prog, sets, reps, weight, step, straight: careful.isNotEmpty),
       note: note,
     );
+  }
+
+  /// 세트별 무게·횟수 배치. [top]은 본 세트 무게, [reps]는 본 세트 횟수.
+  /// - 지난번 기록이 있으면 그때 세트별 무게 비율(본 세트 대비)과 횟수 차이를 그대로 따라간다.
+  ///   지난번 그 세트에서 목표 횟수를 못 채웠으면 그 세트 무게는 올리지 않는다.
+  /// - 기록이 없으면 램프업: 앞 세트는 가볍게(횟수 조금 ↑) 시작해 본 세트 무게로 올라간다.
+  /// - 맨몸·유산소·주의 부위([straight])는 같은 무게로.
+  static List<SetEntry> setScheme(Exercise ex, ExerciseProgress? prog, int n, int reps, double top, double step,
+      {bool straight = false}) {
+    List<SetEntry> flat() => List.generate(n, (_) => SetEntry(targetReps: reps, targetWeight: top));
+    if (straight || n < 2 || top <= 0 || step <= 0 || ex.loadType == LoadType.cardio || ex.loadType == LoadType.bodyweight) {
+      return flat();
+    }
+    double r(double w) => min(top, max(step, LoadEstimator.roundTo(w, step)));
+    final last = prog?.lastSets ?? const <SetRecord>[];
+    final lastTop = last.fold<double>(0, (a, s) => max(a, s.weight));
+    if (last.length >= 2 && lastTop > 0) {
+      final topTarget = last.lastWhere((s) => s.weight == lastTop).target;
+      return List.generate(n, (i) {
+        final s = last[(i * (last.length - 1) / (n - 1)).round()];
+        var w = r(top * s.weight / lastTop);
+        if (!s.hit && s.weight < lastTop) w = min(w, r(s.weight));
+        return SetEntry(targetReps: max(1, reps + s.target - topTarget), targetWeight: w);
+      });
+    }
+    // 기본 램프업: (본 세트 대비 무게, 더할 횟수)
+    final ramp = ex.compound
+        ? switch (n) { 2 => [(0.9, 1)], 3 => [(0.85, 2)], _ => [(0.8, 2), (0.9, 1)] }
+        : (n >= 3 ? [(0.9, 2)] : const <(double, int)>[]);
+    return List.generate(n, (i) {
+      if (i < ramp.length) {
+        final (pct, plus) = ramp[i];
+        final w = r(top * pct);
+        return SetEntry(targetReps: w < top ? reps + plus : reps, targetWeight: w);
+      }
+      return SetEntry(targetReps: reps, targetWeight: top);
+    });
   }
 
   /// 유산소 기구 강도: 진행 기록이 있으면 그 레벨, 없으면 숙련도·목표별 시작값.
