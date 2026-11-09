@@ -1869,6 +1869,13 @@ const List<Exercise> exerciseCatalog = [
     description: '발을 벤치·의자에 올리고 하는 푸시업.',
   ),
   Exercise(
+    id: 'incline_pushup', name: '인클라인 푸시업', group: MuscleGroup.chest,
+    emphasis: ['아랫가슴', '삼두'], equipment: [EquipmentType.bodyweight, EquipmentType.flatBench],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    compound: true, repRange: [12, 20], priority: 1,
+    description: '손을 벤치·의자에 짚고 하는 푸시업. 일반 푸시업보다 쉬워 횟수를 채우기 좋다.',
+  ),
+  Exercise(
     id: 'close_grip_pulldown', name: '클로즈그립 랫풀다운', group: MuscleGroup.back,
     emphasis: ['광배 하부', '등 두께(능형근)'], equipment: [EquipmentType.latPulldown, EquipmentType.cableMachine, EquipmentType.latPulldownPlateLoaded],
     loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
@@ -2345,7 +2352,7 @@ const _families = <String, List<String>>{
   'ham_curl': ['leg_curl', 'lying_leg_curl', 'nordic_curl'],
   'dip': ['dips', 'tri_dips', 'assisted_dip', 'dip_m'],
   'pullup': ['pullup', 'assisted_pullup', 'chinup'],
-  'pushup': ['pushup', 'decline_pushup', 'trx_pushup'],
+  'pushup': ['pushup', 'incline_pushup', 'decline_pushup', 'trx_pushup'],
   // 머신·멀티스테이션(케이블)·덤벨로 같은 동작을 하는 것들: 한 세션엔 하나만.
   'chest_fly': ['pec_deck', 'cable_fly', 'db_fly', 'incline_db_fly', 'low_cable_fly'],
   'tri_pushdown': ['tri_pushdown', 'rope_pushdown', 'vbar_pushdown', 'tri_ext_m'],

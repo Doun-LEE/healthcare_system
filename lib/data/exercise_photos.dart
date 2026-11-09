@@ -61,6 +61,7 @@ const Map<String, (String, String)> exercisePhotos = {
   'decline_db': ('Decline_Dumbbell_Bench_Press/0.jpg', 'Decline_Dumbbell_Bench_Press/1.jpg'),
   'decline_press_m': ('Leverage_Decline_Chest_Press/0.jpg', 'Leverage_Decline_Chest_Press/1.jpg'),
   'decline_pushup': ('Decline_Push-Up/0.jpg', 'Decline_Push-Up/1.jpg'),
+  'incline_pushup': ('Incline_Push-Up/0.jpg', 'Incline_Push-Up/1.jpg'),
   'decline_situp': ('Decline_Crunch/0.jpg', 'Decline_Crunch/1.jpg'),
   'dip_m': ('Dip_Machine/0.jpg', 'Dip_Machine/1.jpg'),
   'dips': ('Dips_-_Chest_Version/0.jpg', 'Dips_-_Chest_Version/1.jpg'),
