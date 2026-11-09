@@ -3,6 +3,7 @@ import 'package:fit_routine/engine/progression.dart';
 import 'package:fit_routine/engine/session_generator.dart';
 import 'package:fit_routine/models/models.dart';
 import 'package:fit_routine/services/partner.dart';
+import 'package:fit_routine/state/app_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -50,6 +51,16 @@ void main() {
     expect(plain.type, EquipmentType.chestSupportedRow);
     expect(exerciseById('seated_row_m')!.canDoWith({EquipmentType.seatedRowMachine}), isTrue);
     expect(familyOf('seated_row_m'), familyOf('seated_row'));
+  });
+
+  test('파트너 선호 합치기: 평균, 누군가 확실히 싫어하면 그 점수', () {
+    final p = AppState.groupPref([
+      {'a': 2, 'b': 3},
+      {'a': 1, 'b': -3},
+      {},
+    ]);
+    expect(p['a'], closeTo(1, 1e-9));
+    expect(p['b'], -3);
   });
 
   test('덤벨 풀오버는 덤벨 1개 운동', () {

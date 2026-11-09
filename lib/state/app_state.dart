@@ -3074,9 +3074,22 @@ class AppState extends ChangeNotifier {
     }
     final u = currentUser;
     final prefs = [u?.exercisePref ?? const <String, double>{}, for (final pp in people) pp.exercisePref];
+    return (avoid: avoid, lastDay: lastDay, lastDone: lastDone, pref: groupPref(prefs));
+  }
+
+  /// 여러 사람의 운동 선호를 합친다: 기본은 평균, 누군가 확실히 싫어하면(-2 이하) 그 사람 점수를 따른다.
+  static Map<String, double> groupPref(List<Map<String, double>> prefs) {
+    if (prefs.isEmpty) return const {};
     final ids = {for (final m in prefs) ...m.keys};
-    final pref = {for (final id in ids) id: prefs.fold<double>(0, (a, m) => a + (m[id] ?? 0)) / prefs.length};
-    return (avoid: avoid, lastDay: lastDay, lastDone: lastDone, pref: pref);
+    return {
+      for (final id in ids)
+        id: () {
+          final vals = [for (final m in prefs) m[id] ?? 0.0];
+          final avg = vals.reduce((a, b) => a + b) / vals.length;
+          final lo = vals.reduce(min);
+          return lo <= -2 ? min(avg, lo) : avg;
+        }(),
+    };
   }
 
   /// 그 날 함께 운동하는 사람들(나 제외). 예전 1:1 파트너 날은 파트너 목록에서 찾는다.
