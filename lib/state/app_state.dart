@@ -3228,6 +3228,11 @@ class AppState extends ChangeNotifier {
           plan.exercises.insert(idx + 1, old.copyWith(personal: true, note: '나는 원래 운동으로 · ${old.note ?? ''}'.trim()));
           result = '나는 ${exerciseById(fromEx ?? '')?.name ?? '원래 운동'} 그대로 해요.';
         }
+        // 제안에 답한 것도 선호도로 배운다(수락: 새 운동 +, 거절: 원래 운동 +).
+        if (fromEx != null) {
+          _bumpPref(u, accept ? to.id : fromEx, 0.5);
+          _bumpPref(u, accept ? fromEx : to.id, -0.5);
+        }
         plan.jointAt = (item.code == null ? null : decodeRoutine(item.code!)?.at) ?? DateTime.now().toUtc();
         _markCustom(plan);
         await _save();
