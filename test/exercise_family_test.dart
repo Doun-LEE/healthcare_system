@@ -76,7 +76,8 @@ void main() {
   test('라잉 인클라인 체스트 프레스 기구·운동이 있다', () {
     final ex = exerciseById('lying_incline_press_m')!;
     expect(ex.canDoWith(_gym([EquipmentType.lyingInclinePress]).availableTypes), isTrue);
-    expect(exerciseById('cs_row_m')!.name, '시티드 로우 머신');
+    expect(exerciseById('cs_row_m')!.name, '체스트 서포티드 로우 머신');
+    expect(exerciseById('seated_row_m')!.name, '시티드 로우 머신');
   });
 
   test('바이킹 프레스: 서서 하는 별도 기구·운동, 뉴텍에도 있다', () {

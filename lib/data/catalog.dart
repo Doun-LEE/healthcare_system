@@ -486,8 +486,14 @@ const List<EquipmentInfo> equipmentCatalog = [
   // ───── 등 추가 ─────
   EquipmentInfo(
     type: EquipmentType.chestSupportedRow,
-    summary: '가슴을 패드에 대고 당기는 로우 머신. 허리 개입 없이 등만 고립.',
+    summary: '비스듬히 엎드리듯 가슴을 패드에 대고 당기는 로우(인클라인 레버 로우·실 로우). 반동·허리 개입 없이 등만 고립.',
     strengths: ['등 두께(능형근·중부 승모)', '허리 부담 0', '리어 델트'],
+    groups: [MuscleGroup.back],
+  ),
+  EquipmentInfo(
+    type: EquipmentType.seatedRowMachine,
+    summary: '앉아서 가슴 패드에 기대 손잡이를 당기는 로우 머신. 케이블 시티드 로우를 머신으로 하는 것.',
+    strengths: ['등 중부(능형근)', '광배', '자세 고정'],
     groups: [MuscleGroup.back],
   ),
   EquipmentInfo(
@@ -1393,10 +1399,17 @@ const List<Exercise> exerciseCatalog = [
     description: '머신 무게 = 덜어주는 무게. 체중의 절반에서 시작해 점점 줄인다.',
   ),
   Exercise(
-    id: 'cs_row_m', name: '시티드 로우 머신', group: MuscleGroup.back,
+    id: 'cs_row_m', name: '체스트 서포티드 로우 머신', group: MuscleGroup.back,
     emphasis: ['등 두께(능형근)', '허리 부담 0'], equipment: [EquipmentType.chestSupportedRow],
     loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.9,
     compound: true, repRange: [8, 12], priority: 3,
+  ),
+  Exercise(
+    id: 'seated_row_m', name: '시티드 로우 머신', group: MuscleGroup.back,
+    emphasis: ['등 하부', '등 두께(능형근)'], equipment: [EquipmentType.seatedRowMachine],
+    loadType: LoadType.machine, refLift: RefLift.row, ratio: 0.95,
+    compound: true, repRange: [8, 12], priority: 3,
+    description: '케이블 시티드 로우와 같은 동작을 머신으로. 가슴 패드에 기대 반동 없이 당긴다.',
   ),
   Exercise(
     id: 'high_row', name: '하이 로우(플레이트 로디드)', group: MuscleGroup.back,
@@ -2344,6 +2357,7 @@ const _families = <String, List<String>>{
   'hinge': ['deadlift', 'rack_pull', 'rdl', 'bb_stiff_deadlift', 'db_stiff_deadlift', 'trap_deadlift', 'sumo_deadlift', 'good_morning'],
   'squat': ['bb_squat', 'front_squat', 'hack_squat', 'ssb_squat', 'pendulum_squat', 'v_squat', 'belt_squat', 'reverse_hack', 'landmine_squat', 'goblet_squat', 'smith_squat'],
   'leg_press': ['leg_press', 'h_leg_press', 'single_leg_press'],
+  'seated_row': ['seated_row', 'seated_row_m'],
   'overhead_press': ['ohp', 'db_shoulder_press', 'shoulder_press_m', 'shoulder_press_pl', 'viking_press', 'fixed_bb_press', 'arnold_press', 'kb_press', 'landmine_press'],
 };
 
@@ -2434,3 +2448,6 @@ List<Exercise> exercisesForTypes(Set<EquipmentType> types) {
 
 /// 안 하는 사람도 많은 운동. 기본적으로 덜 넣고, 직접 추가하거나 바꿔 넣으면(선호 +) 다시 나온다.
 const nicheExerciseIds = {'shrug', 'calf_raise', 'seated_calf', 'wrist_curl', 'farmers_walk'};
+
+/// 덤벨 하나를 두 손으로 드는 운동(풀오버·고블릿 스쿼트·오버헤드 익스텐션). 무게는 덤벨 1개 그대로, '한 손/양손' 구분이 없다.
+const singleDumbbellIds = {'db_pullover', 'goblet_squat', 'overhead_tri'};

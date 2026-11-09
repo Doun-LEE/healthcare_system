@@ -576,7 +576,7 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
               userName: userName,
               showAll: showAll,
               style: style,
-              equipmentLabel: (e) => context.read<AppState>().equipmentLabelFor(plan, e.equipmentType),
+              equipmentLabel: (e) => context.read<AppState>().equipmentLabelFor(plan, e.equipmentType, pe: e),
             ),
           ),
           const SizedBox(height: 8),

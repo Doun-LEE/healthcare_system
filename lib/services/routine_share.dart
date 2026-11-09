@@ -69,7 +69,7 @@ String encodeRoutine(DayPlan plan, {String? from, SharedVenue? venue, DateTime? 
         if (!pe.personal) {
           'i': pe.exerciseId,
           's': pe.sets.length,
-          'r': pe.sets.isEmpty ? 10 : pe.sets.first.targetReps,
+          'r': pe.sets.isEmpty ? 10 : pe.topSet.targetReps,
           'q': pe.equipmentType.name,
         },
     ],

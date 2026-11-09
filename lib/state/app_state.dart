@@ -86,7 +86,7 @@ class AppState extends ChangeNotifier {
 
   /// 그 날 헬스장에서 이 운동에 쓰는 실제 기구(등록한 이름·사진). 파트너 헬스장이거나 못 찾으면 null.
   /// 같은 종류가 여러 대면 사진 있는 것 → 브랜드 지정한 것 → 먼저 등록한 것 순.
-  GymEquipment? equipmentFor(DayPlan plan, EquipmentType type) {
+  GymEquipment? equipmentFor(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) {
     if (type == EquipmentType.bodyweight) return null;
     // 파트너 헬스장이면 그 사람이 등록한 기구 데이터(별칭·무게 단위)를 그대로 쓴다.
     final list = plan.atOtherGym ? plan.venueEquipment : (gymOf(plan)?.equipment ?? const <GymEquipment>[]);
@@ -95,12 +95,88 @@ class AppState extends ChangeNotifier {
     // 전용 기구가 없으면 그 역할을 하는 기구(멀티스테이션 → 케이블·펙덱 등)로 대신한다.
     if (pool.isEmpty) pool = list.where((e) => e.impliedTypes.contains(type)).toList();
     if (pool.isEmpty) return null;
-    return pool.firstWhere((e) => e.hasPhoto, orElse: () => pool.firstWhere((e) => e.brand != null, orElse: () => pool.first));
+    if (pe?.machine != null) {
+      final picked = pool.where((e) => e.displayName == pe!.machine).firstOrNull;
+      if (picked != null) return picked;
+    }
+    return _ordered(pool).first;
+  }
+
+  /// 같은 종류 기구 중 대표 순서: 사진 있는 것 → 브랜드 지정한 것 → 먼저 등록한 것.
+  static List<GymEquipment> _ordered(List<GymEquipment> pool) => [
+        ...pool.where((e) => e.hasPhoto),
+        ...pool.where((e) => !e.hasPhoto && e.brand != null),
+        ...pool.where((e) => !e.hasPhoto && e.brand == null),
+      ];
+
+  /// 기구 종류 → 그 헬스장의 실제 기구 이름들(대표 순). 같은 종류가 여러 대면 운동마다 기구를 고르고 무게를 따로 기억한다.
+  Map<EquipmentType, List<String>> machinesForList(List<GymEquipment> list) {
+    final out = <EquipmentType, List<String>>{};
+    for (final t in {for (final e in list) ...e.allTypes}) {
+      final names = <String>[];
+      for (final e in _ordered(list.where((e) => e.allTypes.contains(t)).toList())) {
+        if (!names.contains(e.displayName)) names.add(e.displayName);
+      }
+      out[t] = names;
+    }
+    return out;
+  }
+
+  Map<EquipmentType, List<String>> machinesForGym(Gym? g) => machinesForList(g?.equipment ?? const []);
+  Map<EquipmentType, List<String>> machinesForPlan(DayPlan? p) =>
+      p != null && p.atOtherGym ? machinesForList(p.venueEquipment) : machinesForGym(p == null ? activeGym : gymOf(p));
+
+  /// 그 날 이 운동으로 고를 수 있는 기구 이름들(2개 이상일 때만 고르기 버튼을 보인다).
+  List<String> machineChoices(DayPlan plan, PlannedExercise pe) => machinesForPlan(plan)[pe.equipmentType] ?? const [];
+
+  /// 이 운동에 쓸 기구를 바꾼다. 아직 안 했으면 그 기구에서의 무게로 처방을 바꾸고,
+  /// 이미 한 운동이면 기록을 그 기구로 옮긴다(예: 엠토쳐로 적혔지만 실제로는 레전더리로 한 날).
+  Future<void> setMachine(DayPlan plan, PlannedExercise pe, String machine) async {
+    final old = pe.machine ?? equipmentFor(plan, pe.equipmentType)?.displayName;
+    if (old == machine) return;
+    pe.machine = machine;
+    final prog = progress[pe.exerciseId];
+    final ex = exerciseById(pe.exerciseId);
+    if (pe.anyCompleted || plan.isFinished) {
+      if (prog != null && plan.isFinished) {
+        final done = pe.sets.where((s) => s.completed).fold<double>(0, (a, s) => max(a, s.effectiveWeight));
+        if (old != null && prog.lastMachine == old && prog.machineWeights[old] == prog.workingWeight) prog.machineWeights.remove(old);
+        if (prog.lastMachine == null || prog.lastMachine == old) {
+          // 그 기구에서 실제로 든 무게를 그 기구 기록으로.
+          prog.machineWeights[machine] = done > 0 ? done : prog.workingWeight;
+          prog.lastMachine = machine;
+        }
+      }
+    } else if (ex != null) {
+      final w = prog?.machineWeights[machine];
+      final top = pe.sets.isEmpty ? 0.0 : pe.topSet.targetWeight;
+      if (w != null && w > 0 && top > 0) {
+        final step = stepForPlan(plan)[pe.equipmentType] ?? ex.loadType.increment;
+        final target = w * plan.loadFactor;
+        for (var i = 0; i < pe.sets.length; i++) {
+          final s0 = pe.sets[i];
+          pe.sets[i] = SetEntry(
+            targetReps: s0.targetReps,
+            targetWeight: max(step, LoadEstimator.roundTo(s0.targetWeight / top * target, step)),
+            level: s0.level,
+            extra: s0.extra,
+          );
+        }
+      }
+    }
+    _markCustom(plan);
+    await _save();
   }
 
   /// 화면 무게 배율(기구별 '한쪽/양쪽' 기준). 표시 = 내부 × 배율.
-  double weightFactor(DayPlan plan, EquipmentType type) => equipmentFor(plan, type)?.displayFactor ?? 1;
-  String weightBasisLabel(DayPlan plan, EquipmentType type) => equipmentFor(plan, type)?.basisLabel ?? '';
+  /// 덤벨 하나를 두 손으로 드는 운동(풀오버 등)은 덤벨 1개 무게 그대로.
+  double weightFactor(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) =>
+      _singleDumbbell(type, pe) ? 1 : equipmentFor(plan, type, pe: pe)?.displayFactor ?? 1;
+  String weightBasisLabel(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) =>
+      _singleDumbbell(type, pe) ? '덤벨 1개' : equipmentFor(plan, type, pe: pe)?.basisLabel ?? '';
+
+  static bool _singleDumbbell(EquipmentType type, PlannedExercise? pe) =>
+      type == EquipmentType.dumbbell && pe != null && singleDumbbellIds.contains(pe.exerciseId);
 
   /// 앞으로 할 날의 처방(목표 무게·횟수)을 직접 바꾼다. 그 운동의 모든 세트에 적용.
   /// 처방 바꾸기. [index] 세트를 고른 값으로 하고, 나머지 세트도 같은 만큼 옮긴다
@@ -143,9 +219,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// 루틴에 보여줄 기구 이름: 등록 이름(브랜드 모델명·별칭) 또는 종류 이름.
-  String equipmentLabelFor(DayPlan plan, EquipmentType type) {
+  String equipmentLabelFor(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) {
     if (type == EquipmentType.bodyweight) return '맨몸';
-    return equipmentFor(plan, type)?.displayName ?? type.label;
+    return equipmentFor(plan, type, pe: pe)?.displayName ?? type.label;
   }
 
   /// 그 날 운동할 수 있는 기구: 파트너 헬스장이면 그곳 기구, 아니면 그 날 헬스장 기구.
@@ -1517,6 +1593,7 @@ class AppState extends ChangeNotifier {
       newId: newId,
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
+      machines: machinesForGym(activeGym),
       fixed: fixed,
       dayAvailable: dayAvailable,
       dayGym: dayGym,
@@ -1711,6 +1788,7 @@ class AppState extends ChangeNotifier {
         now: d,
         equipmentMax: maxForPlan(existing),
         equipmentStep: stepForPlan(existing),
+        machines: machinesForPlan(existing),
         seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
         avoidIds: {..._neighborIds(d), ...have},
       )).generate().where((e) => !e.warmup && !have.contains(e.exerciseId)).toList();
@@ -1735,6 +1813,7 @@ class AppState extends ChangeNotifier {
       now: d,
       equipmentMax: maxForPlan(existing),
       equipmentStep: stepForPlan(existing),
+      machines: machinesForPlan(existing),
       seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
       pinned: [for (final e in existing?.exercises ?? const <PlannedExercise>[]) if (e.pinned) e],
       avoidIds: _neighborIds(d),
@@ -1927,6 +2006,7 @@ class AppState extends ChangeNotifier {
       newId: newId,
       equipmentMax: maxForGym(gym ?? activeGym),
       equipmentStep: stepForGym(gym ?? activeGym),
+      machines: machinesForGym(gym ?? activeGym),
       dayAvailable: {if (gym != null) dateKey(d): gym.availableTypes},
       dayGym: {if (gym != null) dateKey(d): gym.id},
       dayPinned: {if (pinned.isNotEmpty) dateKey(d): pinned},
@@ -2209,7 +2289,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// 운동 하나를 다른 운동으로 교체(같은 부위, 보유 기구로 가능한 것 중 선택).
-  Future<void> swapExercise(DayPlan plan, PlannedExercise old, Exercise to) async {
+  /// 파트너 날: [mineOnly]면 나만 바꾸고(원래 운동은 '나만 빼기', 새 운동은 나만 하는 운동),
+  /// 아니면 내 루틴을 바로 바꾸고 함께 하는 사람들에게 수락/거절을 묻는 제안을 보낸다.
+  Future<void> swapExercise(DayPlan plan, PlannedExercise old, Exercise to, {bool mineOnly = false}) async {
     _markCustom(plan);
     final i = plan.exercises.indexOf(old);
     if (i < 0) return;
@@ -2222,14 +2304,29 @@ class AppState extends ChangeNotifier {
       minutesBudget: 30,
       equipmentMax: maxForPlan(plan),
       equipmentStep: stepForPlan(plan),
+      machines: machinesForPlan(plan),
     ));
     // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
     // 워밍업 칸이었으면 바꾼 운동도 워밍업(가볍게)으로.
-    plan.exercises[i] = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
+    final next = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
     // 본 운동을 바꿨으면 선호도 학습: 뺀 운동은 덜, 넣은 운동은 더 자주.
     if (!old.warmup && old.exerciseId != to.id) {
       _bumpPref(u, old.exerciseId, -1);
       _bumpPref(u, to.id, 1);
+    }
+    final shared = plan.partnerName != null && !old.personal && !old.warmup && membersOf(plan).isNotEmpty;
+    if (shared && mineOnly) {
+      old.skipMine = true;
+      plan.exercises.insert(i + 1, next.copyWith(personal: true, note: '나만 바꾼 운동 · ${next.note ?? ''}'.trim()));
+      await _save();
+      return;
+    }
+    plan.exercises[i] = next;
+    if (shared) {
+      plan.jointAt = DateTime.now().toUtc();
+      await _save();
+      await _proposeSwap(plan, old.exerciseId, to.id);
+      return;
     }
     await _save();
     await resyncPartnerDay(plan);
@@ -2244,6 +2341,7 @@ class AppState extends ChangeNotifier {
       minutesBudget: 120,
       equipmentMax: maxForPlan(plan),
       equipmentStep: stepForPlan(plan),
+      machines: machinesForPlan(plan),
     ));
     return gen.planExercise(ex);
   }
@@ -2320,6 +2418,7 @@ class AppState extends ChangeNotifier {
         now: dateOnly(date),
         equipmentMax: maxForPlan(existing),
         equipmentStep: stepForPlan(existing),
+        machines: machinesForPlan(existing),
         seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
       )).generate();
     }
@@ -2346,8 +2445,12 @@ class AppState extends ChangeNotifier {
     await _save();
     if (plan.partnerName != null) {
       // 파트너도 내 컨디션을 보고, 줄인 시간은 둘이 같은 루틴이어야 하므로 다시 보낸다.
-      unawaited(_publishPublic().catchError((_) {}));
-      if (trimmed) await resyncPartnerDay(plan);
+      if (trimmed) {
+        unawaited(_publishPublic().catchError((_) {}));
+        await resyncPartnerDay(plan);
+      } else {
+        unawaited(_publishPublic().then((_) => _pingCondition(plan)).catchError((_) {}));
+      }
     }
     return plan;
   }
@@ -2380,6 +2483,15 @@ class AppState extends ChangeNotifier {
       );
       if (cur.workingWeight == 0 && baseline > 0) {
         cur.workingWeight = baseline;
+      }
+      // 같은 종류 기구가 여러 대: 이 기구에서의 무게를 기준으로 판정(처음 쓰는 기구면 오늘 처방 무게).
+      if (pe.machine != null) {
+        final mw = cur.machineWeights[pe.machine!];
+        if (mw != null && mw > 0) {
+          cur.workingWeight = mw;
+        } else if (baseline > 0) {
+          cur.workingWeight = baseline;
+        }
       }
       final r = Progression.apply(pe, cur, now, loadFactor: plan.loadFactor, rpe: rpe);
       msgs.add('${ex.name}: ${r.message}');
@@ -2448,7 +2560,22 @@ class AppState extends ChangeNotifier {
   String? get _myUid => cloudSignedIn ? CloudSync.instance.user?.uid : null;
 
   /// 친구별 최근 메시지 구독을 파트너 목록에 맞춘다(추가된 친구는 구독, 삭제된 친구는 해제).
+  StreamSubscription<int>? _inboxSub;
+  Timer? _inboxDebounce;
+
+  /// 받은편지함을 실시간으로 본다: 파트너가 운동 바꾸기를 제안하면 바로 수락/거절 창이 뜬다.
+  void _watchInbox() {
+    if (_inboxSub != null || !cloudSignedIn) return;
+    try {
+      _inboxSub = CloudSync.instance.inboxStream().listen((_) {
+        _inboxDebounce?.cancel();
+        _inboxDebounce = Timer(const Duration(milliseconds: 800), () => refreshInbox());
+      }, onError: (_) {});
+    } catch (_) {}
+  }
+
   void watchChats() {
+    _watchInbox();
     final me = _myUid;
     final want = <String, PartnerLink>{
       if (me != null)
@@ -2519,7 +2646,33 @@ class AppState extends ChangeNotifier {
     if (!cloudSignedIn) return;
     unawaited(checkLinkedGyms().catchError((_) {}));
     try {
-      final raw = await CloudSync.instance.readInbox();
+      final all = await CloudSync.instance.readInbox();
+      // 운동 바꾸기 제안·답장·컨디션 알림은 따로 처리한다(루틴 동기화와 섞지 않음).
+      final raw = <InboxItem>[];
+      final proposals = <InboxItem>[];
+      for (final it in all) {
+        if (it.op == null) {
+          raw.add(it);
+        } else if (it.op == 'swap' && it.date != null) {
+          final p = planOn(it.date!);
+          if (p != null && !p.isFinished && _isMember(p, it.fromUid, it.fromName)) {
+            proposals.add(it);
+          } else {
+            unawaited(CloudSync.instance.deleteInbox(it.id).catchError((_) {}));
+          }
+        } else if (it.op == 'swapYes' || it.op == 'swapNo') {
+          final a = exerciseById(it.fromEx ?? '')?.name ?? '운동';
+          final b = exerciseById(it.toEx ?? '')?.name ?? '새 운동';
+          lastPartnerNotice = it.op == 'swapYes'
+              ? '${it.fromName} 님이 $a → $b 바꾸기를 수락했어요.'
+              : '${it.fromName} 님은 $a 그대로 할게요(바꾸기 거절).';
+          unawaited(CloudSync.instance.deleteInbox(it.id).catchError((_) {}));
+        } else {
+          // 'cond' 등: 알림만(컨디션은 아래에서 새로 읽는다).
+          unawaited(CloudSync.instance.deleteInbox(it.id).catchError((_) {}));
+        }
+      }
+      swapProposals = proposals;
       // 같은 파트너가 같은 날짜로 여러 번 보낸 루틴(수정할 때마다 전송)은 가장 최근 것 하나만 남긴다.
       final newestJoint = <String, InboxItem>{};
       DateTime atOf(InboxItem i) => (i.code == null ? null : decodeRoutine(i.code!)?.at) ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -2805,6 +2958,16 @@ class AppState extends ChangeNotifier {
 
     final all = profiles.values.toList();
     final minutes = all.fold<int>(u.sessionMinutes, (a, pp) => min(a, pp.profile.sessionMinutes));
+    final hints = _groupHints(d, all);
+    // 컨디션: 내 무게는 내 컨디션 배율, 세트 수는 함께 하는 사람 중 가장 안 좋은 컨디션에 맞춘다.
+    final conds = [?mine?.condition, for (final pp in all) ?pp.dayCondition[key]];
+    final worst = conds.isEmpty ? null : conds.reduce(min);
+    final intensity = min(mine?.intensityFactor ?? 1.0, worst == null ? 1.0 : (worst <= 3 ? 0.8 : worst <= 5 ? 0.9 : 1.0));
+    final venueMachines = venue == null
+        ? machinesForPlan(mine)
+        : (venue.owner == myUid && gymById(venue.gymId) != null)
+            ? machinesForGym(gymById(venue.gymId))
+            : machinesForList(venue.equipment);
     final exercises = SessionGenerator(SessionRequest(
       groups: groups,
       available: available,
@@ -2814,20 +2977,23 @@ class AppState extends ChangeNotifier {
       now: d,
       equipmentMax: equipmentMax,
       equipmentStep: equipmentStep,
+      machines: venueMachines,
       seed: d.millisecondsSinceEpoch ~/ 86400000 + 7,
       extraInjuries: {for (final pp in all) ...pp.profile.injuries}, // 누구라도 다친 부위는 뺀다
       cardioOverride: everyoneCardio, // 모두 원할 때만 유산소
+      // 모두가 최근에 한 운동은 피하고, 모두가 오래 안 한 운동·좋아하는 운동을 먼저.
+      avoidIds: hints.avoid,
+      lastDayIds: hints.lastDay,
+      lastDone: hints.lastDone,
+      prefOverride: hints.pref,
+      intensityFactor: intensity,
+      loadFactor: mine?.condition != null ? mine!.loadFactor : 1.0,
     )).generate();
     if (exercises.isEmpty) return '모두에게 공통으로 있는 기구로 만들 수 있는 운동이 없어요.';
 
     final weights = <String, Map<String, double>>{};
     for (final m in others) {
-      final pp = profiles[m.uid]!;
-      final est = LoadEstimator(pp.profile);
-      weights[m.uid] = {
-        for (final pe in exercises)
-          pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
-      };
+      weights[m.uid] = _memberWeightsFor(profiles[m.uid]!, exercises);
     }
     final title = '${focusTitle(groups)} · $names와 함께';
     final plan = DayPlan(
@@ -2838,7 +3004,9 @@ class AppState extends ChangeNotifier {
       focus: groups,
       exercises: exercises,
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
-      intensityFactor: mine?.intensityFactor ?? 1.0,
+      intensityFactor: intensity,
+      loadFactor: mine?.condition != null ? mine!.loadFactor : 1.0,
+      condition: mine?.condition,
       title: title,
       partnerName: names,
       partnerWeights: Map.of(weights[others.first.uid]!),
@@ -2863,6 +3031,52 @@ class AppState extends ChangeNotifier {
     if (failed.length == others.length) return '$note 보내기는 실패했어요(네트워크). 잠시 뒤 다시 해주세요.';
     if (failed.isNotEmpty) return '$note$where ${failed.join('·')} 님에게는 아직 못 보냈어요(연결이 느림, 뒤에서 계속 보내요).';
     return '$note$where $names 님 앱에도 같은 루틴을 보냈어요.';
+  }
+
+  /// 함께 운동하는 사람의 운동별 무게(그 사람 기록 → 같은 기구 기록 → 스펙으로 추정).
+  Map<String, double> _memberWeightsFor(PartnerProfile pp, List<PlannedExercise> exercises) {
+    final est = LoadEstimator(pp.profile);
+    return {
+      for (final pe in exercises)
+        if (exerciseById(pe.exerciseId) case final ex?)
+          pe.exerciseId: pp.weightFor(pe.exerciseId, pe.machine) ?? est.initialWeight(ex, pe.sets.isEmpty ? 10 : pe.topSet.targetReps),
+    };
+  }
+
+  /// 함께 할 루틴을 짤 때 쓰는 모두의 기록: 최근에 한 운동(피하기), 마지막 수행일, 선호도 평균.
+  ({Set<String> avoid, Set<String> lastDay, Map<String, DateTime> lastDone, Map<String, double> pref}) _groupHints(
+      DateTime d, List<PartnerProfile> people) {
+    final avoid = <String>{..._neighborIds(d)};
+    final lastDay = <String>{};
+    final mineBefore = myPlans.where((p) => !p.isRest && !p.skipped && p.date.isBefore(d) && p.exercises.any((e) => !e.warmup)).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    if (mineBefore.isNotEmpty) lastDay.addAll([for (final e in mineBefore.first.exercises) if (!e.warmup) e.exerciseId]);
+    final lastDone = <String, DateTime>{};
+    void seen(String id, DateTime at) {
+      final cur = lastDone[id];
+      if (cur == null || at.isAfter(cur)) lastDone[id] = at;
+    }
+    for (final pp in people) {
+      final before = pp.plans.values.where((p) => p.date.isBefore(d) && p.exercises.isNotEmpty).toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
+      for (final p in before.take(2)) {
+        avoid.addAll(p.exercises.map((e) => e.exerciseId));
+      }
+      if (before.isNotEmpty) lastDay.addAll(before.first.exercises.map((e) => e.exerciseId));
+      for (final p in before) {
+        for (final e in p.exercises) {
+          if (p.finished || e.sets.any((s) => s.done)) seen(e.exerciseId, p.date);
+        }
+      }
+      for (final e in pp.lastDone.entries) {
+        seen(e.key, e.value);
+      }
+    }
+    final u = currentUser;
+    final prefs = [u?.exercisePref ?? const <String, double>{}, for (final pp in people) pp.exercisePref];
+    final ids = {for (final m in prefs) ...m.keys};
+    final pref = {for (final id in ids) id: prefs.fold<double>(0, (a, m) => a + (m[id] ?? 0)) / prefs.length};
+    return (avoid: avoid, lastDay: lastDay, lastDone: lastDone, pref: pref);
   }
 
   /// 그 날 함께 운동하는 사람들(나 제외). 예전 1:1 파트너 날은 파트너 목록에서 찾는다.
@@ -2917,11 +3131,7 @@ class AppState extends ChangeNotifier {
       try {
         final pp = await CloudSync.instance.fetchPartner(m.uid);
         if (pp == null) continue;
-        final est = LoadEstimator(pp.profile);
-        plan.memberWeights[m.uid] = {
-          for (final pe in plan.exercises)
-            pe.exerciseId: pp.workingWeights[pe.exerciseId] ?? est.initialWeight(exerciseById(pe.exerciseId)!, pe.sets.first.targetReps),
-        };
+        plan.memberWeights[m.uid] = _memberWeightsFor(pp, plan.exercises);
       } catch (_) {}
     }
     final first = plan.memberWeights[others.first.uid];
@@ -2957,6 +3167,83 @@ class AppState extends ChangeNotifier {
 
   static bool _sameGroups(List<MuscleGroup> a, List<MuscleGroup> b) =>
       a.length == b.length && a.toSet().containsAll(b);
+
+  /// 내 컨디션을 입력했다고 함께 하는 사람들에게 알린다(그 사람들 앱이 컨디션·무게 표시를 바로 새로 읽음).
+  Future<void> _pingCondition(DayPlan plan) async {
+    final others = membersOf(plan);
+    final me = CloudSync.instance.user;
+    if (others.isEmpty || me == null) return;
+    final group = [GroupMember(me.uid, currentUser?.name ?? ''), ...others];
+    final code = encodeRoutine(plan, from: currentUser?.name, venue: venueOf(plan), at: plan.jointAt, group: group);
+    await Future.wait([
+      for (final m in others)
+        CloudSync.instance
+            .sendConditionPing(toUid: m.uid, date: plan.date, code: code, fromName: currentUser?.name ?? '')
+            .timeout(const Duration(seconds: 8))
+            .catchError((_) {}),
+    ]);
+  }
+
+  // ───────── 파트너 루틴 운동 바꾸기 제안 ─────────
+
+  /// 함께 하는 사람이 보낸 운동 바꾸기 제안(아직 답하지 않은 것). 화면에 바로 수락/거절 창을 띄운다.
+  List<InboxItem> swapProposals = [];
+
+  /// 운동 바꾸기를 함께 하는 사람들에게 제안한다(내 루틴은 바로 바뀜).
+  Future<void> _proposeSwap(DayPlan plan, String fromEx, String toEx) async {
+    final others = membersOf(plan);
+    final me = CloudSync.instance.user;
+    if (others.isEmpty || me == null) return;
+    final group = [GroupMember(me.uid, currentUser?.name ?? ''), ...others];
+    final code = encodeRoutine(plan, from: currentUser?.name, venue: venueOf(plan), at: plan.jointAt, group: group);
+    await Future.wait([
+      for (final m in others)
+        CloudSync.instance
+            .sendSwapProposal(
+                toUid: m.uid, date: plan.date, code: code, title: plan.title ?? '파트너 루틴', fromName: currentUser?.name ?? '', fromEx: fromEx, toEx: toEx)
+            .timeout(const Duration(seconds: 8))
+            .catchError((_) {}),
+    ]);
+  }
+
+  /// 운동 바꾸기 제안에 답한다. 수락: 나도 바꾼다. 거절: 바꾼 운동은 '나만 빼기'로 두고 원래 운동을 나만 한다.
+  Future<String> answerSwap(InboxItem item, {required bool accept}) async {
+    swapProposals = swapProposals.where((i) => i.id != item.id).toList();
+    final plan = item.date == null ? null : planOn(item.date!);
+    final fromEx = item.fromEx, toEx = item.toEx;
+    final to = toEx == null ? null : exerciseById(toEx);
+    final u = currentUser;
+    var result = '';
+    if (plan != null && u != null && to != null && !plan.isFinished) {
+      final idx = plan.exercises.indexWhere((e) => !e.personal && !e.warmup && e.exerciseId == fromEx);
+      if (idx >= 0 && !plan.exercises.any((e) => !e.personal && e.exerciseId == toEx)) {
+        final old = plan.exercises[idx];
+        final next = _planSingle(to, u, plan)..pinned = old.pinned;
+        if (accept) {
+          plan.exercises[idx] = next;
+          result = '${to.name}(으)로 바꿨어요.';
+        } else {
+          // 공유 루틴 구조는 맞추고(바뀐 운동은 '나만 빼기'), 원래 운동은 나만 하는 운동으로 남긴다.
+          plan.exercises[idx] = next..skipMine = true;
+          plan.exercises.insert(idx + 1, old.copyWith(personal: true, note: '나는 원래 운동으로 · ${old.note ?? ''}'.trim()));
+          result = '나는 ${exerciseById(fromEx ?? '')?.name ?? '원래 운동'} 그대로 해요.';
+        }
+        plan.jointAt = (item.code == null ? null : decodeRoutine(item.code!)?.at) ?? DateTime.now().toUtc();
+        _markCustom(plan);
+        await _save();
+      }
+    }
+    try {
+      if (item.date != null && fromEx != null && toEx != null) {
+        await CloudSync.instance.sendSwapAnswer(item.fromUid, item.date!, u?.name ?? '', accept: accept, fromEx: fromEx, toEx: toEx);
+      }
+    } catch (_) {}
+    try {
+      await CloudSync.instance.deleteInbox(item.id);
+    } catch (_) {}
+    notifyListeners();
+    return result;
+  }
 
   /// 파트너 운동일의 루틴이 바뀌면(운동 교체·부위 변경·AI 적용 등) 파트너에게 다시 보낸다.
   /// 상대 앱은 아직 시작 전이면 자동으로 같은 루틴으로 맞춘다.
@@ -3172,6 +3459,13 @@ class AppState extends ChangeNotifier {
         : (v.owner == myUid && gymById(v.gymId) != null)
             ? gymById(v.gymId)!.availableTypes
             : {EquipmentType.bodyweight, ...v.types};
+    final machinesHere = v == null
+        ? machinesForPlan(existing)
+        : (v.owner == myUid && gymById(v.gymId) != null)
+            ? machinesForGym(gymById(v.gymId))
+            : machinesForList(v.equipment);
+    // 파트너 날에 이미 컨디션을 넣었으면, 루틴이 다시 와도 내 무게 배율은 그대로.
+    final keepLoad = existing != null && existing.condition != null ? existing.loadFactor : 1.0;
     final exercises = <PlannedExercise>[];
     for (final item in shared.items) {
       final ex = exerciseById(item.exerciseId)!;
@@ -3180,16 +3474,24 @@ class AppState extends ChangeNotifier {
           ? ex.pickEquipment(available)
           : (item.equipment ?? ex.equipment.first);
       final prog = progress[ex.id];
-      final weight = (prog != null && prog.workingWeight > 0)
-          ? prog.workingWeight
-          : est.initialWeight(ex, item.reps, maxWeightKg: equipmentMax[eq]);
+      final ms = machinesHere[eq] ?? const <String>[];
+      final machine = ms.length < 2 ? null : (prog?.lastMachine != null && ms.contains(prog!.lastMachine) ? prog.lastMachine : ms.first);
+      final mw = machine == null ? null : prog?.machineWeights[machine];
+      var weight = (mw != null && mw > 0)
+          ? mw
+          : (prog != null && prog.workingWeight > 0)
+              ? prog.workingWeight
+              : est.initialWeight(ex, item.reps, maxWeightKg: equipmentMax[eq]);
+      final step = equipmentStep[eq] ?? ex.loadType.increment;
+      if (keepLoad != 1.0 && weight > 0 && step > 0) weight = max(step, LoadEstimator.roundTo(weight * keepLoad, step));
       final rule = restRules[ex.group]!;
       exercises.add(PlannedExercise(
         exerciseId: ex.id,
         equipmentType: eq,
         restSeconds: ex.compound ? rule.compoundRestSec : rule.isolationRestSec,
-        sets: List.generate(item.sets, (_) => SetEntry(targetReps: item.reps, targetWeight: weight)),
+        sets: SessionGenerator.setScheme(ex, prog, item.sets, item.reps, weight, step),
         note: canDo ? '공유 루틴 · 무게는 내 기준' : '⚠ 우리 헬스장에 없는 기구 (${eq.label})',
+        machine: machine,
       ));
     }
     final focus = shared.focus.isNotEmpty
@@ -3204,6 +3506,8 @@ class AppState extends ChangeNotifier {
       exercises: exercises,
       estimatedMinutes: SessionGenerator.estimateMinutes(exercises),
       title: '${shared.title.isEmpty ? '공유 루틴' : shared.title}${shared.from == null ? '' : ' (${shared.from} 공유)'}',
+      loadFactor: keepLoad,
+      condition: existing?.partnerName != null ? existing?.condition : null,
     );
     if (v != null) {
       _applyVenue(plan, v);
@@ -3220,6 +3524,7 @@ class AppState extends ChangeNotifier {
         if (old == null) continue;
         e.skipMine = old.skipMine;
         e.pinned = old.pinned;
+        if (old.machine != null && old.equipmentType == e.equipmentType) e.machine = old.machine;
       }
     }
     if (existing != null) _data.plans.remove(existing);

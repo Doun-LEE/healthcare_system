@@ -179,6 +179,12 @@ class Progression {
     }
 
     current.workingWeight = max(step, newWeight);
+    // 같은 종류 기구가 여러 대인 헬스장: 이 기구에서의 무게로 따로 기억.
+    final m = planned.machine;
+    if (m != null) {
+      current.machineWeights[m] = current.workingWeight;
+      current.lastMachine = m;
+    }
     return ProgressionResult(current, msg);
   }
 

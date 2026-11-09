@@ -88,7 +88,8 @@ enum EquipmentType {
   latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀', '암풀다운', 'arm pulldown', '풀다운']),
   latPulldownPlateLoaded('플레이트 로디드 랫풀다운(아이소 풀다운)', EquipmentCategory.back, ['iso lateral pulldown', 'hammer pulldown', '해머 풀다운', '아이소 풀다운', '아이소 래터럴 풀다운']),
   seatedRow('시티드 로우(케이블)', EquipmentCategory.back, ['seated row', 'cable row', '로우']),
-  chestSupportedRow('시티드 로우 머신(가슴 패드)', EquipmentCategory.back, ['chest supported row', 'seated row machine', '체스트 서포티드 로우']),
+  chestSupportedRow('체스트 서포티드 로우 머신', EquipmentCategory.back, ['chest supported row', '체스트 서포티드 로우', '인클라인 로우', 'seal row']),
+  seatedRowMachine('시티드 로우 머신', EquipmentCategory.back, ['seated row machine', '시티드 로우 머신', '로우 머신']),
   highRow('하이 로우(플레이트 로디드)', EquipmentCategory.back, ['high row', 'hammer high row', '해머 하이로우']),
   lowRow('로우 로우(플레이트 로디드·아이소 래터럴 로우)', EquipmentCategory.back, ['low row', 'hammer row', '해머 로우', 'iso row', 'iso lateral row', '아이소 래터럴 로우', '래터럴 로우', '레터럴 로우', '아이소 로우']),
   tBarRow('티바 로우 머신', EquipmentCategory.back, ['t bar row', '티바']),
@@ -648,6 +649,7 @@ enum LoadMechanism {
       case EquipmentType.latPulldown:
       case EquipmentType.seatedRow:
       case EquipmentType.chestSupportedRow:
+      case EquipmentType.seatedRowMachine:
       case EquipmentType.chestPress:
       case EquipmentType.inclineChestPress:
       case EquipmentType.declineChestPress:
@@ -838,10 +840,23 @@ class GymEquipment {
       };
 
   /// 예전 브랜드 목록은 플레이트 로디드 '인클라인' 프레스를 평 체스트프레스로 넣었다. 이름에 인클라인이 있으면 인클라인으로 바로잡는다.
-  static EquipmentType _fixIncline(EquipmentType t, String? name) =>
-      t == EquipmentType.chestPressPlateLoaded && name != null && RegExp('인클라인|incline', caseSensitive: false).hasMatch(name)
-          ? EquipmentType.inclineChestPress
-          : t;
+  static EquipmentType _fixIncline(EquipmentType t, String? name) {
+    if (t == EquipmentType.chestPressPlateLoaded && name != null && RegExp('인클라인|incline', caseSensitive: false).hasMatch(name)) {
+      return EquipmentType.inclineChestPress;
+    }
+    // 체스트 서포티드 로우와 시티드 로우 머신을 다시 나눔: 이름이 시티드/로우 로우 등인 브랜드 머신은 시티드 로우 머신.
+    if (t == EquipmentType.chestSupportedRow && name != null && isSeatedRowMachineName(name)) {
+      return EquipmentType.seatedRowMachine;
+    }
+    return t;
+  }
+
+  /// 브랜드 모델 이름이 (가슴을 비스듬히 대는 체스트 서포티드가 아닌) 앉아서 당기는 로우 머신인지.
+  static bool isSeatedRowMachineName(String name) =>
+      !RegExp('인클라인|incline|seal|실 로우|서포티드|supported|power row|파워 로우', caseSensitive: false).hasMatch(name) &&
+      RegExp('시티드|seated|로우 로우|low row|아이소래터럴|iso-lateral|mts|rowing|로잉|vertical|버티컬|다이버징|diverging|레터럴|lateral|insignia|signature|vrs|eagle|vr1|row',
+              caseSensitive: false)
+          .hasMatch(name);
 
   factory GymEquipment.fromJson(Map<String, dynamic> j) {
     final raw = EquipmentType.parse(j['type'] as String);
@@ -1065,10 +1080,15 @@ class PlannedExercise {
     this.skipMine = false,
     this.oneSide = false,
     this.cardio,
+    this.machine,
   });
 
   final String exerciseId;
   final EquipmentType equipmentType;
+
+  /// 실제로 쓰는 기구 이름(같은 종류가 여러 대일 때 어느 기구인지. 예: '엠토쳐 숄더 프레스').
+  /// 기구마다 무게 느낌이 달라 무게 기록도 기구별로 따로 둔다. null이면 기본 기구.
+  String? machine;
   final int restSeconds;
   final List<SetEntry> sets;
 
@@ -1116,6 +1136,7 @@ class PlannedExercise {
         if (skipMine) 'skipMine': true,
         if (oneSide) 'oneSide': true,
         if (cardio != null && !cardio!.isEmpty) 'cardio': cardio!.toJson(),
+        if (machine != null) 'machine': machine,
       };
 
   factory PlannedExercise.fromJson(Map<String, dynamic> j) => PlannedExercise(
@@ -1133,6 +1154,24 @@ class PlannedExercise {
         skipMine: (j['skipMine'] as bool?) ?? false,
         oneSide: (j['oneSide'] as bool?) ?? false,
         cardio: j['cardio'] is Map ? CardioStats.fromJson((j['cardio'] as Map).cast<String, dynamic>()) : null,
+        machine: j['machine'] as String?,
+      );
+
+  /// 같은 운동을 몇 가지만 바꾼 복사본.
+  PlannedExercise copyWith({bool? personal, bool? skipMine, List<SetEntry>? sets, String? note}) => PlannedExercise(
+        exerciseId: exerciseId,
+        equipmentType: equipmentType,
+        restSeconds: restSeconds,
+        sets: sets ?? this.sets,
+        note: note ?? this.note,
+        personal: personal ?? this.personal,
+        groupOverride: groupOverride,
+        warmup: warmup,
+        pinned: pinned,
+        skipMine: skipMine ?? this.skipMine,
+        oneSide: oneSide,
+        cardio: cardio,
+        machine: machine,
       );
 }
 
@@ -1381,7 +1420,16 @@ class ExerciseProgress {
     this.consecutiveFail = 0,
     this.level,
     List<SetRecord>? lastSets,
-  }) : lastSets = lastSets ?? [];
+    Map<String, double>? machineWeights,
+    this.lastMachine,
+  })  : lastSets = lastSets ?? [],
+        machineWeights = machineWeights ?? {};
+
+  /// 기구 이름 → 그 기구에서의 작업 중량. 같은 운동도 기구(레버 비율)마다 무게 느낌이 달라서 따로 기억한다.
+  Map<String, double> machineWeights;
+
+  /// 마지막으로 이 운동을 한 기구 이름.
+  String? lastMachine;
 
   final String exerciseId;
 
@@ -1409,6 +1457,8 @@ class ExerciseProgress {
         'consecutiveFail': consecutiveFail,
         'level': level,
         if (lastSets.isNotEmpty) 'lastSets': [for (final s in lastSets) s.toJson()],
+        if (machineWeights.isNotEmpty) 'machineWeights': machineWeights,
+        if (lastMachine != null) 'lastMachine': lastMachine,
       };
 
   factory ExerciseProgress.fromJson(Map<String, dynamic> j) =>
@@ -1424,6 +1474,8 @@ class ExerciseProgress {
         consecutiveFail: j['consecutiveFail'] as int,
         level: j['level'] as int?,
         lastSets: [for (final e in (j['lastSets'] as List?) ?? const []) SetRecord.fromJson(Map<String, dynamic>.from(e as Map))],
+        machineWeights: {for (final e in ((j['machineWeights'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
+        lastMachine: j['lastMachine'] as String?,
       );
 }
 

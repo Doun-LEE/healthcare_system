@@ -66,7 +66,25 @@ class PartnerProfile {
     this.dayLoad = const {},
     this.plans = const {},
     this.gyms = const [],
+    this.exercisePref = const {},
+    this.lastDone = const {},
+    this.machineWeights = const {},
   });
+
+  /// 운동 선호도(교체·추가·삭제로 배운 값). 함께 할 루틴을 짤 때 모두의 평균을 쓴다.
+  final Map<String, double> exercisePref;
+
+  /// 운동 id → 마지막으로 한 날. 함께 할 루틴에서 '오래 안 한 운동'을 모두 기준으로 고른다.
+  final Map<String, DateTime> lastDone;
+
+  /// 운동 id → (기구 이름 → 그 기구에서의 작업 중량).
+  final Map<String, Map<String, double>> machineWeights;
+
+  /// 이 사람이 이 운동(기구)에서 들 무게. 기록이 없으면 null.
+  double? weightFor(String exerciseId, String? machine) {
+    final m = machine == null ? null : machineWeights[exerciseId]?[machine];
+    return (m != null && m > 0) ? m : workingWeights[exerciseId];
+  }
 
   /// 파트너의 헬스장 목록(이름·기구). 파트너 운동 장소 고르기에 쓴다.
   final List<PartnerGym> gyms;
@@ -149,6 +167,13 @@ class PartnerProfile {
           },
       ],
       'weights': {for (final p in progress.entries) if (p.value.workingWeight > 0) p.key: p.value.workingWeight},
+      if (me.exercisePref.isNotEmpty) 'pref': me.exercisePref,
+      'last': {
+        for (final p in progress.entries)
+          if (p.value.lastPerformed != null && today.difference(p.value.lastPerformed!).inDays <= 60)
+            p.key: dateKey(p.value.lastPerformed!),
+      },
+      'mw': {for (final p in progress.entries) if (p.value.machineWeights.isNotEmpty) p.key: p.value.machineWeights},
       'plans': {
         for (final p in plans)
           if (!p.isRest && !p.date.isBefore(from) && !p.date.isAfter(to))
@@ -248,6 +273,22 @@ class PartnerProfile {
       dayCondition: dayCondition,
       dayLoad: dayLoad,
       plans: plans,
+      exercisePref: {
+        for (final e in ((j['pref'] as Map?) ?? const {}).entries)
+          if (e.value is num) e.key as String: (e.value as num).toDouble(),
+      },
+      lastDone: {
+        for (final e in ((j['last'] as Map?) ?? const {}).entries)
+          if (e.value is String && DateTime.tryParse(e.value as String) != null) e.key as String: DateTime.parse(e.value as String),
+      },
+      machineWeights: {
+        for (final e in ((j['mw'] as Map?) ?? const {}).entries)
+          if (e.value is Map)
+            e.key as String: {
+              for (final m in (e.value as Map).entries)
+                if (m.value is num) m.key as String: (m.value as num).toDouble(),
+            },
+      },
       gyms: [
         for (final g in ((j['gyms'] as List?) ?? const []).cast<Map>())
           PartnerGym(
@@ -392,7 +433,18 @@ class InboxItem {
     this.date,
     this.code,
     this.title = '',
+    this.op,
+    this.fromEx,
+    this.toEx,
   });
+
+  /// 루틴 메시지의 세부 종류: 'swap'(운동 바꾸기 제안) · 'cond'(컨디션 입력 알림) ·
+  /// 'swapYes'/'swapNo'(제안에 대한 답). 일반 루틴 동기화면 null.
+  final String? op;
+
+  /// 운동 바꾸기: 바꾸기 전·후 운동 id.
+  final String? fromEx;
+  final String? toEx;
   final String id;
   final InboxType type;
   final String fromUid;

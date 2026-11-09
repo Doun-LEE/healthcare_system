@@ -131,6 +131,7 @@ List<Prim> equipmentModel(EquipmentType t) => switch (t) {
       EquipmentType.latPulldownPlateLoaded => _latPulldown(),
       EquipmentType.seatedRow => _seatedRow(),
       EquipmentType.chestSupportedRow => _seatedRow(),
+      EquipmentType.seatedRowMachine => _seatedRow(),
       EquipmentType.highRow => _pressMachine(arms: true, tall: true, plateLoaded: true),
       EquipmentType.lowRow => _seatedRow(plateLoaded: true),
       EquipmentType.tBarRow => _seatedRow(plateLoaded: true),

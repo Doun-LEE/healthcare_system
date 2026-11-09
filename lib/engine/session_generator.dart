@@ -41,7 +41,20 @@ class SessionRequest {
     this.recovery = const {},
     this.boost = const {},
     this.yesterdayGroups = const {},
+    this.machines = const {},
+    this.lastDone = const {},
+    this.prefOverride,
   });
+
+  /// 기구 종류 → 그 헬스장에 있는 실제 기구 이름들(같은 종류가 여러 대면 2개 이상).
+  /// 운동마다 지난번에 쓴 기구를 고르고, 그 기구에서의 무게를 쓴다.
+  final Map<EquipmentType, List<String>> machines;
+
+  /// 운동 id → 마지막으로 한 날(파트너 운동: 함께 하는 사람들 기록 포함). '오래 안 한 운동' 점수에 쓴다.
+  final Map<String, DateTime> lastDone;
+
+  /// 운동 선호도(파트너 운동: 모두의 평균). null이면 프로필 선호도.
+  final Map<String, double>? prefOverride;
 
   /// 전날 한 부위(워밍업 부위를 고를 때 전날 안 한 부위를 우선).
   final Set<MuscleGroup> yesterdayGroups;
@@ -485,10 +498,13 @@ class SessionGenerator {
 
       // 요구사항 8: 오래 안 한 운동 우선.
       final prog = req.progress[ex.id];
-      if (prog == null || prog.lastPerformed == null) {
+      var lastAt = prog?.lastPerformed;
+      final other = req.lastDone[ex.id];
+      if (other != null && (lastAt == null || other.isAfter(lastAt))) lastAt = other;
+      if (lastAt == null) {
         score += 2.5; // 처음 하는 운동
       } else {
-        final days = now.difference(prog.lastPerformed!).inDays;
+        final days = now.difference(lastAt).inDays;
         score += min(3.0, days / 7.0); // 1주마다 +1, 최대 +3
         if (days <= 2) score -= 2.0;
       }
@@ -534,7 +550,7 @@ class SessionGenerator {
         }
       }
       // 교체·추가·삭제 이력으로 배운 선호도. 안 하는 사람도 많은 운동은 선호가 없으면 덜 넣는다.
-      final pref = req.profile.exercisePref[ex.id] ?? 0;
+      final pref = (req.prefOverride ?? req.profile.exercisePref)[ex.id] ?? 0;
       score += pref * 1.5;
       if (ex.niche && pref <= 0) score -= 2.0;
       score += _rng.nextDouble() * 0.6; // 동점 깨기 + 약간의 변화
@@ -570,8 +586,16 @@ class SessionGenerator {
     }
 
     final step = req.stepFor(ex, equipment);
+    // 같은 종류 기구가 여러 대면 지난번에 쓴 기구, 아니면 대표 기구. 그 기구에서의 무게가 있으면 그걸로.
+    final ms = req.machines[equipment] ?? const <String>[];
+    final machine = ms.length < 2
+        ? null
+        : (prog?.lastMachine != null && ms.contains(prog!.lastMachine) ? prog.lastMachine : ms.first);
+    final machineWeight = machine == null ? null : prog?.machineWeights[machine];
     double weight;
-    if (prog != null && prog.workingWeight > 0) {
+    if (machineWeight != null && machineWeight > 0) {
+      weight = machineWeight;
+    } else if (prog != null && prog.workingWeight > 0) {
       weight = prog.workingWeight;
     } else {
       weight = _estimator.initialWeight(ex, reps,
@@ -617,6 +641,7 @@ class SessionGenerator {
       restSeconds: rest,
       sets: setScheme(ex, prog, sets, reps, weight, step, straight: careful.isNotEmpty),
       note: note,
+      machine: machine,
     );
   }
 

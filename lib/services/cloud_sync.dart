@@ -290,6 +290,33 @@ class CloudSync {
   Future<void> sendJointAccepted(String toUid, DateTime date, String fromName) =>
       _sendInbox(toUid, {'type': 'jointAccepted', 'date': dateKey(date)}, fromName);
 
+  /// 파트너 루틴에서 운동 바꾸기 제안. 받는 사람 앱에 바로 수락/거절 창이 뜬다.
+  /// (예전 버전 앱은 'joint'로 보고 루틴을 그대로 맞추므로 code에 바뀐 루틴 전체를 담는다.)
+  Future<void> sendSwapProposal({
+    required String toUid,
+    required DateTime date,
+    required String code,
+    required String title,
+    required String fromName,
+    required String fromEx,
+    required String toEx,
+  }) =>
+      _sendInbox(toUid, {'type': 'joint', 'op': 'swap', 'date': dateKey(date), 'code': code, 'title': title, 'fromEx': fromEx, 'toEx': toEx}, fromName);
+
+  Future<void> sendSwapAnswer(String toUid, DateTime date, String fromName, {required bool accept, required String fromEx, required String toEx}) =>
+      _sendInbox(toUid, {'type': 'jointAccepted', 'op': accept ? 'swapYes' : 'swapNo', 'date': dateKey(date), 'fromEx': fromEx, 'toEx': toEx}, fromName);
+
+  /// 파트너 운동일에 컨디션을 입력했다고 알림(상대 앱이 컨디션·무게 표시를 바로 새로 읽는다).
+  Future<void> sendConditionPing({required String toUid, required DateTime date, required String code, required String fromName}) =>
+      _sendInbox(toUid, {'type': 'joint', 'op': 'cond', 'date': dateKey(date), 'code': code, 'title': '컨디션'}, fromName);
+
+  /// 받은편지함 실시간 감시(문서 수가 바뀔 때마다). 파트너 제안을 바로 띄우는 데 쓴다.
+  Stream<int> inboxStream() {
+    final u = user;
+    if (u == null) return const Stream.empty();
+    return _db.collection('users/${u.uid}/inbox').snapshots().map((s) => s.docs.length);
+  }
+
   Future<void> sendPartnerRequest(String toUid, String fromName) =>
       _sendInbox(toUid, {'type': 'partnerRequest'}, fromName);
 
@@ -360,6 +387,9 @@ class CloudSync {
           date: d['date'] == null ? null : parseDateKey(d['date'] as String),
           code: d['code'] as String?,
           title: (d['title'] as String?) ?? '',
+          op: d['op'] as String?,
+          fromEx: d['fromEx'] as String?,
+          toEx: d['toEx'] as String?,
         ));
       } catch (_) {}
     }

@@ -39,7 +39,11 @@ class PlannerInput {
     this.dayAvailable = const {},
     this.dayGym = const {},
     this.dayPinned = const {},
+    this.machines = const {},
   });
+
+  /// 기구 종류 → 실제 기구 이름들(같은 종류가 여러 대일 때 기구별 무게용).
+  final Map<EquipmentType, List<String>> machines;
 
   final UserProfile profile;
   final DateTime from;
@@ -281,6 +285,7 @@ class Planner {
         now: date,
         equipmentMax: input.equipmentMax,
         equipmentStep: input.equipmentStep,
+        machines: input.machines,
         seed: date.millisecondsSinceEpoch ~/ 86400000,
         recovery: recoveryAt(date),
         boost: boost,

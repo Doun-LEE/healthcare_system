@@ -109,7 +109,7 @@ class HomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        plan.exercises.take(4).map((e) => '${exerciseById(e.exerciseId)?.name ?? ''}(${state.equipmentLabelFor(plan, e.equipmentType)})').join(' · ') + (plan.exercises.length > 4 ? ' …' : ''),
+                        plan.exercises.take(4).map((e) => '${exerciseById(e.exerciseId)?.name ?? ''}(${state.equipmentLabelFor(plan, e.equipmentType, pe: e)})').join(' · ') + (plan.exercises.length > 4 ? ' …' : ''),
                         style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

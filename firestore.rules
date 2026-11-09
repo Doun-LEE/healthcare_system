@@ -33,7 +33,10 @@ service cloud.firestore {
         && (!('fromHandle' in request.resource.data) || isStr(request.resource.data.fromHandle, 80))
         && (!('title' in request.resource.data) || isStr(request.resource.data.title, 200))
         && (!('date' in request.resource.data) || isStr(request.resource.data.date, 10))
-        && (!('code' in request.resource.data) || isStr(request.resource.data.code, 200000));
+        && (!('code' in request.resource.data) || isStr(request.resource.data.code, 200000))
+        && (!('op' in request.resource.data) || isStr(request.resource.data.op, 12))
+        && (!('fromEx' in request.resource.data) || isStr(request.resource.data.fromEx, 60))
+        && (!('toEx' in request.resource.data) || isStr(request.resource.data.toEx, 60));
       allow update: if false;
     }
 

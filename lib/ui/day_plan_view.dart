@@ -913,7 +913,8 @@ class _ExerciseCard extends StatelessWidget {
     final isCardio = ex.loadType == LoadType.cardio;
     final isBw = ex.loadType == LoadType.bodyweight;
     final unit = isCardio ? '분' : (ex.id == 'plank' ? '초' : '회');
-    final myEq = state.equipmentFor(plan, pe.equipmentType);
+    final myEq = state.equipmentFor(plan, pe.equipmentType, pe: pe);
+    final machines = state.machineChoices(plan, pe);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -956,17 +957,22 @@ class _ExerciseCard extends StatelessWidget {
                         ]),
                         if (pe.skipMine)
                           Text('나는 이번엔 빼요 · ${plan.partnerName}는 그대로', style: text.bodySmall?.copyWith(color: cs.secondary)),
-                        Row(children: [
-                          Icon(isBw ? Icons.accessibility_new : Icons.fitness_center, size: 14, color: cs.primary),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              [state.equipmentLabelFor(plan, pe.equipmentType), ?gripFor(pe.exerciseId, pe.equipmentType)].join(' · '),
-                              style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
-                              overflow: TextOverflow.ellipsis,
+                        InkWell(
+                          // 같은 종류 기구가 여러 대면 눌러서 실제로 쓴 기구를 고른다(기구마다 무게를 따로 기억).
+                          onTap: machines.length < 2 ? null : () => _pickMachine(context, state, machines),
+                          child: Row(children: [
+                            Icon(isBw ? Icons.accessibility_new : Icons.fitness_center, size: 14, color: cs.primary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                [state.equipmentLabelFor(plan, pe.equipmentType, pe: pe), ?gripFor(pe.exerciseId, pe.equipmentType)].join(' · '),
+                                style: text.bodyMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ]),
+                            if (machines.length >= 2) Icon(Icons.arrow_drop_down, size: 18, color: cs.primary),
+                          ]),
+                        ),
                         Text('${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}${myEq != null && myEq.displayName != pe.equipmentType.label ? ' · ${pe.equipmentType.label}' : ''}',
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (!isCardio && !isBw && myEq != null && myEq.sledMatters && pe.sets.isNotEmpty)
@@ -1100,8 +1106,8 @@ class _ExerciseCard extends StatelessWidget {
                     : null,
                 editable: logging,
                 planning: editable && !logging,
-                weightFactor: state.weightFactor(plan, pe.equipmentType),
-                weightSuffix: state.weightBasisLabel(plan, pe.equipmentType),
+                weightFactor: state.weightFactor(plan, pe.equipmentType, pe: pe),
+                weightSuffix: state.weightBasisLabel(plan, pe.equipmentType, pe: pe),
                 eachSide: pe.oneSide,
                 onToggle: () async {
                   await state.toggleSet(plan, pe, i);
@@ -1138,8 +1144,8 @@ class _ExerciseCard extends StatelessWidget {
     final s = pe.sets[i];
     final ex = exerciseById(pe.exerciseId);
     final spec = ex == null ? null : cardioLevels[ex.id];
-    final f = state.weightFactor(plan, pe.equipmentType);
-    final basis = state.weightBasisLabel(plan, pe.equipmentType);
+    final f = state.weightFactor(plan, pe.equipmentType, pe: pe);
+    final basis = state.weightBasisLabel(plan, pe.equipmentType, pe: pe);
     // 한 칸은 화면 기준(한쪽 기준 기구면 한쪽 무게)
     final step = (state.stepForPlan(plan)[pe.equipmentType] ?? ex?.loadType.increment ?? 2.5) * f;
     final isCardio = ex?.loadType == LoadType.cardio;
@@ -1166,6 +1172,43 @@ class _ExerciseCard extends StatelessWidget {
     } else {
       await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3); // 완료 체크는 체크박스로만
     }
+  }
+
+  /// 같은 종류 기구가 여러 대일 때 실제로 쓰는(쓴) 기구 고르기.
+  Future<void> _pickMachine(BuildContext context, AppState state, List<String> machines) async {
+    final current = state.equipmentLabelFor(plan, pe.equipmentType, pe: pe);
+    final prog = state.progress[pe.exerciseId];
+    final f = state.weightFactor(plan, pe.equipmentType, pe: pe);
+    final done = pe.anyCompleted || plan.isFinished;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: Text(done ? '실제로 한 기구' : '어느 기구로 할까요?'),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text(
+              done
+                  ? '기록을 고른 기구로 옮겨요. 기구마다 레버 비율이 달라 무게를 따로 기억해요.'
+                  : '기구마다 무게 느낌이 달라서 무게를 따로 기억해요. 고르면 그 기구 기록으로 무게가 바뀌어요.',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          for (final m in machines)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, m),
+              child: Row(children: [
+                Icon(m == current ? Icons.radio_button_checked : Icons.radio_button_off, size: 20),
+                const SizedBox(width: 10),
+                Expanded(child: Text(m)),
+                if (prog?.machineWeights[m] case final w?)
+                  Text('${_fmt(w * f)}kg', style: Theme.of(c).textTheme.bodySmall),
+              ]),
+            ),
+        ],
+      ),
+    );
+    if (picked != null) await state.setMachine(plan, pe, picked);
   }
 
   Future<void> _swap(BuildContext context, AppState state, Exercise ex) async {
@@ -1309,7 +1352,45 @@ class _ExerciseCard extends StatelessWidget {
         );
       }),
     );
-    if (chosen != null) await state.swapExercise(plan, pe, chosen);
+    if (chosen == null || !context.mounted) return;
+    // 파트너 날: 같이 바꾸자고 제안(상대 앱에 바로 수락/거절 창) 또는 나만 바꾸기.
+    final members = state.membersOf(plan);
+    if (plan.partnerName != null && !pe.personal && !pe.warmup && members.isNotEmpty) {
+      final names = members.map((m) => m.name).join('·');
+      final mode = await showDialog<String>(
+        context: context,
+        builder: (c) => SimpleDialog(
+          title: Text('${ex.name} → ${chosen.name}'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, 'all'),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.group),
+                title: const Text('같이 바꾸기'),
+                subtitle: Text('내 루틴은 바로 바뀌고, $names 님 앱에 수락/거절을 묻는 창이 바로 떠요'),
+              ),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, 'mine'),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.person),
+                title: const Text('나만 바꾸기'),
+                subtitle: Text('$names 님은 ${ex.name} 그대로, 나는 ${chosen.name}'),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (mode == null) return;
+      await state.swapExercise(plan, pe, chosen, mineOnly: mode == 'mine');
+      if (mode == 'all' && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$names 님에게 바꾸기 제안을 보냈어요. 답하면 알려 드려요.')));
+      }
+      return;
+    }
+    await state.swapExercise(plan, pe, chosen);
   }
 }
 
