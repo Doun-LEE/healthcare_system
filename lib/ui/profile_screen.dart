@@ -255,7 +255,7 @@ class ProfileScreen extends StatelessWidget {
               onChanged: (v) => _edit(state, (p) => p.autoAdjust = v),
             ),
             const SizedBox(height: 12),
-            Text('운동 전 워밍업·스트레칭', style: text.labelLarge),
+            Text('운동 전 워밍업', style: text.labelLarge),
             const SizedBox(height: 4),
             SegmentedButton<String>(
               segments: const [
@@ -271,9 +271,16 @@ class ProfileScreen extends StatelessWidget {
               switch (u.warmupMode) {
                 'custom' => '아래에서 고른 운동을 매번 웨이트 전에 넣어요(가볍게 2세트).',
                 'off' => '워밍업 없이 바로 본 운동부터.',
-                _ => '동적 스트레칭 5분 + 그 날 부위에 맞는 활성화 운동(예: 등 날엔 암풀다운·덤벨 풀오버·풀업)을 가볍게 2세트.',
+                _ => '그 날 부위에 맞는 활성화 운동(예: 등 날엔 암풀다운·덤벨 풀오버·풀업)을 가볍게 2세트.',
               },
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('스트레칭 넣기'),
+              subtitle: const Text('운동 전에 동적 스트레칭(5분)·모빌리티(캣카우, 90/90 등)를 넣어요. 끄면 워밍업에서도 스트레칭은 빠져요.'),
+              value: u.stretching,
+              onChanged: (v) => _edit(state, (p) => p.stretching = v),
             ),
             if (u.warmupMode == 'custom') ...[
               const SizedBox(height: 8),

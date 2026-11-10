@@ -89,8 +89,20 @@ void main() {
     }
     final off = SessionGenerator(SessionRequest(
       groups: [MuscleGroup.back], available: {EquipmentType.bodyweight, EquipmentType.cableMachine},
-      progress: {}, profile: UserProfile(id: 'u', name: 'x', warmupMode: 'off'), minutesBudget: 60,
+      progress: {}, profile: UserProfile(id: 'u', name: 'x', warmupMode: 'off', stretching: false), minutesBudget: 60,
     )).generate();
     expect(off.any((e) => e.warmup), isFalse);
+    // 워밍업은 끄고 스트레칭만 켜면 동적 스트레칭만
+    final stretchOnly = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back], available: {EquipmentType.bodyweight, EquipmentType.cableMachine},
+      progress: {}, profile: UserProfile(id: 'u', name: 'x', warmupMode: 'off'), minutesBudget: 60,
+    )).generate();
+    expect([for (final e in stretchOnly) if (e.warmup) e.exerciseId], ['dyn_stretch']);
+    // 스트레칭을 끄면 자동 워밍업에서 스트레칭류가 빠진다
+    final noStretch = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back, MuscleGroup.legs], available: {EquipmentType.bodyweight, EquipmentType.cableMachine},
+      progress: {}, profile: UserProfile(id: 'u', name: 'x', stretching: false), minutesBudget: 120,
+    )).generate();
+    expect(noStretch.where((e) => e.warmup && stretchIds.contains(e.exerciseId)), isEmpty);
   });
 }

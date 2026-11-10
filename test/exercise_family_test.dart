@@ -90,7 +90,7 @@ void main() {
     final gym = _gym([EquipmentType.treadmill, EquipmentType.dumbbell, EquipmentType.flatBench, EquipmentType.legPress, EquipmentType.latPulldown, EquipmentType.chestPress]);
     List<String> gen(List<MuscleGroup> groups) => SessionGenerator(SessionRequest(
           groups: groups, available: gym.availableTypes, progress: {},
-          profile: UserProfile(id: 'u', name: 'u', includeCardio: true, warmupMode: 'off'),
+          profile: UserProfile(id: 'u', name: 'u', includeCardio: true, warmupMode: 'off', stretching: false),
           minutesBudget: 95, seed: 1, now: DateTime(2026, 11, 4),
         )).generate().map((e) => e.exerciseId).toList();
     bool hasCardio(List<String> ids) => ids.any((id) => exerciseById(id)!.loadType == LoadType.cardio);

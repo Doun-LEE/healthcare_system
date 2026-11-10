@@ -2404,6 +2404,9 @@ const warmupByGroup = <MuscleGroup, List<String>>{
   MuscleGroup.abs: ['cat_cow'],
 };
 
+/// 스트레칭·모빌리티 워밍업(설정에서 '스트레칭'을 끄면 빠진다).
+const stretchIds = {'dyn_stretch', 'worlds_greatest', 'hip_9090', 'cat_cow', 'arm_circles', 'band_dislocate'};
+
 /// 직접 고를 수 있는 워밍업 운동 목록.
 List<Exercise> get warmupChoices {
   final ids = <String>{'dyn_stretch', for (final l in warmupByGroup.values) ...l};

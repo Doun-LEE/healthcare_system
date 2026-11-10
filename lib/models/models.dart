@@ -333,6 +333,7 @@ class UserProfile {
     this.dayStartHour = 4,
     this.restMode = 'shift',
     this.autoAdjust = true,
+    this.stretching = true,
     Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
@@ -427,6 +428,9 @@ class UserProfile {
   /// 데이터 기반 자동 첨삭: 루틴을 다시 짤 때 근육별 회복·부족을 반영한다.
   bool autoAdjust;
 
+  /// 운동 전 스트레칭(동적 스트레칭·모빌리티)을 워밍업에 넣을지. 워밍업 설정과 따로.
+  bool stretching;
+
   /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
   final Map<String, int> aiUsage;
 
@@ -505,6 +509,7 @@ class UserProfile {
         'dayStartHour': dayStartHour,
         'restMode': restMode,
         'autoAdjust': autoAdjust,
+        if (!stretching) 'stretching': false,
         if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
@@ -550,6 +555,8 @@ class UserProfile {
         dayStartHour: (j['dayStartHour'] as num?)?.toInt() ?? 4,
         restMode: (j['restMode'] as String?) ?? 'shift',
         autoAdjust: (j['autoAdjust'] as bool?) ?? true,
+        // 예전에 워밍업을 '안 함'으로 둔 사람은 스트레칭도 꺼진 채로.
+        stretching: (j['stretching'] as bool?) ?? (j['warmupMode'] != 'off'),
         aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),

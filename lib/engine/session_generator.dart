@@ -235,7 +235,12 @@ class SessionGenerator {
   /// 직접 고른 목록이 있으면 그것, 끄면 없음. 본 루틴과 겹치는 운동은 뺀다.
   List<PlannedExercise> _warmups(List<MuscleGroup> groups, List<PlannedExercise> main) {
     final p = req.profile;
-    if (p.warmupMode == 'off' || groups.isEmpty) return const [];
+    if ((p.warmupMode == 'off' && !p.stretching) || groups.isEmpty) return const [];
+    // 워밍업을 끄고 스트레칭만 켜면 동적 스트레칭만.
+    if (p.warmupMode == 'off') {
+      final ex = exerciseById('dyn_stretch');
+      return ex == null || !ex.canDoWith(req.available) ? const [] : [planWarmup(ex)];
+    }
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final mainNames = [for (final e in main) exerciseById(e.exerciseId)?.name ?? ''];
     // 본 운동과 같은 계열(풀업 ↔ 어시스트 풀업, 벤치 ↔ 덤벨 벤치 등)은 워밍업으로 넣지 않는다.
@@ -280,7 +285,7 @@ class SessionGenerator {
         if (!ids.contains(id)) ids.add(id);
       }
     } else {
-      ids.add('dyn_stretch');
+      if (p.stretching) ids.add('dyn_stretch');
       for (final g in chosenGroups) {
         var n = 0;
         for (final id in warmupByGroup[g] ?? const <String>[]) {
@@ -297,6 +302,7 @@ class SessionGenerator {
     for (final id in ids) {
       final ex = exerciseById(id);
       if (ex == null || !ex.canDoWith(req.available) || sameFamily(ex)) continue;
+      if (!p.stretching && stretchIds.contains(id)) continue;
       out.add(planWarmup(ex));
     }
     return out;
@@ -343,7 +349,7 @@ class SessionGenerator {
   }
 
   static const sectionKeys = ['upper', 'lower', 'abs', 'cardio'];
-  static const sectionLabels = {'warmup': '워밍업 · 스트레칭', 'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
+  static const sectionLabels = {'warmup': '워밍업', 'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
   static String sectionLabel(String key) => sectionLabels[key] ?? key;
 
   /// 세션 정렬. 구역은 프로필의 [UserProfile.sectionOrder] 순서, 웨이트 구역 안은
