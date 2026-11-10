@@ -163,25 +163,14 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   final who = partners.map((p) => p.display).join('·');
   // 어디서 운동할지: 내 헬스장 / 누군가의 헬스장 / 모두의 헬스장 공통 기구
   final profiles = <String, PartnerProfile>{};
-  final loading = showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      content: Row(children: [
-        const CircularProgressIndicator(),
-        const SizedBox(width: 16),
-        Expanded(child: Text(partners.length == 1 ? '파트너 헬스장 정보 받는 중…' : '${partners.length}명 헬스장 정보 받는 중…')),
-      ]),
-    ),
-  );
+  final closeLoading = _showBusy(context, Text(partners.length == 1 ? '파트너 헬스장 정보 받는 중…' : '${partners.length}명 헬스장 정보 받는 중…'));
   await Future.wait([
     for (final p in partners)
       CloudSync.instance.fetchPartner(p.uid).then((pp) {
         if (pp != null) profiles[p.uid] = pp;
       }).catchError((_) {}),
   ]);
-  if (context.mounted) Navigator.pop(context);
-  await loading;
+  closeLoading();
   if (!context.mounted) return;
   final myUid = CloudSync.instance.user!.uid;
   // 같은 헬스장(서로 가져왔거나 같은 원본에서 가져온 것)은 한 번만: 내 헬스장으로 보여준다.
@@ -230,17 +219,10 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   if (pickedIndex == null || !context.mounted) return;
   final venue = options[pickedIndex].$2;
   final step = ValueNotifier<String>('루틴 맞추는 중…');
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => AlertDialog(
-      content: Row(children: [
-        const CircularProgressIndicator(),
-        const SizedBox(width: 16),
-        Expanded(child: ValueListenableBuilder<String>(valueListenable: step, builder: (_, v, _) => Text(v))),
-      ]),
-    ),
-  );
+  // 루틴이 바뀌면 이 화면(달력 상세)이 다시 그려져 context가 사라질 수 있으니
+  // 알림·창 닫기는 미리 잡아 둔 것으로 한다.
+  final messenger = ScaffoldMessenger.of(context);
+  final closeBusy = _showBusy(context, ValueListenableBuilder<String>(valueListenable: step, builder: (_, v, _) => Text(v)));
   String msg;
   try {
     msg = await state.generateGroupSession(
@@ -253,9 +235,39 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   } catch (e) {
     msg = '파트너 루틴 생성 실패: $e';
   }
-  if (!context.mounted) return;
-  Navigator.pop(context);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  closeBusy();
+  messenger.showSnackBar(SnackBar(content: Text(msg)));
+}
+
+/// 진행 중 창. 돌려주는 함수로 닫는다. 창 자신의 context로 닫으므로
+/// 띄운 화면이 그사이 사라져도 창이 남지 않는다.
+VoidCallback _showBusy(BuildContext context, Widget message) {
+  BuildContext? dlg;
+  var closed = false;
+  var popped = false;
+  void close() {
+    closed = true;
+    final c = dlg;
+    if (popped || c == null || !c.mounted) return;
+    popped = true;
+    Navigator.of(c).pop();
+  }
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (c) {
+      dlg = c;
+      if (closed) WidgetsBinding.instance.addPostFrameCallback((_) => close());
+      return AlertDialog(
+        content: Row(children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          Expanded(child: message),
+        ]),
+      );
+    },
+  );
+  return close;
 }
 
 /// 달력 상세용 버튼: 그 날짜를 파트너 운동일로 지정/해제.
