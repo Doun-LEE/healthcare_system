@@ -9,8 +9,6 @@ void main() {
     final man = LoadEstimator(UserProfile(id: 'm', name: 'm'));
     final heavyW = [for (final e in exerciseCatalog) if (woman.barTooHeavy(e)) e.id];
     final heavyM = [for (final e in exerciseCatalog) if (man.barTooHeavy(e)) e.id];
-    // ignore: avoid_print
-    print('woman: $heavyW\nman: $heavyM');
     expect(heavyW, contains('cgbp'));
     expect(heavyW, isNot(contains('bb_squat')));
     expect(heavyM, isNot(contains('bb_bench')));
