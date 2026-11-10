@@ -60,4 +60,11 @@ void main() {
     expect(back.exercisePref, {'shrug': -1.0, 'db_bench': 2.0});
     expect(exerciseById('shrug')!.niche, isTrue);
   });
+
+  test('구역 순서만 다시 정렬: 하체 먼저면 팔보다 스쿼트가 앞, 구역 안 순서는 그대로', () {
+    PlannedExercise pe(String id, EquipmentType t) => PlannedExercise(exerciseId: id, equipmentType: t, restSeconds: 60, sets: [SetEntry(targetReps: 10, targetWeight: 20)]);
+    final list = [pe('ez_skull', EquipmentType.ezBar), pe('crunch', EquipmentType.bodyweight), pe('bb_squat', EquipmentType.barbell), pe('skull_crusher', EquipmentType.barbell)];
+    final out = SessionGenerator.sortSections(list, ['lower', 'upper', 'abs', 'cardio']);
+    expect(out.map((e) => e.exerciseId), ['bb_squat', 'ez_skull', 'skull_crusher', 'crunch']);
+  });
 }

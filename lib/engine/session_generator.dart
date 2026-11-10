@@ -359,6 +359,17 @@ class SessionGenerator {
     return out;
   }
 
+  /// 이미 있는 루틴을 구역 순서만 바꿔 다시 정렬(구역 안 순서는 그대로).
+  static List<PlannedExercise> sortSections(List<PlannedExercise> list, List<String> sectionOrder) {
+    final order = ['warmup', ...sectionOrder, for (final k in sectionKeys) if (!sectionOrder.contains(k)) k];
+    final indexed = [for (var i = 0; i < list.length; i++) (i, list[i])];
+    indexed.sort((a, b) {
+      final c = order.indexOf(sectionOf(a.$2)).compareTo(order.indexOf(sectionOf(b.$2)));
+      return c != 0 ? c : a.$1 - b.$1;
+    });
+    return [for (final e in indexed) e.$2];
+  }
+
   static List<PlannedExercise> orderWeights(List<PlannedExercise> list, UserProfile p) {
     if (list.length < 2) return list;
     bool isCompound(PlannedExercise e) => exerciseById(e.exerciseId)?.compound ?? false;

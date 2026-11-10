@@ -1036,7 +1036,18 @@ class AppState extends ChangeNotifier {
   Future<void> updateProfile(void Function(UserProfile) edit) async {
     final u = currentUser;
     if (u == null) return;
+    final sectionsBefore = u.sectionOrder.join(',');
     edit(u);
+    // 구역 순서를 바꾸면 오늘부터 아직 안 끝낸 루틴도 그 순서로 바로 맞춘다.
+    if (u.sectionOrder.join(',') != sectionsBefore) {
+      for (final p in myPlans) {
+        if (p.isFinished || p.date.isBefore(today) || p.exercises.length < 2) continue;
+        final sorted = SessionGenerator.sortSections(p.exercises, u.sectionOrder);
+        p.exercises
+          ..clear()
+          ..addAll(sorted);
+      }
+    }
     if (u.levelAuto) {
       final a = LevelAssessor.assess(u);
       if (a.hasData) u.level = a.level;
@@ -3545,6 +3556,11 @@ class AppState extends ChangeNotifier {
         if (old.machine != null && old.equipmentType == e.equipmentType) e.machine = old.machine;
       }
     }
+    // 받은 루틴도 내 구역 순서(예: 하체 먼저)로.
+    final sorted = SessionGenerator.sortSections(plan.exercises, u.sectionOrder);
+    plan.exercises
+      ..clear()
+      ..addAll(sorted);
     if (existing != null) _data.plans.remove(existing);
     _data.plans.add(plan);
     await _save();
