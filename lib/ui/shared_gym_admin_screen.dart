@@ -36,6 +36,18 @@ class _SharedGymAdminScreenState extends State<SharedGymAdminScreen> {
       body: FutureBuilder<List<SharedGymGroup>>(
         future: _groups,
         builder: (c, snap) {
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text('불러오지 못했어요: ${snap.error}', textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  FilledButton(onPressed: () => setState(() => _groups = state.sharedGymGroups()), child: const Text('다시 시도')),
+                ]),
+              ),
+            );
+          }
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final groups = snap.data!;
           final dup = groups.where((g) => g.entries.length > 1).toList();

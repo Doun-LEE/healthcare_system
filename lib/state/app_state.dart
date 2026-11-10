@@ -1362,15 +1362,22 @@ class AppState extends ChangeNotifier {
     for (final g in gyms) {
       out.putIfAbsent(Gym.nameKey(g.name), () => SharedGymGroup(g.name)).entries.add(SharedGymEntry(myUid, currentUser?.name ?? '나', g.id, g.name, g.equipment.length));
     }
-    for (final p in partners.where((p) => !p.pending)) {
-      try {
-        final pp = await CloudSync.instance.fetchPartner(p.uid);
-        for (final g in pp?.gyms ?? const <PartnerGym>[]) {
-          out.putIfAbsent(Gym.nameKey(g.name), () => SharedGymGroup(g.name)).entries.add(SharedGymEntry(p.uid, p.display, g.id, g.name, g.equipment.length));
-        }
-      } catch (_) {}
+    // 친구 프로필은 한꺼번에 받는다(한 명씩이면 친구 수 × 최대 12초).
+    final friends = partners.where((p) => !p.pending).toList();
+    final profiles = await Future.wait([
+      for (final p in friends) CloudSync.instance.fetchPartner(p.uid).then<PartnerProfile?>((v) => v).catchError((_) => null),
+    ]);
+    for (var i = 0; i < friends.length; i++) {
+      final p = friends[i];
+      for (final g in profiles[i]?.gyms ?? const <PartnerGym>[]) {
+        out.putIfAbsent(Gym.nameKey(g.name), () => SharedGymGroup(g.name)).entries.add(SharedGymEntry(p.uid, p.display, g.id, g.name, g.equipment.length));
+      }
     }
-    final canon = await CloudSync.instance.listSharedGyms();
+    // 대표 목록을 못 읽어도(서버 규칙 미반영·네트워크) 묶음은 보여준다.
+    var canon = <String, Map<String, dynamic>>{};
+    try {
+      canon = await CloudSync.instance.listSharedGyms();
+    } catch (_) {}
     for (final e in out.entries) {
       e.value.canonical = canon[e.key];
     }
