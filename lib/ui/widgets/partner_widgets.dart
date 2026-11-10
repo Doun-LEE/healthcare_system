@@ -184,11 +184,23 @@ Future<void> showPartnerPicker(BuildContext context, DateTime date) async {
   await loading;
   if (!context.mounted) return;
   final myUid = CloudSync.instance.user!.uid;
+  // 같은 헬스장(서로 가져왔거나 같은 원본에서 가져온 것)은 한 번만: 내 헬스장으로 보여준다.
+  String? srcOf(String owner, String gymId, String? linkFrom, String? linkGym) =>
+      linkFrom != null && linkGym != null ? '$linkFrom/$linkGym' : '$owner/$gymId';
+  final mine = {
+    for (final g in state.gyms) ...{'$myUid/${g.id}', srcOf(myUid, g.id, g.sharedFrom, g.sharedGymId)},
+  };
+  final sameAsMine = {
+    for (final p in partners)
+      for (final g in profiles[p.uid]?.gyms ?? const <PartnerGym>[])
+        if (mine.contains('${p.uid}/${g.id}') || mine.contains(srcOf(p.uid, g.id, g.linkFrom, g.linkGym))) '${p.uid}/${g.id}',
+  };
   final options = <(String, SharedVenue?)>[
     for (final g in state.gyms)
       ('내 헬스장 · ${g.name}', SharedVenue(owner: myUid, gymId: g.id, name: g.name, types: g.availableTypes.toList(), equipment: g.equipment)),
     for (final p in partners)
       for (final g in profiles[p.uid]?.gyms ?? const <PartnerGym>[])
+        if (!sameAsMine.contains('${p.uid}/${g.id}'))
         ('${p.name} 헬스장 · ${g.name}${g.equipment.isEmpty ? ' (기구 종류만)' : ' · 기구 ${g.equipment.length}개'}',
             SharedVenue(owner: p.uid, gymId: g.id, name: g.name, types: g.types.toList(), equipment: g.equipment)),
     (partners.length == 1 ? '각자 헬스장 공통 기구로' : '모두의 헬스장 공통 기구로', null),
