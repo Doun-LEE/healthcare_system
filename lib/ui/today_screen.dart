@@ -55,18 +55,28 @@ class TodayScreen extends StatelessWidget {
                   if (await confirmRebuildIfStarted(context, plan)) await state.regenerateDay(now);
                   return;
                 }
+                final partner = plan.partnerName;
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(
-                    title: const Text('오늘 루틴을 다시 만들까요?'),
-                    content: const Text('현재 보유 기구와 최근 이력을 반영해 새로 뽑습니다. 체크한 세트는 사라집니다.'),
+                    title: Text(partner == null ? '오늘 루틴을 다시 만들까요?' : '$partner 님과 함께 할 루틴을 다시 만들까요?'),
+                    content: Text(partner == null
+                        ? '현재 보유 기구와 최근 이력을 반영해 새로 뽑습니다. 체크한 세트는 사라집니다.'
+                        : '같은 장소에서 $partner 님의 기록·컨디션·선호까지 반영해 새로 뽑고, $partner 님 앱에도 보내요. 체크한 세트는 사라집니다.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
                       FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('다시 생성')),
                     ],
                   ),
                 );
-                if (ok == true) await state.regenerateDay(now);
+                if (ok != true || !context.mounted) return;
+                final messenger = ScaffoldMessenger.of(context);
+                if (partner != null) messenger.showSnackBar(SnackBar(content: Text('$partner 님과 함께 할 루틴을 다시 만드는 중…')));
+                await state.regenerateDay(now);
+                if (partner != null) {
+                  messenger.hideCurrentSnackBar();
+                  messenger.showSnackBar(SnackBar(content: Text(state.lastRegenMessage ?? '다시 만들었어요.')));
+                }
               },
             ),
         ],

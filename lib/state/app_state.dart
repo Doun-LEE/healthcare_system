@@ -1993,6 +1993,9 @@ class AppState extends ChangeNotifier {
   /// 하루만 다시 생성(기구 변경 등 반영).
   /// 하루 루틴 다시 짜기. 파트너 운동일이면 파트너와 다시 맞춘 루틴으로(파트너 유지),
   /// 아니면 그 날 헬스장([gymId] 또는 기존 지정) 기구로 짠다.
+  /// 파트너 날을 다시 만들었을 때의 결과 문구(화면 알림용).
+  String? lastRegenMessage;
+
   Future<DayPlan?> regenerateDay(DateTime date, {String? gymId}) async {
     final u = currentUser;
     if (u == null) return null;
@@ -2002,9 +2005,10 @@ class AppState extends ChangeNotifier {
     if (existing != null && existing.partnerName != null) {
       final people = membersOf(existing);
       if (people.isNotEmpty && cloudSignedIn) {
-        await generateGroupSession(d, people, venue: venueOf(existing));
+        lastRegenMessage = await generateGroupSession(d, people, venue: venueOf(existing));
         return planOn(d);
       }
+      lastRegenMessage = '파트너 정보를 지금 받을 수 없어(로그인·네트워크) 같은 부위로만 다시 만들었어요.';
       // 파트너 정보를 지금 못 쓰면(오프라인 등) 파트너 날은 그대로 두고 같은 부위로만 다시 짠다.
       await changeDayFocus(d, existing.focus, title: (existing.title ?? '').split(' · ').first, shiftFollowing: false);
       return planOn(d);
