@@ -83,7 +83,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final state = context.watch<AppState>();
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final plans = {for (final p in state.myPlans) dateKey(p.date): p};
+    final plans = state.plansByDay;
     final today = context.read<AppState>().today;
     final selectedPlan = _selected == null ? null : plans[dateKey(_selected!)];
 

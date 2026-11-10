@@ -103,4 +103,9 @@ void main() {
     plan.exercises.first.sets.first.completed = true;
     expect(AppState.groupIntensitySync(plan, [2]), isFalse);
   });
+
+  test('같은 날 루틴이 둘이면 파트너 날을 남김', () {
+    DayPlan mk(String? partner) => DayPlan(id: partner ?? 'solo', userId: 'u', date: DateTime(2026, 11, 10), kind: DayKind.workout, focus: [MuscleGroup.legs], partnerName: partner);
+    expect(AppState.dayRank(mk('유주연')), greaterThan(AppState.dayRank(mk(null))));
+  });
 }

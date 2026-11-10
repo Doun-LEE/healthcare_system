@@ -1547,7 +1547,36 @@ class AppState extends ChangeNotifier {
 
   DayPlan? planOn(DateTime date) {
     final k = dateKey(date);
-    return myPlans.where((p) => dateKey(p.date) == k).firstOrNull;
+    DayPlan? best;
+    for (final p in myPlans) {
+      if (dateKey(p.date) == k && (best == null || dayRank(p) >= dayRank(best))) best = p;
+    }
+    return best;
+  }
+
+  /// 날짜별 루틴(한 날짜에 여러 개가 저장돼 있으면 [dayRank]가 높은 것). 화면마다 같은 것을 보여주게.
+  Map<String, DayPlan> get plansByDay {
+    final m = <String, DayPlan>{};
+    for (final p in myPlans) {
+      final k = dateKey(p.date);
+      final cur = m[k];
+      if (cur == null || dayRank(p) >= dayRank(cur)) m[k] = p;
+    }
+    return m;
+  }
+
+  /// 같은 날짜에 루틴이 둘 이상일 때 남길 우선순위: 완료 > 시작 > 파트너 날 > 직접 고친 것 > 나중 것.
+  static int dayRank(DayPlan p) =>
+      (p.isFinished ? 8 : 0) + (p.exercises.any((e) => e.anyCompleted) || p.startedAt != null ? 4 : 0) +
+      (p.partnerName != null ? 2 : 0) + (p.custom ? 1 : 0);
+
+  /// 한 날짜에 루틴이 여러 개 저장돼 있으면(동기화·가져오기 경합) 하나만 남긴다.
+  bool _dedupeDays() {
+    final keepers = plansByDay.values.toSet();
+    final u = currentUser;
+    final before = _data.plans.length;
+    _data.plans.removeWhere((p) => p.userId == u?.id && !keepers.contains(p));
+    return _data.plans.length != before;
   }
 
   /// '오늘'로 볼 날짜.
@@ -2240,7 +2269,7 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     if (u == null) return;
     // 예전에 만든·받은 루틴도 구역 순서(스트레칭 맨 앞, 워밍업은 웨이트 바로 앞)로 맞춘다.
-    var sorted = false;
+    var sorted = _dedupeDays();
     for (final p in myPlans) {
       if (p.isFinished || p.date.isBefore(today) || p.exercises.length < 2 || p.exercises.any((e) => e.anyCompleted)) continue;
       final next = SessionGenerator.sortSections(p.exercises, u.sectionOrder);
