@@ -228,7 +228,8 @@ class SessionGenerator {
         ));
       }
     }
-    return [..._warmups(strengthGroups, picked), ...orderForSession(picked, req.profile)];
+    // 스트레칭은 맨 처음, 워밍업은 웨이트 구역 바로 앞(구역 순서에 따라 유산소·복근 뒤일 수 있다).
+    return sortSections([..._warmups(strengthGroups, picked), ...orderForSession(picked, req.profile)], req.profile.sectionOrder);
   }
 
   /// 본 운동 전 워밍업: 동적 스트레칭 + 그 날 주요 부위 활성화 운동(가볍게 2세트).
@@ -338,7 +339,7 @@ class SessionGenerator {
 
   /// 운동 구역: 'upper'(웨이트 상체) · 'lower'(웨이트 하체) · 'abs' · 'cardio'.
   static String sectionOf(PlannedExercise p) {
-    if (p.warmup) return 'warmup';
+    if (p.warmup) return stretchIds.contains(p.exerciseId) ? 'stretch' : 'warmup';
     final ex = exerciseById(p.exerciseId);
     if (ex == null) return 'upper';
     if (ex.loadType == LoadType.cardio) return 'cardio';
@@ -349,7 +350,7 @@ class SessionGenerator {
   }
 
   static const sectionKeys = ['upper', 'lower', 'abs', 'cardio'];
-  static const sectionLabels = {'warmup': '워밍업', 'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
+  static const sectionLabels = {'stretch': '스트레칭', 'warmup': '워밍업', 'upper': '웨이트 · 상체', 'lower': '웨이트 · 하체', 'abs': '복근', 'cardio': '유산소'};
   static String sectionLabel(String key) => sectionLabels[key] ?? key;
 
   /// 세션 정렬. 구역은 프로필의 [UserProfile.sectionOrder] 순서, 웨이트 구역 안은
@@ -360,7 +361,7 @@ class SessionGenerator {
     for (final e in picked) {
       (bySec[sectionOf(e)] ??= []).add(e);
     }
-    final order = ['warmup', ...p.sectionOrder, for (final k in sectionKeys) if (!p.sectionOrder.contains(k)) k];
+    final order = sectionSequence(p.sectionOrder);
     final out = <PlannedExercise>[];
     for (final k in order) {
       final list = bySec[k] ?? const [];
@@ -370,8 +371,16 @@ class SessionGenerator {
   }
 
   /// 이미 있는 루틴을 구역 순서만 바꿔 다시 정렬(구역 안 순서는 그대로).
+  /// 하루 구역 순서: 스트레칭은 맨 처음, 그다음 사용자 구역 순서, 워밍업은 첫 웨이트 구역 바로 앞.
+  static List<String> sectionSequence(List<String> sectionOrder) {
+    final order = [...sectionOrder, for (final k in sectionKeys) if (!sectionOrder.contains(k)) k];
+    final firstWeight = order.indexWhere((k) => k == 'upper' || k == 'lower');
+    order.insert(firstWeight < 0 ? 0 : firstWeight, 'warmup');
+    return ['stretch', ...order];
+  }
+
   static List<PlannedExercise> sortSections(List<PlannedExercise> list, List<String> sectionOrder) {
-    final order = ['warmup', ...sectionOrder, for (final k in sectionKeys) if (!sectionOrder.contains(k)) k];
+    final order = sectionSequence(sectionOrder);
     final indexed = [for (var i = 0; i < list.length; i++) (i, list[i])];
     indexed.sort((a, b) {
       final c = order.indexOf(sectionOf(a.$2)).compareTo(order.indexOf(sectionOf(b.$2)));

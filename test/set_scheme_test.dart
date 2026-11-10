@@ -67,4 +67,22 @@ void main() {
     final out = SessionGenerator.sortSections(list, ['lower', 'upper', 'abs', 'cardio']);
     expect(out.map((e) => e.exerciseId), ['bb_squat', 'ez_skull', 'skull_crusher', 'crunch']);
   });
+
+  test('스트레칭은 맨 처음, 워밍업은 웨이트 구역 바로 앞', () {
+    expect(SessionGenerator.sectionSequence(['cardio', 'abs', 'lower', 'upper']), ['stretch', 'cardio', 'abs', 'warmup', 'lower', 'upper']);
+    expect(SessionGenerator.sectionSequence(['upper', 'lower', 'abs', 'cardio']), ['stretch', 'warmup', 'upper', 'lower', 'abs', 'cardio']);
+    final out = SessionGenerator(SessionRequest(
+      groups: [MuscleGroup.back, MuscleGroup.legs, MuscleGroup.abs],
+      available: {EquipmentType.bodyweight, EquipmentType.cableMachine, EquipmentType.dumbbell, EquipmentType.treadmill, EquipmentType.legPress},
+      progress: {},
+      profile: UserProfile(id: 'u', name: 'u', sectionOrder: ['cardio', 'abs', 'lower', 'upper']),
+      minutesBudget: 120,
+      seed: 3,
+    )).generate();
+    final secs = [for (final e in out) SessionGenerator.sectionOf(e)];
+    expect(secs.first, 'stretch');
+    final firstWeight = secs.indexWhere((s) => s == 'upper' || s == 'lower');
+    expect(secs.lastIndexOf('warmup'), lessThan(firstWeight));
+    expect(secs.indexOf('warmup'), greaterThan(secs.lastIndexOf('abs')));
+  });
 }
