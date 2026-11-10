@@ -2455,6 +2455,7 @@ class AppState extends ChangeNotifier {
     _data.plans.add(plan);
     await _save();
     if (plan.partnerName != null) {
+      if (groupIntensitySync(plan, [condition, for (final c in partnerConditionsOn(plan.date)) c.condition])) await _save();
       // 파트너도 내 컨디션을 보고, 줄인 시간은 둘이 같은 루틴이어야 하므로 다시 보낸다.
       if (trimmed) {
         unawaited(_publishPublic().catchError((_) {}));
@@ -2804,6 +2805,43 @@ class AppState extends ChangeNotifier {
       }
     }
     partnerConditions = next;
+    // 함께 하는 사람이 컨디션을 넣었으면 세트 수를 모두 중 가장 안 좋은 컨디션에 맞춘다.
+    var changed = false;
+    for (final p in days) {
+      if (groupIntensitySync(p, [?p.condition, for (final c in next[dateKey(p.date)] ?? const <PartnerCondition>[]) c.condition])) changed = true;
+    }
+    if (changed) await _save();
+  }
+
+  /// 컨디션 → 세트 배율(루틴 만들 때와 같은 기준).
+  static double intensityForCondition(int? worst) => worst == null ? 1.0 : (worst <= 3 ? 0.8 : worst <= 5 ? 0.9 : 1.0);
+
+  /// 파트너 날: 모두의 컨디션 중 가장 안 좋은 것에 맞춰 세트 수를 줄이거나 되돌린다.
+  /// 모두의 앱이 같은 컨디션 목록으로 같은 계산을 하므로 루틴을 다시 보내지 않아도 세트 수가 같다.
+  /// 무게는 각자 자기 컨디션 배율로 따로. 이미 시작한(세트를 체크한) 날은 건드리지 않는다.
+  static bool groupIntensitySync(DayPlan plan, List<int> conditions) {
+    if (plan.isFinished || plan.exercises.any((e) => e.anyCompleted)) return false;
+    final target = intensityForCondition(conditions.isEmpty ? null : conditions.reduce(min));
+    final current = plan.intensityFactor <= 0 ? 1.0 : plan.intensityFactor;
+    if ((target - current).abs() < 0.01) return false;
+    for (final pe in plan.exercises) {
+      if (pe.warmup || pe.cardio != null) continue;
+      final ex = exerciseById(pe.exerciseId);
+      if (ex == null || ex.loadType == LoadType.cardio || pe.sets.isEmpty) continue;
+      final want = max(2, (pe.sets.length * target / current).round());
+      while (pe.sets.length > want) {
+        // 램프업(가벼운 첫 세트)이 있으면 그것부터, 아니면 마지막 세트를 뺀다.
+        final top = pe.topSet.targetWeight;
+        pe.sets.removeAt(pe.sets.first.targetWeight < top ? 0 : pe.sets.length - 1);
+      }
+      while (pe.sets.length < want) {
+        final last = pe.sets.last;
+        pe.sets.add(SetEntry(targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level));
+      }
+    }
+    plan.intensityFactor = target;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    return true;
   }
 
   /// 내 공개 ID (닉네임#1234). 로그인 전이면 null.

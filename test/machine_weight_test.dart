@@ -84,4 +84,23 @@ void main() {
     expect(pp.weightFor('db_bench', 'A'), 26);
     expect(pp.weightFor('db_bench', 'B'), 24);
   });
+
+  test('파트너 날 컨디션: 누가 입력하든 가장 안 좋은 컨디션으로 세트 수를 맞추고, 좋아지면 되돌림', () {
+    List<SetEntry> sets(List<double> w) => [for (final x in w) SetEntry(targetReps: 8, targetWeight: x)];
+    final plan = DayPlan(id: 'p', userId: 'u', date: DateTime(2026, 11, 10), kind: DayKind.workout, focus: [MuscleGroup.chest], exercises: [
+      PlannedExercise(exerciseId: 'bb_bench', equipmentType: EquipmentType.barbell, restSeconds: 90, sets: sets([50, 55, 60, 60, 60])),
+    ]);
+    // 나는 8, 파트너가 3 → 0.8배: 5세트 → 4세트(가벼운 램프 세트부터 뺌)
+    expect(AppState.groupIntensitySync(plan, [8, 3]), isTrue);
+    expect(plan.exercises.first.sets.map((s) => s.targetWeight), [55, 60, 60, 60]);
+    expect(plan.intensityFactor, 0.8);
+    // 같은 컨디션이면 그대로
+    expect(AppState.groupIntensitySync(plan, [3, 8]), isFalse);
+    // 파트너가 7로 고치면 다시 5세트
+    expect(AppState.groupIntensitySync(plan, [8, 7]), isTrue);
+    expect(plan.exercises.first.sets.length, 5);
+    // 시작한 날은 건드리지 않음
+    plan.exercises.first.sets.first.completed = true;
+    expect(AppState.groupIntensitySync(plan, [2]), isFalse);
+  });
 }

@@ -1244,7 +1244,7 @@ class DayPlan {
   int estimatedMinutes;
 
   /// 1.0 기본. 연속 운동일이 길면 0.85 등으로 볼륨(세트 수)을 낮춘다.
-  final double intensityFactor;
+  double intensityFactor;
 
   /// 오늘 컨디션에 따른 무게 배율. 0.7이면 평소 무게의 70%로 처방.
   final double loadFactor;
