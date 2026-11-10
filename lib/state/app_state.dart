@@ -303,6 +303,14 @@ class AppState extends ChangeNotifier {
   }
 
   /// 장소를 계획에 적용(내 헬스장이면 gymId, 파트너 헬스장이면 그 기구 목록).
+  /// 그 날 가기로 한 내 헬스장 id(날짜별 지정, 또는 내 헬스장에서 하는 파트너 장소).
+  String? _ownGymIdOf(DayPlan p) {
+    if (p.gymId != null && gymById(p.gymId) != null) return p.gymId;
+    final myUid = cloudSignedIn ? CloudSync.instance.user!.uid : null;
+    if (p.venueOwner != null && p.venueOwner == myUid && gymById(p.venueGymId) != null) return p.venueGymId;
+    return null;
+  }
+
   void _applyVenue(DayPlan plan, SharedVenue v) {
     final myUid = cloudSignedIn ? CloudSync.instance.user!.uid : null;
     plan.venueOwner = v.owner;
@@ -2013,7 +2021,7 @@ class AppState extends ChangeNotifier {
       await changeDayFocus(d, existing.focus, title: (existing.title ?? '').split(' · ').first, shiftFollowing: false);
       return planOn(d);
     }
-    final gym = gymById(gymId ?? existing?.gymId);
+    final gym = gymById(gymId ?? (existing == null ? null : _ownGymIdOf(existing)));
     final pinned = [for (final e in existing?.exercises ?? const <PlannedExercise>[]) if (e.pinned) e];
     final rest = manualRestDays..remove(dateKey(d));
     final history = myPlans.where((p) => dateKey(p.date) != dateKey(d)).toList();
@@ -2231,6 +2239,25 @@ class AppState extends ChangeNotifier {
   Future<void> catchUpMissed() async {
     final u = currentUser;
     if (u == null) return;
+    // 예전에 만든·받은 루틴도 구역 순서(스트레칭 맨 앞, 워밍업은 웨이트 바로 앞)로 맞춘다.
+    var sorted = false;
+    for (final p in myPlans) {
+      if (p.isFinished || p.date.isBefore(today) || p.exercises.length < 2 || p.exercises.any((e) => e.anyCompleted)) continue;
+      final next = SessionGenerator.sortSections(p.exercises, u.sectionOrder);
+      var same = true;
+      for (var i = 0; i < next.length; i++) {
+        if (!identical(next[i], p.exercises[i])) same = false;
+      }
+      if (same) continue;
+      p.exercises
+        ..clear()
+        ..addAll(next);
+      sorted = true;
+    }
+    if (sorted) {
+      await _save();
+      notifyListeners();
+    }
     // 클라우드 기록을 받기 전엔 하지 않는다(다른 기기에서 한 운동을 '안 함'으로 오해하지 않게).
     if (!_initialSyncDone) return;
     final t = today;
@@ -3433,8 +3460,10 @@ class AppState extends ChangeNotifier {
   Future<void> clearPartnerDay(DateTime date) async {
     final p = planOn(date);
     if (p == null || p.isFinished) return;
+    final gymId = _ownGymIdOf(p);
     _data.plans.remove(p);
-    await regenerateDay(date);
+    // 혼자 하는 루틴으로 돌려도 그 날 가기로 한 헬스장은 그대로.
+    await regenerateDay(date, gymId: gymId);
     // 파트너 날이 빠졌으니 앞뒤 날짜도 다시 맞춘다.
     await rebalanceAround(date);
   }
