@@ -44,7 +44,11 @@ class SessionRequest {
     this.machines = const {},
     this.lastDone = const {},
     this.prefOverride,
+    this.tooHeavyIds = const {},
   });
+
+  /// 넣지 않을 운동(파트너 운동: 함께 하는 누군가에게 빈 바조차 무거운 바벨 운동).
+  final Set<String> tooHeavyIds;
 
   /// 기구 종류 → 그 헬스장에 있는 실제 기구 이름들(같은 종류가 여러 대면 2개 이상).
   /// 운동마다 지난번에 쓴 기구를 고르고, 그 기구에서의 무게를 쓴다.
@@ -486,6 +490,8 @@ class SessionGenerator {
       if (ex.warmupOnly || ex.activity || _reserved.contains(ex.id)) continue;
       // 같은 운동은 물론 같은 계열(딥스 ↔ 트라이셉스 딥스 등)도 한 세션에 두 번 넣지 않는다.
       if (pickedIds.contains(ex.id) || pickedFamilies.contains(familyOf(ex.id))) continue;
+      // 기록이 없고 빈 바조차 무거울 것 같은 바벨 운동은 넣지 않는다(덤벨·머신 대안이 고른다).
+      if (req.tooHeavyIds.contains(ex.id) || (req.progress[ex.id] == null && _estimator.barTooHeavy(ex, req.available))) continue;
       // 직전 운동일에 한 운동·같은 계열(레그 컬 ↔ 라잉 레그 컬)은 웬만하면 피한다.
       final repeatPenalty = req.avoidIds.contains(ex.id)
           ? 6.0

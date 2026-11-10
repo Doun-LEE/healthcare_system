@@ -2997,6 +2997,7 @@ class AppState extends ChangeNotifier {
       lastDayIds: hints.lastDay,
       lastDone: hints.lastDone,
       prefOverride: hints.pref,
+      tooHeavyIds: {for (final pp in all) ..._barTooHeavyFor(pp, available)},
       intensityFactor: intensity,
       loadFactor: mine?.condition != null ? mine!.loadFactor : 1.0,
     )).generate();
@@ -3042,6 +3043,15 @@ class AppState extends ChangeNotifier {
     if (failed.length == others.length) return '$note 보내기는 실패했어요(네트워크). 잠시 뒤 다시 해주세요.';
     if (failed.isNotEmpty) return '$note$where ${failed.join('·')} 님에게는 아직 못 보냈어요(연결이 느림, 뒤에서 계속 보내요).';
     return '$note$where $names 님 앱에도 같은 루틴을 보냈어요.';
+  }
+
+  /// 그 사람에게 빈 바조차 무거울 것 같은 바벨 운동(그 사람 기록이 없는 것만).
+  Set<String> _barTooHeavyFor(PartnerProfile pp, Set<EquipmentType> available) {
+    final est = LoadEstimator(pp.profile);
+    return {
+      for (final ex in exerciseCatalog)
+        if (ex.loadType == LoadType.barbell && pp.weightFor(ex.id, null) == null && est.barTooHeavy(ex, available)) ex.id,
+    };
   }
 
   /// 함께 운동하는 사람의 운동별 무게(그 사람 기록 → 같은 기구 기록 → 스펙으로 추정).

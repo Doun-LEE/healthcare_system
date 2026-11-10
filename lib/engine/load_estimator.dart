@@ -113,6 +113,18 @@ class LoadEstimator {
     return max(minW, roundTo(w, step));
   }
 
+  /// 기록이 없을 때, 빈 바(20kg)조차 버거울 것 같은 바벨 운동인지.
+  /// (가장 적은 횟수 기준 추정 무게가 빈 바보다 가벼우면 처음엔 덤벨·머신으로 하는 게 낫다.)
+  /// [available]을 주면 그 헬스장에서 이 운동에 쓸 바로 판단: 올림픽 바 20kg,
+  /// EZ바·고정 바벨은 가장 가벼운 것이 보통 10kg 이하라 해당 없음, 랜드마인·스미스도 제외.
+  bool barTooHeavy(Exercise ex, [Set<EquipmentType>? available]) {
+    if (ex.loadType != LoadType.barbell) return false;
+    final eq = available == null ? ex.equipment.first : ex.pickEquipment(available);
+    if (eq != EquipmentType.barbell && eq != EquipmentType.squatRack) return false;
+    final w = weightForReps(oneRepMax(ex.refLift) * ex.ratio, ex.repRange.first);
+    return w < _minimumWeight(LoadType.barbell);
+  }
+
   static double _minimumWeight(LoadType t) => switch (t) {
         LoadType.barbell => 20, // 빈 바
         LoadType.dumbbell => 2,
