@@ -1280,6 +1280,8 @@ class DayPlan {
   }
 
   bool get isRest => kind == DayKind.rest;
+  /// 쉬는 날(원래 휴식일이거나 운동일을 쉬기로 바꾼 날).
+  bool get isOff => isRest || skipped;
   bool get isFinished => finishedAt != null;
 
   /// '운동 시작'을 누른 시각(또는 첫 세트 체크 시각)과 끝낸 시각.

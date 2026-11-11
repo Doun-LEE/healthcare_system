@@ -108,4 +108,28 @@ void main() {
     DayPlan mk(String? partner) => DayPlan(id: partner ?? 'solo', userId: 'u', date: DateTime(2026, 11, 10), kind: DayKind.workout, focus: [MuscleGroup.legs], partnerName: partner);
     expect(AppState.dayRank(mk('유주연')), greaterThan(AppState.dayRank(mk(null))));
   });
+
+  test('루틴 메모의 마지막 수행일은 보여줄 때 지금 기록으로', () {
+    final d = DateTime(2026, 11, 11);
+    expect(AppState.liveNote('처음 하는 운동 · 가슴 바깥쪽', ExerciseProgress(exerciseId: 'db_fly', workingWeight: 14, targetReps: 12, lastPerformed: DateTime(2026, 11, 10, 20)), d),
+        '마지막 수행 1일 전 · 가슴 바깥쪽');
+    expect(AppState.liveNote('회복 중인 근육 · 세트 -1, 무게 90% · 마지막 수행 9일 전 · 가슴', ExerciseProgress(exerciseId: 'x', workingWeight: 1, targetReps: 1, lastPerformed: DateTime(2026, 11, 8)), d),
+        '회복 중인 근육 · 세트 -1, 무게 90% · 마지막 수행 3일 전 · 가슴');
+    expect(AppState.liveNote('처음 하는 운동 · 가슴', null, d), '처음 하는 운동 · 가슴');
+  });
+
+  test('클로즈그립 벤치는 벤치프레스류와 한 세션에 같이 안 나옴', () {
+    expect(motionOf('cgbp'), motionOf('bb_bench'));
+    for (var i = 0; i < 5; i++) {
+      final gen = SessionGenerator(SessionRequest(
+        groups: [MuscleGroup.chest, MuscleGroup.arms],
+        available: {EquipmentType.barbell, EquipmentType.flatBench, EquipmentType.squatRack, EquipmentType.dumbbell},
+        progress: const {},
+        profile: UserProfile(id: 'u', name: 'a', exercisePref: {'cgbp': 3, 'bb_bench': 3}),
+        minutesBudget: 90,
+      ));
+      final ids = gen.generate().map((e) => e.exerciseId).toList();
+      expect(ids.contains('cgbp') && ids.any((id) => motionOf(id) == 'flat_press' && id != 'cgbp'), isFalse, reason: ids.join(','));
+    }
+  });
 }

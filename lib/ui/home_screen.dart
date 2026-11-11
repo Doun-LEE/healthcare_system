@@ -36,8 +36,8 @@ class HomeScreen extends StatelessWidget {
     final text = Theme.of(context).textTheme;
     final (wFrom, wTo) = Stats.rangeFor('week', now);
     final week = Stats.summarize(state.myPlans, from: wFrom, to: wTo);
-    final plannedThisWeek = state.myPlans.where((p) => !p.isRest && !p.date.isBefore(wFrom) && p.date.isBefore(wFrom.add(const Duration(days: 7)))).length;
-    final upcoming = state.myPlans.where((p) => p.date.isAfter(today) && !p.isRest).take(3).toList();
+    final plannedThisWeek = state.myPlans.where((p) => !p.isOff && !p.date.isBefore(wFrom) && p.date.isBefore(wFrom.add(const Duration(days: 7)))).length;
+    final upcoming = state.myPlans.where((p) => p.date.isAfter(today) && !p.isOff).take(3).toList();
     final style = themeStyleOf(context);
 
     return Scaffold(
@@ -77,7 +77,7 @@ class HomeScreen extends StatelessWidget {
 
           // 오늘 운동 카드
           Card(
-            color: plan == null || plan.isRest ? cs.surfaceContainerHigh : cs.primaryContainer,
+            color: plan == null || plan.isOff ? cs.surfaceContainerHigh : cs.primaryContainer,
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => onGoToTab(_tabToday),
@@ -87,19 +87,19 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Icon(plan == null ? Icons.event_note : plan.isRest ? Icons.self_improvement : Icons.fitness_center,
-                          color: plan == null || plan.isRest ? cs.onSurface : cs.onPrimaryContainer),
+                      Icon(plan == null ? Icons.event_note : plan.isOff ? Icons.self_improvement : Icons.fitness_center,
+                          color: plan == null || plan.isOff ? cs.onSurface : cs.onPrimaryContainer),
                       const SizedBox(width: 8),
-                      Text('오늘 운동', style: text.labelLarge?.copyWith(color: plan == null || plan.isRest ? cs.onSurfaceVariant : cs.onPrimaryContainer)),
+                      Text('오늘 운동', style: text.labelLarge?.copyWith(color: plan == null || plan.isOff ? cs.onSurfaceVariant : cs.onPrimaryContainer)),
                       const Spacer(),
                       if (plan != null && plan.isFinished) Icon(Icons.check_circle, color: cs.primary),
                     ]),
                     const SizedBox(height: 6),
                     Text(
-                      plan == null ? '계획 없음' : plan.isRest ? '휴식일' : plan.displayTitle,
-                      style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: plan == null || plan.isRest ? cs.onSurface : cs.onPrimaryContainer),
+                      plan == null ? '계획 없음' : plan.isOff ? '휴식일' : plan.displayTitle,
+                      style: text.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: plan == null || plan.isOff ? cs.onSurface : cs.onPrimaryContainer),
                     ),
-                    if (plan != null && !plan.isRest) ...[
+                    if (plan != null && !plan.isOff) ...[
                       const SizedBox(height: 6),
                       Text(
                         plan.isFinished
@@ -243,7 +243,7 @@ class _DayDot extends StatelessWidget {
     IconData? icon;
     if (plan == null) {
       c = cs.surfaceContainerHighest;
-    } else if (plan!.isRest) {
+    } else if (plan!.isOff) {
       c = cs.tertiaryContainer;
       icon = Icons.self_improvement;
     } else if (plan!.isFinished) {

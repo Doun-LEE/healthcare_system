@@ -977,20 +977,27 @@ class _ExerciseCard extends StatelessWidget {
                             style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         if (!isCardio && !isBw && myEq != null && myEq.sledMatters && pe.sets.isNotEmpty)
                           Builder(builder: (_) {
-                            final shown = pe.topSet.effectiveWeight * myEq.displayFactor;
-                            final side = myEq.effectiveBasis == 'perSide' ? '한쪽 ' : '';
+                            final shown = pe.topSet.effectiveWeight * state.weightFactor(plan, pe.equipmentType, pe: pe);
+                            // 한쪽 기준 기구이거나, 합계 기준 기구를 한쪽씩 하는 경우 → 빈 기구 무게도 한쪽 몫(반).
+                            final perSide = myEq.effectiveBasis == 'perSide' || pe.oneSide;
+                            final side = perSide ? '한쪽 ' : '';
+                            final empty = myEq.emptyKg == null ? null : (perSide ? myEq.emptyKg! / 2 : myEq.emptyKg!);
                             final String line;
-                            if (myEq.emptyKg == null) {
+                            if (empty == null) {
                               line = '$side원판 기준 · 빈 기구 무게는 기구 수정에서';
                             } else if (myEq.effectivePlateBasis == 'full') {
-                              line = '$side기구 포함 ${_fmt(shown)}kg = 원판 ${_fmt(myEq.withoutSled(shown)!)}kg + 빈 기구 ${_fmt(myEq.emptyKg!)}kg';
+                              line = '$side기구 포함 ${_fmt(shown)}kg = 원판 ${_fmt(max(0, shown - empty))}kg + 빈 기구 ${_fmt(empty)}kg';
                             } else {
-                              line = '$side원판 ${_fmt(shown)}kg + 빈 기구 ${_fmt(myEq.emptyKg!)}kg = 기구 포함 ${_fmt(myEq.withSled(shown)!)}kg';
+                              line = '$side원판 ${_fmt(shown)}kg + 빈 기구 ${_fmt(empty)}kg = 기구 포함 ${_fmt(shown + empty)}kg';
                             }
                             return Text(line, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant));
                           }),
                         if (pe.note != null && pe.note!.isNotEmpty)
-                          Text(pe.note!, style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
+                          Text(
+                              plan.isFinished || pe.anyCompleted || plan.date.isBefore(state.today)
+                                  ? pe.note!
+                                  : AppState.liveNote(pe.note!, state.progress[pe.exerciseId], plan.date),
+                              style: text.bodySmall?.copyWith(color: pe.personal ? cs.secondary : cs.tertiary)),
                         if (plan.partnerName != null && !isCardio && _memberWeights(context, plan, pe).isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),

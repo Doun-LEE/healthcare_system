@@ -170,10 +170,23 @@ class AppState extends ChangeNotifier {
 
   /// 화면 무게 배율(기구별 '한쪽/양쪽' 기준). 표시 = 내부 × 배율.
   /// 덤벨 하나를 두 손으로 드는 운동(풀오버 등)은 덤벨 1개 무게 그대로.
-  double weightFactor(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) =>
-      _singleDumbbell(type, pe) ? 1 : equipmentFor(plan, type, pe: pe)?.displayFactor ?? 1;
-  String weightBasisLabel(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) =>
-      _singleDumbbell(type, pe) ? '덤벨 1개' : equipmentFor(plan, type, pe: pe)?.basisLabel ?? '';
+  /// 합계 기준 원판 머신(하이 로우 등)을 '한쪽씩' 하면 한쪽에만 원판을 끼우므로 합계의 반을 보여준다.
+  double weightFactor(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) {
+    if (_singleDumbbell(type, pe)) return 1;
+    final e = equipmentFor(plan, type, pe: pe);
+    if (e == null) return 1;
+    return e.displayFactor * (_halfForOneSide(e, pe) ? 0.5 : 1);
+  }
+
+  String weightBasisLabel(DayPlan plan, EquipmentType type, {PlannedExercise? pe}) {
+    if (_singleDumbbell(type, pe)) return '덤벨 1개';
+    final e = equipmentFor(plan, type, pe: pe);
+    if (e == null) return '';
+    return _halfForOneSide(e, pe) ? '한쪽 ${e.basisLabel}'.trim() : e.basisLabel;
+  }
+
+  static bool _halfForOneSide(GymEquipment e, PlannedExercise? pe) =>
+      pe != null && pe.oneSide && e.sledMatters && e.effectiveBasis == 'total';
 
   static bool _singleDumbbell(EquipmentType type, PlannedExercise? pe) =>
       type == EquipmentType.dumbbell && pe != null && singleDumbbellIds.contains(pe.exerciseId);
@@ -2540,6 +2553,7 @@ class AppState extends ChangeNotifier {
     final msgs = <String>[];
     final now = DateTime.now();
     plan.rpe = rpe;
+    final progressed = <String>{};
     for (final pe in plan.exercises) {
       if (!pe.anyCompleted || pe.warmup || pe.skipMine) continue;
       final ex = exerciseById(pe.exerciseId);
@@ -2574,7 +2588,9 @@ class AppState extends ChangeNotifier {
       }
       final r = Progression.apply(pe, cur, now, loadFactor: plan.loadFactor, rpe: rpe);
       msgs.add('${ex.name}: ${r.message}');
+      progressed.add(pe.exerciseId);
     }
+    _refreshUpcomingWeights(plan, progressed);
     plan.finishedAt = now;
     if (plan.startedAt != null) plan.endedAt = now;
     final me = currentUser;
@@ -2619,6 +2635,47 @@ class AppState extends ChangeNotifier {
     }
     await _save();
     return msgs;
+  }
+
+  /// 루틴 메모의 '처음 하는 운동 / 마지막 수행 N일 전'은 루틴을 만들 때 기준이라, 그 뒤에 한 운동이면
+  /// 틀려진다. 보여줄 때 지금 기록으로 바꿔 쓴다(그 날짜 기준 며칠 전).
+  static String liveNote(String note, ExerciseProgress? prog, DateTime planDate) {
+    final m = RegExp(r'(처음 하는 운동|마지막 수행 \d+일 전)( · )?').firstMatch(note);
+    if (m == null) return note;
+    String label;
+    if (prog == null) {
+      label = '처음 하는 운동';
+    } else if (prog.lastPerformed == null) {
+      label = '';
+    } else {
+      final days = dateOnly(planDate).difference(dateOnly(prog.lastPerformed!)).inDays;
+      label = days <= 0 ? '오늘 이미 함' : '마지막 수행 $days일 전';
+    }
+    final rep = label.isEmpty ? '' : '$label${m.group(2) ?? ''}';
+    return note.replaceRange(m.start, m.end, rep);
+  }
+
+  /// 운동을 마치면 그 뒤 날짜의 (아직 손대지 않은) 혼자 루틴에 같은 운동이 있으면 방금 기록으로 무게를 다시 잡는다.
+  /// 주간 루틴은 미리 만들어 두기 때문에, 안 그러면 예전 추정 무게가 그대로 남는다.
+  void _refreshUpcomingWeights(DayPlan done, Set<String> ids) {
+    final u = currentUser;
+    if (u == null || ids.isEmpty) return;
+    for (final p in myPlans) {
+      if (!p.date.isAfter(done.date) || p.isFinished || p.isRest || p.custom || p.partnerName != null) continue;
+      if (p.exercises.any((e) => e.anyCompleted)) continue;
+      var changed = false;
+      for (var i = 0; i < p.exercises.length; i++) {
+        final pe = p.exercises[i];
+        if (pe.warmup || pe.personal || !ids.contains(pe.exerciseId)) continue;
+        final ex = exerciseById(pe.exerciseId);
+        if (ex == null) continue;
+        final next = _planSingle(ex, u, p);
+        if (next.equipmentType != pe.equipmentType) continue;
+        p.exercises[i] = next;
+        changed = true;
+      }
+      if (changed) p.estimatedMinutes = SessionGenerator.estimateMinutes(p.exercises);
+    }
   }
 
   Future<void> reopenDay(DayPlan plan) async {

@@ -245,9 +245,9 @@ class SessionGenerator {
     final mainIds = main.map((e) => e.exerciseId).toSet();
     final mainNames = [for (final e in main) exerciseById(e.exerciseId)?.name ?? ''];
     // 본 운동과 같은 계열(풀업 ↔ 어시스트 풀업, 벤치 ↔ 덤벨 벤치 등)은 워밍업으로 넣지 않는다.
-    final mainFamilies = {for (final id in mainIds) familyOf(id)};
+    final mainFamilies = {for (final id in mainIds) motionOf(id)};
     bool sameFamily(Exercise ex) {
-      if (mainIds.contains(ex.id) || mainFamilies.contains(familyOf(ex.id))) return true;
+      if (mainIds.contains(ex.id) || mainFamilies.contains(motionOf(ex.id))) return true;
       for (final id in mainIds) {
         if (id.contains(ex.id) || ex.id.contains(id)) return true;
       }
@@ -488,7 +488,7 @@ class SessionGenerator {
     List<MuscleGroup> dayGroups,
   ) {
     final pickedIds = picked.map((p) => p.exerciseId).toSet();
-    final pickedFamilies = {for (final id in pickedIds) familyOf(id)};
+    final pickedFamilies = {for (final id in pickedIds) motionOf(id)};
     final avoidFamilies = {for (final id in req.avoidIds) familyOf(id)};
     final lastFamilies = {for (final id in req.lastDayIds) familyOf(id)};
     final now = req.now ?? DateTime.now();
@@ -504,7 +504,7 @@ class SessionGenerator {
     for (final ex in exercisesOf(g)) {
       if (ex.warmupOnly || ex.activity || _reserved.contains(ex.id)) continue;
       // 같은 운동은 물론 같은 계열(딥스 ↔ 트라이셉스 딥스 등)도 한 세션에 두 번 넣지 않는다.
-      if (pickedIds.contains(ex.id) || pickedFamilies.contains(familyOf(ex.id))) continue;
+      if (pickedIds.contains(ex.id) || pickedFamilies.contains(motionOf(ex.id))) continue;
       // 기록이 없고 빈 바조차 무거울 것 같은 바벨 운동은 넣지 않는다(덤벨·머신 대안이 고른다).
       if (req.tooHeavyIds.contains(ex.id) || (req.progress[ex.id] == null && _estimator.barTooHeavy(ex, req.available))) continue;
       // 직전 운동일에 한 운동·같은 계열(레그 컬 ↔ 라잉 레그 컬)은 웬만하면 피한다.

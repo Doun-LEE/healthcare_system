@@ -2376,6 +2376,13 @@ final Map<String, String> _familyOf = {
 /// 운동의 계열 키. 묶음에 없으면 자기 id.
 String familyOf(String exerciseId) => _familyOf[exerciseId] ?? exerciseId;
 
+/// 계열은 다르지만(부위·기구 대체는 따로) 가동이 거의 같아 한 세션에 같이 넣지 않는 운동.
+/// 예: 클로즈그립 벤치프레스(팔) ↔ 벤치프레스류(가슴).
+const _sameMotion = <String, String>{'cgbp': 'flat_press'};
+
+/// 한 세션 중복을 따질 때 쓰는 동작 키.
+String motionOf(String exerciseId) => _sameMotion[exerciseId] ?? familyOf(exerciseId);
+
 /// 같은 계열에 다른 운동이 있는지(계열 안에서 기구 우선순위를 따질 때).
 bool hasFamily(String exerciseId) => _familyOf.containsKey(exerciseId);
 
