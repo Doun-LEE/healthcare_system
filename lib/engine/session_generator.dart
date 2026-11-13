@@ -738,8 +738,8 @@ class SessionGenerator {
   static int estimateMinutes(List<PlannedExercise> plan) {
     var sec = _overheadMin * 60;
     for (final p in plan) {
-      // 워밍업은 고정 준비 시간(_overheadMin)에 포함.
-      if (p.warmup) continue;
+      // 워밍업은 고정 준비 시간(_overheadMin)에 포함. 파트너 날 '나만 빼기'한 운동은 내 시간에서 뺀다.
+      if (p.warmup || p.skipMine) continue;
       final ex = exerciseById(p.exerciseId);
       if (ex == null) continue;
       if (ex.loadType == LoadType.cardio) {

@@ -138,4 +138,14 @@ void main() {
     expect(gripFor('rope_pushdown', EquipmentType.cableMachine), '로프');
     expect(gripVariants('bb_bench'), isEmpty);
   });
+
+  test('나만 뺀 운동은 내 예상 시간에서 빠짐', () {
+    PlannedExercise pe() => PlannedExercise(exerciseId: 'bb_bench', equipmentType: EquipmentType.barbell, restSeconds: 90,
+        sets: [for (var i = 0; i < 4; i++) SetEntry(targetReps: 8, targetWeight: 60)]);
+    final a = pe(), b = pe();
+    final full = SessionGenerator.estimateMinutes([a, b]);
+    b.skipMine = true;
+    expect(SessionGenerator.estimateMinutes([a, b]), SessionGenerator.estimateMinutes([a]));
+    expect(SessionGenerator.estimateMinutes([a, b]), lessThan(full));
+  });
 }

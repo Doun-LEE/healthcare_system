@@ -2255,6 +2255,18 @@ class AppState extends ChangeNotifier {
     await resyncPartnerDay(plan);
   }
 
+  /// 화면에 보이는(나만 빼기 안 한) 운동들의 새 순서를 반영. 뺀 운동은 원래 자리를 그대로 둔다.
+  Future<void> reorderActive(DayPlan plan, List<PlannedExercise> active) async {
+    _markCustom(plan);
+    var k = 0;
+    for (var i = 0; i < plan.exercises.length && k < active.length; i++) {
+      if (!plan.exercises[i].skipMine) plan.exercises[i] = active[k++];
+    }
+    _learnOrder(plan);
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
   /// 사용자가 직접 바꾼 순서를 학습: 웨이트 구역(상체/하체) 안에서 각 운동의 상대 위치(0~1)와
   /// 부위별 평균 위치를 저장한다. 생성기가 다음 루틴을 짤 때 이 순위를 우선한다.
   void _learnOrder(DayPlan plan) {
@@ -2354,6 +2366,7 @@ class AppState extends ChangeNotifier {
   Future<void> toggleSkipMine(DayPlan plan, PlannedExercise pe) async {
     pe.skipMine = !pe.skipMine;
     plan.custom = true;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
     await _save();
   }
 
@@ -2409,6 +2422,7 @@ class AppState extends ChangeNotifier {
     if (shared && mineOnly) {
       old.skipMine = true;
       plan.exercises.insert(i + 1, next.copyWith(personal: true, note: '나만 바꾼 운동 · ${next.note ?? ''}'.trim()));
+      plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
       await _save();
       return;
     }
@@ -3424,6 +3438,7 @@ class AppState extends ChangeNotifier {
           plan.exercises.insert(idx + 1, old.copyWith(personal: true, note: '나는 원래 운동으로 · ${old.note ?? ''}'.trim()));
           result = '나는 ${exerciseById(fromEx ?? '')?.name ?? '원래 운동'} 그대로 해요.';
         }
+        plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
         // 제안에 답한 것도 선호도로 배운다(수락: 새 운동 +, 거절: 원래 운동 +).
         if (fromEx != null) {
           _bumpPref(u, accept ? to.id : fromEx, 0.5);

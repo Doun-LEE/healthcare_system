@@ -313,21 +313,32 @@ class DayPlanView extends StatelessWidget {
             ]),
           ]),
     ];
+    final active = [for (final e in plan.exercises) if (!e.skipMine) e];
+    final shown = [...active, for (final e in plan.exercises) if (e.skipMine) e];
     return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: head),
       footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: tail),
       buildDefaultDragHandles: false,
-      itemCount: plan.exercises.length,
-      onReorderItem: (o, n) => state.reorderExercise(plan, o, n),
+      itemCount: shown.length,
+      onReorderItem: (o, n) {
+        // '나만 빼기'한 운동은 맨 아래 따로 모아 보여주고 순서 변경에서 뺀다(파트너 루틴 순서는 그대로).
+        if (o >= active.length) return;
+        final list = [...active];
+        final item = list.removeAt(o);
+        list.insert(n.clamp(0, list.length), item);
+        state.reorderActive(plan, list);
+      },
       proxyDecorator: (child, i, anim) => Material(color: Colors.transparent, elevation: 6, child: child),
       itemBuilder: (c, i) {
-        final pe = plan.exercises[i];
-        final sectionStart = i == 0 || SessionGenerator.sectionOf(pe) != SessionGenerator.sectionOf(plan.exercises[i - 1]);
+        final pe = shown[i];
+        final skippedStart = pe.skipMine && (i == 0 || !shown[i - 1].skipMine);
+        final sectionStart = !pe.skipMine && (i == 0 || SessionGenerator.sectionOf(pe) != SessionGenerator.sectionOf(shown[i - 1]));
         return Column(
           key: ObjectKey(pe),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (skippedStart) const _SectionLabel('제외된 운동 (나만 빼기)'),
             if (sectionStart) _SectionLabel(SessionGenerator.sectionLabel(SessionGenerator.sectionOf(pe))),
             _ExerciseCard(plan: plan, pe: pe, index: i, editable: editable && !plan.isFinished, logging: logging && !plan.isFinished),
           ],
@@ -1027,7 +1038,7 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (editable)
+                if (editable && !pe.skipMine)
                   ReorderableDragStartListener(
                     index: index,
                     child: Padding(
@@ -1120,8 +1131,9 @@ class _ExerciseCard extends StatelessWidget {
                 levelText: isCardio && pe.sets[i].effectiveLevel != null && cardioLevels[ex.id] != null
                     ? cardioLevels[ex.id]!.format(pe.sets[i].effectiveLevel!)
                     : null,
-                editable: logging,
-                planning: editable && !logging,
+                // 나만 뺀 운동은 체크·수정 잠금.
+                editable: logging && !pe.skipMine,
+                planning: editable && !logging && !pe.skipMine,
                 weightFactor: state.weightFactor(plan, pe.equipmentType, pe: pe),
                 weightSuffix: state.weightBasisLabel(plan, pe.equipmentType, pe: pe),
                 eachSide: pe.oneSide,
@@ -1135,7 +1147,7 @@ class _ExerciseCard extends StatelessWidget {
                 onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw, planning: editable && !logging),
               ),
             if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) _CardioStatsLine(stats: pe.cardio!),
-            if (editable || logging)
+            if ((editable || logging) && !pe.skipMine)
               Row(children: [
                 TextButton.icon(
                   onPressed: pe.sets.length > 1 ? () => state.removeSet(plan, pe) : null,
