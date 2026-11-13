@@ -1267,6 +1267,13 @@ const List<Exercise> exerciseCatalog = [
     description: '횟수 대신 초(sec)로 수행한다.',
   ),
   Exercise(
+    id: 'plank_knee_elbow', name: '플랭크 니 투 엘보 (폼롤러)', group: MuscleGroup.abs,
+    emphasis: ['하복부', '코어 안정', '복사근'], equipment: [EquipmentType.bodyweight],
+    loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,
+    repRange: [10, 16], priority: 2, unilateral: true,
+    description: '폼롤러에 팔꿈치를 대고 엎드린 플랭크에서 무릎을 팔꿈치(폼롤러) 쪽으로 당겼다 내린다. 좌우 번갈아, 횟수는 한쪽 기준. 폼롤러가 없으면 바닥에서.',
+  ),
+  Exercise(
     id: 'crunch', name: '크런치', group: MuscleGroup.abs,
     emphasis: ['상복부'], equipment: [EquipmentType.bodyweight],
     loadType: LoadType.bodyweight, refLift: RefLift.bodyweight, ratio: 0,

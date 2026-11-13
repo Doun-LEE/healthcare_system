@@ -118,6 +118,7 @@ const Map<String, (String, String)> exercisePhotos = {
   'meadows_row': ('One-Arm_Long_Bar_Row/0.jpg', 'One-Arm_Long_Bar_Row/1.jpg'),
   'med_ball_slam': ('Overhead_Slam/0.jpg', 'Overhead_Slam/1.jpg'),
   'mountain_climber': ('Mountain_Climbers/0.jpg', 'Mountain_Climbers/1.jpg'),
+  'plank_knee_elbow': ('Mountain_Climbers/0.jpg', 'Mountain_Climbers/1.jpg'),
   'nordic_curl': ('Natural_Glute_Ham_Raise/0.jpg', 'Natural_Glute_Ham_Raise/1.jpg'),
   'ohp': ('Standing_Military_Press/0.jpg', 'Standing_Military_Press/1.jpg'),
   'outdoor_bike': ('Bicycling/0.jpg', 'Bicycling/1.jpg'),
