@@ -2344,6 +2344,22 @@ const Map<String, String> cableGrips = {
   'pallof_press': '한 손 손잡이',
 };
 
+/// 같은 동작을 손잡이(바)만 바꿔 하는 케이블 운동 묶음. 루틴에서 기구 줄을 눌러 손잡이를 바꿀 수 있다.
+const _gripGroups = [
+  ['tri_pushdown', 'rope_pushdown', 'vbar_pushdown'],
+  ['cable_curl', 'ez_cable_curl', 'rope_hammer_curl'],
+  ['lat_pulldown', 'close_grip_pulldown', 'underhand_pulldown'],
+  ['seated_row', 'wide_seated_row'],
+];
+
+/// 이 운동과 손잡이만 다른 운동 id들(자기 포함). 묶음에 없으면 빈 목록.
+List<String> gripVariants(String exerciseId) {
+  for (final g in _gripGroups) {
+    if (g.contains(exerciseId)) return g;
+  }
+  return const [];
+}
+
 const _cableTypes = {
   EquipmentType.cableMachine,
   EquipmentType.functionalTrainer,

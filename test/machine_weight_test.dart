@@ -132,4 +132,10 @@ void main() {
       expect(ids.contains('cgbp') && ids.any((id) => motionOf(id) == 'flat_press' && id != 'cgbp'), isFalse, reason: ids.join(','));
     }
   });
+
+  test('케이블 푸시다운은 일자 바·로프·V 바로 바꿀 수 있음', () {
+    expect(gripVariants('tri_pushdown'), containsAll(['rope_pushdown', 'vbar_pushdown']));
+    expect(gripFor('rope_pushdown', EquipmentType.cableMachine), '로프');
+    expect(gripVariants('bb_bench'), isEmpty);
+  });
 }

@@ -915,6 +915,15 @@ class _ExerciseCard extends StatelessWidget {
     final unit = isCardio ? '분' : (ex.id == 'plank' ? '초' : '회');
     final myEq = state.equipmentFor(plan, pe.equipmentType, pe: pe);
     final machines = state.machineChoices(plan, pe);
+    // 손잡이(일자 바·로프·V 바 등)만 다른 같은 동작. 시작 전에만 바꿀 수 있다.
+    final avail = state.availableFor(plan);
+    final grips = editable && !pe.anyCompleted && !plan.isFinished && !pe.warmup
+        ? [
+            for (final id in gripVariants(pe.exerciseId))
+              if (exerciseById(id) case final g? when g.canDoWith(avail) && gripFor(id, pe.equipmentType) != null) id,
+          ]
+        : const <String>[];
+    final pickable = machines.length >= 2 || grips.length >= 2;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -959,7 +968,7 @@ class _ExerciseCard extends StatelessWidget {
                           Text('나는 이번엔 빼요 · ${plan.partnerName}는 그대로', style: text.bodySmall?.copyWith(color: cs.secondary)),
                         InkWell(
                           // 같은 종류 기구가 여러 대면 눌러서 실제로 쓴 기구를 고른다(기구마다 무게를 따로 기억).
-                          onTap: machines.length < 2 ? null : () => _pickMachine(context, state, machines),
+                          onTap: pickable ? () => _pickMachine(context, state, machines, grips) : null,
                           child: Row(children: [
                             Icon(isBw ? Icons.accessibility_new : Icons.fitness_center, size: 14, color: cs.primary),
                             const SizedBox(width: 4),
@@ -970,7 +979,7 @@ class _ExerciseCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (machines.length >= 2) Icon(Icons.arrow_drop_down, size: 18, color: cs.primary),
+                            if (pickable) Icon(Icons.arrow_drop_down, size: 18, color: cs.primary),
                           ]),
                         ),
                         Text('${pe.effectiveGroup.label}${pe.groupOverride != null ? '(타깃 변경)' : ''}${pe.restSeconds > 0 ? ' · 휴식 ${pe.restSeconds}초' : ''}${myEq != null && myEq.displayName != pe.equipmentType.label ? ' · ${pe.equipmentType.label}' : ''}',
@@ -1182,7 +1191,7 @@ class _ExerciseCard extends StatelessWidget {
   }
 
   /// 같은 종류 기구가 여러 대일 때 실제로 쓰는(쓴) 기구 고르기.
-  Future<void> _pickMachine(BuildContext context, AppState state, List<String> machines) async {
+  Future<void> _pickMachine(BuildContext context, AppState state, List<String> machines, [List<String> grips = const []]) async {
     final current = state.equipmentLabelFor(plan, pe.equipmentType, pe: pe);
     final prog = state.progress[pe.exerciseId];
     final f = state.weightFactor(plan, pe.equipmentType, pe: pe);
@@ -1190,9 +1199,9 @@ class _ExerciseCard extends StatelessWidget {
     final picked = await showDialog<String>(
       context: context,
       builder: (c) => SimpleDialog(
-        title: Text(done ? '실제로 한 기구' : '어느 기구로 할까요?'),
+        title: Text(done ? '실제로 한 기구' : machines.length < 2 ? '어느 손잡이로 할까요?' : '어느 기구로 할까요?'),
         children: [
-          Padding(
+          if (machines.length >= 2) Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
             child: Text(
               done
@@ -1201,6 +1210,7 @@ class _ExerciseCard extends StatelessWidget {
               style: const TextStyle(fontSize: 12),
             ),
           ),
+          if (machines.length >= 2)
           for (final m in machines)
             SimpleDialogOption(
               onPressed: () => Navigator.pop(c, m),
@@ -1212,10 +1222,31 @@ class _ExerciseCard extends StatelessWidget {
                   Text('${_fmt(w * f)}kg', style: Theme.of(c).textTheme.bodySmall),
               ]),
             ),
+          if (grips.length >= 2) ...[
+            Padding(
+              padding: EdgeInsets.fromLTRB(24, machines.length >= 2 ? 12 : 0, 24, 4),
+              child: const Text('손잡이(바) — 바꾸면 그 손잡이 기록으로 무게를 다시 잡아요.', style: TextStyle(fontSize: 12)),
+            ),
+            for (final id in grips)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(c, 'grip:$id'),
+                child: Row(children: [
+                  Icon(id == pe.exerciseId ? Icons.radio_button_checked : Icons.radio_button_off, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('${gripFor(id, pe.equipmentType)} · ${exerciseById(id)!.name}')),
+                ]),
+              ),
+          ],
         ],
       ),
     );
-    if (picked != null) await state.setMachine(plan, pe, picked);
+    if (picked == null) return;
+    if (picked.startsWith('grip:')) {
+      final to = exerciseById(picked.substring(5));
+      if (to != null && to.id != pe.exerciseId) await state.swapExercise(plan, pe, to);
+      return;
+    }
+    await state.setMachine(plan, pe, picked);
   }
 
   Future<void> _swap(BuildContext context, AppState state, Exercise ex) async {
