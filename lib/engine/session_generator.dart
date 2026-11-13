@@ -257,10 +257,11 @@ class SessionGenerator {
       return false;
     }
     final ids = <String>[];
-    // 활성화 워밍업은 그 날 부위를 다 하지 않는다. 총 운동 시간에 맞춰 몇 개만(40분당 1개, 1~3개):
+    // 활성화 워밍업은 그 날 부위를 다 하지 않는다. 총 운동 시간에 맞춰 몇 개만:
+    // 50분 미만은 없음(본 운동 첫 세트가 가벼운 램프 세트라 그걸로 충분), 90분 미만 1개, 130분 미만 2개, 그 이상 3개.
     // 부위는 랜덤이되 전날 안 한 부위를 먼저, 부위마다 1개씩 돌아가며 뽑는다.
     final rnd = Random(req.seed ?? (req.now ?? DateTime.now()).millisecondsSinceEpoch ~/ 86400000);
-    final cap = (req.minutesBudget / 40).round().clamp(1, 3);
+    final cap = activationCap(req.minutesBudget);
     final major = groups.where((g) => g != MuscleGroup.cardio).toList()..shuffle(rnd);
     major.sort((a, b) => (req.yesterdayGroups.contains(a) ? 1 : 0) - (req.yesterdayGroups.contains(b) ? 1 : 0));
     final chosenGroups = major.take(cap).toList();
@@ -308,6 +309,9 @@ class SessionGenerator {
     }
     return out;
   }
+
+  /// 시간에 따른 활성화 워밍업 운동 수(스트레칭 제외). 시간이 적으면 본 세트 위주로.
+  static int activationCap(int minutes) => minutes < 50 ? 0 : minutes < 90 ? 1 : minutes < 130 ? 2 : 3;
 
   /// 운동 하나를 워밍업으로 처방: 유산소는 짧게 1세트, 나머지는 작업 중량의 절반으로 2세트.
   /// 워밍업 칸의 교체·추가에도 쓴다.
@@ -557,6 +561,14 @@ class SessionGenerator {
       if (lastEquipment != null && eq == lastEquipment && eq != EquipmentType.dumbbell) {
         score -= 0.7;
       }
+      // 다이어트 목표: 무거운 바벨 복합운동(스쿼트·데드·벤치 등)보다 머신·케이블·덤벨·맨몸 위주로.
+      // 여성은 더 강하게(바벨 운동이 자주 나와 '헬스 위주'가 되지 않게).
+      if (req.profile.goal == TrainingGoal.fatLoss) {
+        final female = req.profile.sex == Sex.female;
+        if (ex.loadType == LoadType.barbell) score -= female ? 4.0 : 2.5;
+        if (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable) score += 1.0;
+        if (ex.loadType == LoadType.dumbbell || ex.loadType == LoadType.bodyweight) score += female ? 1.0 : 0.5;
+      }
       // 초급자는 머신/덤벨 비중을 높인다.
       if (req.profile.level == TrainingLevel.beginner &&
           (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable)) {
@@ -605,7 +617,7 @@ class SessionGenerator {
     final rule = restRules[ex.group]!;
 
     var reps = prog?.targetReps ?? LoadEstimator.targetReps(ex, level, req.profile.goal);
-    var sets = LoadEstimator.setsFor(ex, level);
+    var sets = LoadEstimator.setsFor(ex, level, req.profile.goal);
     if (req.intensityFactor < 0.95) {
       sets = max(2, (sets * req.intensityFactor).round());
     }

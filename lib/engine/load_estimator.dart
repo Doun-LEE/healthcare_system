@@ -162,11 +162,13 @@ class LoadEstimator {
       };
 
   /// 운동당 세트 수. 핵심 복합운동은 4, 보조 고립은 3. 유산소는 1.
-  static int setsFor(Exercise ex, TrainingLevel level) {
+  /// 다이어트 목표는 무거운 세트를 쌓기보다 3세트 고반복·짧은 휴식으로(남는 시간은 유산소).
+  static int setsFor(Exercise ex, TrainingLevel level, [TrainingGoal goal = TrainingGoal.hypertrophy]) {
     if (ex.group == MuscleGroup.cardio) return 1;
     var s = ex.compound ? 4 : 3;
     if (level == TrainingLevel.beginner && ex.compound) s = 3;
     if (level == TrainingLevel.advanced && ex.priority == 3) s = 4;
+    if (goal == TrainingGoal.fatLoss) s = min(s, 3);
     return s;
   }
 }
