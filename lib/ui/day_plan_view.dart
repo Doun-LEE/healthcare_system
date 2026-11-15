@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
 import '../engine/session_generator.dart';
+import '../engine/set_advice.dart';
 import '../engine/substitute.dart';
 import '../engine/splits.dart';
 import '../models/models.dart';
@@ -1122,7 +1123,7 @@ class _ExerciseCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            for (var i = 0; i < pe.sets.length; i++)
+            for (var i = 0; i < pe.sets.length; i++) ...[
               _SetRow(
                 index: i,
                 set: pe.sets[i],
@@ -1146,6 +1147,14 @@ class _ExerciseCard extends StatelessWidget {
                 },
                 onEdit: () => _editSet(context, state, i, unit, !isCardio && !isBw, planning: editable && !logging),
               ),
+              // 방금 끝낸 세트(다음 세트는 아직) 아래에 다음 세트 추천.
+              if (logging && !pe.skipMine && !pe.warmup && pe.sets[i].completed && i + 1 < pe.sets.length && !pe.sets[i + 1].completed)
+                if (adviseNextSet(ex, pe.sets[i], pe.sets[i + 1],
+                    step: state.stepForPlan(plan)[pe.equipmentType] ?? ex.loadType.increment,
+                    factor: state.weightFactor(plan, pe.equipmentType, pe: pe),
+                    unit: unit) case final adv?)
+                  _AdviceLine(advice: adv, onApply: () => state.applyToRemainingSets(plan, pe, i + 1, weight: adv.weight, reps: adv.reps)),
+            ],
             if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) _CardioStatsLine(stats: pe.cardio!),
             if ((editable || logging) && !pe.skipMine)
               Row(children: [
@@ -1552,6 +1561,33 @@ class _SetRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 세트 추천 한 줄 + '적용'(남은 세트에 반영).
+class _AdviceLine extends StatelessWidget {
+  const _AdviceLine({required this.advice, required this.onApply});
+  final SetAdvice advice;
+  final VoidCallback onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final fg = advice.up ? cs.onPrimaryContainer : cs.onErrorContainer;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(40, 0, 4, 4),
+      padding: const EdgeInsets.fromLTRB(10, 2, 2, 2),
+      decoration: BoxDecoration(
+        color: advice.up ? cs.primaryContainer : cs.errorContainer,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(children: [
+        Icon(Icons.lightbulb_outline, size: 16, color: fg),
+        const SizedBox(width: 6),
+        Expanded(child: Text(advice.message, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: fg, fontWeight: FontWeight.w600))),
+        TextButton(onPressed: onApply, child: const Text('적용')),
+      ]),
     );
   }
 }

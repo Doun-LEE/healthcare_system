@@ -2118,6 +2118,17 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 세트 추천 '적용': [from]번째부터 아직 안 한 세트들의 무게·횟수를 바꾼다(처방은 그대로, 실제 수행값으로).
+  Future<void> applyToRemainingSets(DayPlan plan, PlannedExercise ex, int from, {required double weight, required int reps}) async {
+    for (var i = from; i < ex.sets.length; i++) {
+      final s = ex.sets[i];
+      if (s.completed) continue;
+      s.doneWeight = weight == s.targetWeight ? null : weight;
+      s.doneReps = reps == s.targetReps ? null : reps;
+    }
+    await _save();
+  }
+
   /// '운동 시작': 시작 시각을 기록한다(이미 시작했으면 유지).
   Future<void> startWorkout(DayPlan plan) async {
     if (plan.isFinished) return;
