@@ -121,9 +121,10 @@ class LevelAssessor {
     final grade = score == null ? null : _grade(score);
     final level = score == null
         ? p.level
-        : score < 35
+        // 화면의 등급과 같은 경계: 입문·초급 → 초급, 중급 → 중급, 고급·엘리트 → 고급.
+        : score < 40
             ? TrainingLevel.beginner
-            : score < 65
+            : score < 60
                 ? TrainingLevel.intermediate
                 : TrainingLevel.advanced;
 
