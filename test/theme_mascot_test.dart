@@ -5,7 +5,7 @@ import 'package:fit_routine/ui/app_theme.dart';
 import 'package:fit_routine/ui/widgets/mascot.dart';
 
 void main() {
-  testWidgets('마스코트 뭉치: 다섯 표정이 모두 예외 없이 그려진다', (tester) async {
+  testWidgets('마스코트 애옹: 다섯 표정이 모두 예외 없이 그려진다', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: Row(children: [

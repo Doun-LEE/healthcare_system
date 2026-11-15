@@ -8,7 +8,7 @@ import 'widgets/theme_backdrop.dart';
 /// 색·모양뿐 아니라 말투(인사·완료 문구·명언)도 테마가 정한다.
 enum AppThemeStyle {
   basic('basic', '기본', '지금 모습 그대로. 차분한 초록.', Icons.circle_outlined),
-  cute('cute', '귀여운', '파스텔 핑크 · 동글동글 · 마스코트 뭉치 🐣', Icons.favorite_border),
+  cute('cute', '귀여운', '파스텔 핑크 · 동글동글 · 마스코트 헬창애옹 🐱', Icons.favorite_border),
   tough('tough', '상남자', '쇳내·땀내 나는 체육관 · 검정과 불꽃 주황 · 굵은 숫자', Icons.fitness_center),
   marine('marine', '해병대', '빨강·노랑 · 각진 · 악! 기합 가득 · 오도된 말투', Icons.military_tech);
 
@@ -39,7 +39,7 @@ enum AppThemeStyle {
   /// 배경 사진 출처(라이선스 표시). 잘라내고 색 보정해서 썼다.
   String get photoCredit => switch (this) {
         AppThemeStyle.basic => '배경 사진: Margaret Young / Unsplash (Unsplash License), 잘라내고 흐림 처리',
-        AppThemeStyle.cute => '배경 사진: Derick McKinney / Unsplash (Unsplash License), 잘라내고 색 보정',
+        AppThemeStyle.cute => '캐릭터: 헬창애옹·애옹 손그림 원화를 옮겨 그림',
         AppThemeStyle.tough => '배경 사진: Ambitious Studio* | Rick Barrett, Anastase Maragos / Unsplash (Unsplash License), 색 보정',
         AppThemeStyle.marine => '배경 사진: 대한민국 국군 "해병대 교육훈련단 특수수색교육"(2013) / Wikimedia Commons, CC BY-SA 2.0, 잘라내고 색 보정(가공본도 CC BY-SA 2.0) · 캐릭터 원본 사진: Brian Lee / Unsplash (Unsplash License), 채색·합성',
       };
@@ -162,7 +162,7 @@ const _basicQuotes = [
 
 const _cuteQuotes = [
   '오늘도 왔구나! 그것만으로 반은 했어 🐣',
-  '한 세트만 더 하면 뭉치가 춤출게 💃',
+  '한 세트만 더 하면 애옹이가 춤출게 💃',
   '무거우면 가볍게, 대신 꾸준히! 🌱',
   '물 한 모금 마시고 가자 💧',
   '어제보다 조금만 더. 조금이면 충분해 🍀',
@@ -172,7 +172,7 @@ const _cuteQuotes = [
   '오늘 흘린 땀은 내일의 반짝임 🌟',
   '못 들어도 괜찮아, 다음에 들면 되지 🐾',
   '하체 날도 사랑해 주기 🍑',
-  '단백질 챙겼어? 뭉치는 챙겼어 🍗',
+  '단백질 챙겼어? 애옹이는 츄르 챙겼어 🐟',
   '기록 남기면 나중에 뿌듯함 두 배 📒',
   '친구랑 같이 하면 마지막 한 개가 두 개 👯',
   '오늘의 나, 참 잘했어요 도장 쾅 🏅',

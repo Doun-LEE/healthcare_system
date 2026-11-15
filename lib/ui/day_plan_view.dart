@@ -1560,7 +1560,7 @@ String _fmt(double w) =>
     w == w.roundToDouble() ? w.toInt().toString() : w.toStringAsFixed(1);
 
 /// 오늘의 명언 배너.
-/// 오늘의 한마디(테마 말투). 귀여운 테마면 마스코트 뭉치가 말풍선으로 말한다.
+/// 오늘의 한마디(테마 말투). 귀여운 테마면 마스코트 애옹이가 말풍선으로 말한다.
 class ThemedQuoteBanner extends StatelessWidget {
   const ThemedQuoteBanner({super.key, required this.date, this.plan});
   final DateTime date;

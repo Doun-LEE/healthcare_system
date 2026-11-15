@@ -64,7 +64,7 @@ class CardLook {
             glow: Color(0xFFFFB1C8),
             dark: false,
             mascot: Mascot(mood: MascotMood.cheer, size: 64, bob: false),
-            tagline: '#FitRoutine · 뭉치와 함께 🐣',
+            tagline: '#FitRoutine · 헬창애옹과 함께 🐱',
           ),
         AppThemeStyle.tough => const CardLook(
             bg1: Color(0xFF0B0A09),
