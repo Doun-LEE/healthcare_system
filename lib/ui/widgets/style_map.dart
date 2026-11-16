@@ -30,7 +30,7 @@ class StyleMap extends StatelessWidget {
   final double width;
 
   static double heightFor(double width) {
-    final l = (width - 44) / (2 * cos(pi / 6));
+    final l = (width - 60) / (2 * cos(pi / 6));
     return l + l * 0.72 + 56;
   }
 
@@ -91,7 +91,7 @@ class _MapPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cx = cos(pi / 6), sy = sin(pi / 6);
-    final l = (size.width - 44) / (2 * cx);
+    final l = (size.width - 60) / (2 * cx);
     final h = l * 0.72;
     // 원점(웨이트 0·유산소 0·가볍게)은 두 벽이 만나는 뒤 모서리. 웨이트는 오른쪽 아래로, 유산소는 왼쪽 아래로 커진다.
     final o = Offset(size.width / 2, size.height - 30 - l);
@@ -115,9 +115,16 @@ class _MapPainter extends CustomPainter {
       canvas.drawPath(poly(w), Paint()..color = wall);
       canvas.drawPath(poly(w), gp);
     }
-    for (final k in [1 / 3, 2 / 3]) {
-      canvas.drawLine(p3(0, 0, k), p3(1, 0, k), faint);
-      canvas.drawLine(p3(0, 0, k), p3(0, 1, k), faint);
+    // 강도 눈금: 벽에 25·50·75 가로줄, 오른쪽 벽 끝에 숫자.
+    for (final k in [0.25, 0.5, 0.75]) {
+      final lp = k == 0.5 ? (Paint()
+        ..color = grid
+        ..strokeWidth = 0.9) : faint;
+      canvas.drawLine(p3(0, 0, k), p3(1, 0, k), lp);
+      canvas.drawLine(p3(0, 0, k), p3(0, 1, k), lp);
+    }
+    for (final k in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+      _text(canvas, '${(k * 100).round()}', p3(1, 0, k) + const Offset(4, 0), size: 8.5, color: axisText, align: Alignment.centerLeft);
     }
     // 바닥(가운데 선 = 많고 적음 기준 50)
     final fl = [p3(0, 0, 0), p3(1, 0, 0), p3(1, 1, 0), p3(0, 1, 0)];
@@ -140,8 +147,18 @@ class _MapPainter extends CustomPainter {
     _text(canvas, '↑ 강도', p3(0, 0, 1) + const Offset(0, -4), size: 9.5, color: axisText, w: FontWeight.w700, align: Alignment.bottomCenter);
     _text(canvas, '0', p3(0, 0, 0) + const Offset(0, -3), size: 8.5, color: axisText, align: Alignment.bottomCenter);
 
-    // 바닥 그림자 + 세로 점선
+    // 바닥 그림자 + 세로 점선, 그리고 오른쪽 벽으로 수평 점선(벽 눈금에서 강도를 읽게)
     for (final p in points) {
+      final w = p3(p.style.weight / 100, 0, p.style.intensity / 100);
+      _dashed(canvas, at(p.style), w, Paint()
+        ..color = p.color.withValues(alpha: 0.55)
+        ..strokeWidth = 1);
+      canvas.drawCircle(w, 3.5, Paint()..color = p.color);
+      canvas.drawCircle(w, 3.5, Paint()
+        ..color = ring
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+      axisRects.add(_text(canvas, '${p.style.intensity.round()}', w + const Offset(5, -1), size: 9, color: p.color, w: FontWeight.w800, align: Alignment.centerLeft));
       final s = shadow(p.style);
       canvas.drawOval(Rect.fromCenter(center: s, width: 12, height: 6), Paint()..color = p.color.withValues(alpha: 0.4));
       _dashed(canvas, s, at(p.style), Paint()
