@@ -569,6 +569,15 @@ class SessionGenerator {
         if (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable) score += 1.0;
         if (ex.loadType == LoadType.dumbbell || ex.loadType == LoadType.bodyweight) score += female ? 1.0 : 0.5;
       }
+      // 본세트는 머신·케이블·프리웨이트 위주. 풀업·딥스 같은 맨몸 운동과 그 보조 머신(어시스트 풀업·딥스)은
+      // 웬만하면 빼고, 선호도가 높거나 대안이 없을 때만 들어간다(복근은 예외).
+      // 단, 다이어트·근력 목표 여성에겐 보조 머신이 흔한 본운동이라 감점하지 않는다.
+      if (g.isMajor && ex.refLift == RefLift.bodyweight && ex.loadType != LoadType.cardio) {
+        final assistOk = ex.loadType == LoadType.machine &&
+            req.profile.sex == Sex.female &&
+            (req.profile.goal == TrainingGoal.fatLoss || req.profile.goal == TrainingGoal.strength);
+        if (!assistOk) score -= 4.0;
+      }
       // 초급자는 머신/덤벨 비중을 높인다.
       if (req.profile.level == TrainingLevel.beginner &&
           (ex.loadType == LoadType.machine || ex.loadType == LoadType.cable)) {

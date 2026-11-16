@@ -53,4 +53,37 @@ void main() {
     )).generate();
     expect(out.where((e) => e.warmup && !stretchIds.contains(e.exerciseId)), isEmpty);
   });
+  test('기구가 다 있으면 본세트는 풀업·딥스·어시스트 머신 같은 맨몸류 대신 머신 위주', () {
+    var n = 0;
+    for (var seed = 0; seed < 20; seed++) {
+      final out = SessionGenerator(SessionRequest(
+        groups: [MuscleGroup.back, MuscleGroup.chest, MuscleGroup.arms],
+        available: gym,
+        progress: const {},
+        profile: UserProfile(id: 'u', name: 'u'),
+        minutesBudget: 90,
+        seed: seed,
+      )).generate();
+      n += out.where((e) => !e.warmup && exerciseById(e.exerciseId)?.refLift == RefLift.bodyweight &&
+          exerciseById(e.exerciseId)?.loadType != LoadType.cardio && exerciseById(e.exerciseId)!.group.isMajor).length;
+    }
+    expect(n, 0);
+  });
+
+  test('다이어트·근력 목표 여성은 어시스트 풀업·딥스가 본세트에 나올 수 있다', () {
+    final w = UserProfile(id: 'w', name: 'w', sex: Sex.female, heightCm: 162, weightKg: 58, goal: TrainingGoal.fatLoss);
+    var n = 0;
+    for (var seed = 0; seed < 20; seed++) {
+      final out = SessionGenerator(SessionRequest(
+        groups: [MuscleGroup.back, MuscleGroup.chest],
+        available: gym,
+        progress: const {},
+        profile: w,
+        minutesBudget: 90,
+        seed: seed,
+      )).generate();
+      n += out.where((e) => !e.warmup && (e.exerciseId == 'assisted_pullup' || e.exerciseId == 'assisted_dip')).length;
+    }
+    expect(n, greaterThan(0));
+  });
 }
