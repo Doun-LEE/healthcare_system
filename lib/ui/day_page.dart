@@ -8,6 +8,7 @@ import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
 import 'widgets/place.dart';
+import 'widgets/plan_overview.dart';
 
 /// 하루 루틴 전체 화면. 달력에서 날짜를 열면 여기로 온다.
 class DayPage extends StatelessWidget {
@@ -30,6 +31,8 @@ class DayPage extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
+      endDrawer: plan == null || plan.isRest || plan.exercises.isEmpty ? null : PlanOverviewDrawer(plan: plan, editable: !isPast),
+      drawerEdgeDragWidth: 36,
       appBar: AppBar(
         title: Text('${d.month}월 ${d.day}일 (${wd[d.weekday - 1]})${isPast ? ' · 지난 날' : isFuture ? ' · 예정' : ' · 오늘'}'),
         actions: [

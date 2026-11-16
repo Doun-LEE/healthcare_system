@@ -32,6 +32,7 @@ import 'widgets/workout_card.dart';
 import 'widgets/workout_photo_sheet.dart';
 import '../services/workout_photo.dart';
 import 'widgets/app_sheet.dart';
+import 'widgets/plan_overview.dart';
 
 /// 공유 코드 붙여넣기 → 해당 날짜로 가져오기. 오늘/달력 화면에서 공용.
 Future<void> importRoutineDialog(BuildContext context, DateTime date) async {
@@ -321,7 +322,7 @@ class DayPlanView extends StatelessWidget {
     ];
     final active = [for (final e in plan.exercises) if (!e.skipMine) e];
     final shown = [...active, for (final e in plan.exercises) if (e.skipMine) e];
-    return ReorderableListView.builder(
+    final list = ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: head),
       footer: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: tail),
@@ -351,6 +352,18 @@ class DayPlanView extends StatelessWidget {
         );
       },
     );
+    // 오른쪽 끝 손잡이(또는 왼쪽으로 빠르게 쓸기)로 '한눈에 보기'를 연다.
+    final scaffold = Scaffold.maybeOf(context);
+    if (scaffold == null || !scaffold.hasEndDrawer || plan.exercises.isEmpty) return list;
+    return Stack(children: [
+      GestureDetector(
+        onHorizontalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) < -500) scaffold.openEndDrawer();
+        },
+        child: list,
+      ),
+      const Positioned(right: 0, top: 120, child: OverviewEdgeTab()),
+    ]);
   }
 
   Future<void> _finish(BuildContext context, AppState state) async {

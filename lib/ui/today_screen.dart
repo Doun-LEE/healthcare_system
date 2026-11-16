@@ -7,6 +7,7 @@ import 'copy_routine.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
+import 'widgets/plan_overview.dart';
 
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key});
@@ -20,6 +21,8 @@ class TodayScreen extends StatelessWidget {
     const wd = ['월', '화', '수', '목', '금', '토', '일'];
 
     return Scaffold(
+      endDrawer: plan == null || plan.isRest || plan.exercises.isEmpty ? null : PlanOverviewDrawer(plan: plan),
+      drawerEdgeDragWidth: 36,
       appBar: AppBar(
         title: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})'),
         actions: [

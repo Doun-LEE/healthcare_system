@@ -1,6 +1,7 @@
 /// 앱 전역 상태. 저장소를 메모리에 올려두고 변경 시마다 저장한다.
 library;
 
+import '../engine/plan_overview.dart';
 import '../engine/training_style.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -2205,6 +2206,55 @@ class AppState extends ChangeNotifier {
     plan.exercises.remove(ex);
     await _save();
     await resyncPartnerDay(plan);
+  }
+
+  /// 한눈에 보기: [g] 부위 운동을 하나 골라 추가(그 헬스장 기구로 할 수 있고 오늘 루틴에 없는 것).
+  /// [sub]를 주면 그 세부 부위(예: '아랫가슴', '체력 증진')를 겨냥한 운동을 먼저 고른다. 고를 게 없으면 null.
+  Future<Exercise?> addForGroup(DayPlan plan, MuscleGroup g, {String? sub}) async {
+    final u = currentUser;
+    if (u == null || plan.isFinished) return null;
+    final available = availableFor(plan);
+    final inPlan = {for (final p in plan.exercises) p.exerciseId};
+    final near = {for (final id in inPlan) ...familySiblings(id)};
+    final covered = tallyPlan(plan)[g]?.subs.keys.toSet() ?? const <String>{};
+    final rng = Random();
+    Exercise? best;
+    var bestScore = -1e9;
+    for (final ex in exerciseCatalog) {
+      final isCardio = ex.loadType == LoadType.cardio;
+      if (g == MuscleGroup.cardio ? !isCardio : (isCardio || ex.group != g)) continue;
+      if (ex.activity || ex.warmupOnly || !ex.canDoWith(available) || excludedByInjury(ex, u.injuries)) continue;
+      if (inPlan.contains(ex.id)) continue;
+      final subs = subsOf(ex, g);
+      final pref = u.exercisePref[ex.id] ?? 0;
+      var score = pref * 1.5 + ex.priority * 0.3 + rng.nextDouble();
+      if (sub != null) score += subs.contains(sub) ? 4 : -2;
+      if (subs.any((x) => !covered.contains(x))) score += 1;
+      if (near.contains(ex.id)) score -= 1.5;
+      if (ex.niche && pref <= 0) score -= 2;
+      if (ex.refLift == RefLift.bodyweight && g.isMajor) score -= 1;
+      if (score > bestScore) {
+        bestScore = score;
+        best = ex;
+      }
+    }
+    if (best == null) return null;
+    await addExercise(plan, best);
+    return best;
+  }
+
+  /// 한눈에 보기: [g] 부위에서 아직 안 한 운동 하나를 뺀다(뒤에서부터). 뺄 게 없으면 false.
+  Future<bool> removeForGroup(DayPlan plan, MuscleGroup g) async {
+    if (plan.isFinished) return false;
+    for (final p in plan.exercises.reversed.toList()) {
+      if (!countsInOverview(p) || p.anyCompleted) continue;
+      final ex = exerciseById(p.exerciseId);
+      final pg = ex?.loadType == LoadType.cardio ? MuscleGroup.cardio : p.effectiveGroup;
+      if (pg != g) continue;
+      await removeExercise(plan, p);
+      return true;
+    }
+    return false;
   }
 
   /// 운동을 하루 계획에 추가. 파트너 날에 [personal]이면 나만 하고 파트너에게 보내지 않는다.
