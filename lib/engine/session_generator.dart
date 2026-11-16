@@ -641,10 +641,20 @@ class SessionGenerator {
     final step = req.stepFor(ex, equipment);
     // 같은 종류 기구가 여러 대면 지난번에 쓴 기구, 아니면 대표 기구. 그 기구에서의 무게가 있으면 그걸로.
     final ms = req.machines[equipment] ?? const <String>[];
-    final machine = ms.length < 2
+    // 한 대뿐이어도 기구 이름을 붙여 둔다: 헬스장·기구가 바뀌면 무게를 따로 기억하게.
+    final machine = ms.isEmpty
         ? null
         : (prog?.lastMachine != null && ms.contains(prog!.lastMachine) ? prog.lastMachine : ms.first);
     final machineWeight = machine == null ? null : prog?.machineWeights[machine];
+    // 이 기구 기록은 없고 다른 기구에서 쌓은 무게만 있으면 '처음 쓰는 기구'로 알려 준다.
+    final otherMachine = (machineWeight == null || machineWeight <= 0) &&
+            machine != null &&
+            prog != null &&
+            prog.workingWeight > 0 &&
+            prog.lastMachine != null &&
+            prog.lastMachine != machine
+        ? prog.lastMachine
+        : null;
     double weight;
     if (machineWeight != null && machineWeight > 0) {
       weight = machineWeight;
@@ -684,9 +694,10 @@ class SessionGenerator {
             ? ex.emphasis.join(', ')
             : '마지막 수행 ${(req.now ?? DateTime.now()).difference(prog.lastPerformed!).inDays}일 전 · ${ex.emphasis.join(', ')}';
     if (tired && weight > 0 && careful.isEmpty) weight = max(step > 0 ? step : 0.0, LoadEstimator.roundTo(weight * 0.9, step));
-    final note = careful.isEmpty
+    final firstHere = otherMachine == null ? '' : '이 기구는 처음 · 무게는 $otherMachine 기준, 1세트 해 보고 맞춰요 · ';
+    final note = firstHere + (careful.isEmpty
         ? (tired ? '회복 중인 근육 · 세트 -1, 무게 90% · $baseNote' : baseNote)
-        : '⚠ ${careful.map((i) => i.label).join('·')} 주의 · 가볍게, 3초 천천히 내리기, 아프면 바로 중단 · $baseNote';
+        : '⚠ ${careful.map((i) => i.label).join('·')} 주의 · 가볍게, 3초 천천히 내리기, 아프면 바로 중단 · $baseNote');
 
     return PlannedExercise(
       exerciseId: ex.id,
