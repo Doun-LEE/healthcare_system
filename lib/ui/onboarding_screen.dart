@@ -6,6 +6,7 @@ import '../engine/splits.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/injury_chips.dart';
+import 'widgets/seg_label.dart';
 
 /// 처음 계정을 만들었을 때 홈 전에 보여주는 초기 설정.
 /// 기본 정보 → 인바디·3대 기록 → 목표·루틴. 모든 항목은 건너뛸 수 있고 나중에 내 정보에서 바꿀 수 있다.
@@ -148,7 +149,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   subtitle: '무게·세트·횟수를 몸에 맞게 짜려고 물어봐요. 모르면 비워두고 다음으로 가도 돼요.',
                   children: [
                     SegmentedButton<Sex>(
-                      segments: Sex.values.map((s) => ButtonSegment(value: s, label: Text(s.label))).toList(),
+                      segments: Sex.values.map((s) => ButtonSegment(value: s, label: SegLabel(s.label))).toList(),
                       selected: {_sex},
                       onSelectionChanged: (s) => setState(() => _sex = s.first),
                     ),
@@ -212,7 +213,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Text('운동 목표', style: text.labelLarge),
                     const SizedBox(height: 4),
                     SegmentedButton<TrainingGoal>(
-                      segments: TrainingGoal.values.map((g) => ButtonSegment(value: g, label: Text(g.label))).toList(),
+                      segments: TrainingGoal.values.map((g) => ButtonSegment(value: g, label: SegLabel(g.label))).toList(),
                       selected: {_goal},
                       onSelectionChanged: (s) => setState(() => _goal = s.first),
                     ),

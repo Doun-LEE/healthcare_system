@@ -34,7 +34,8 @@ class DayPage extends StatelessWidget {
       endDrawer: plan == null || plan.isRest || plan.exercises.isEmpty ? null : PlanOverviewDrawer(plan: plan, editable: !isPast),
       drawerEdgeDragWidth: 36,
       appBar: AppBar(
-        title: Text('${d.month}월 ${d.day}일 (${wd[d.weekday - 1]})${isPast ? ' · 지난 날' : isFuture ? ' · 예정' : ' · 오늘'}'),
+        // 아이콘이 많아 좁은 폰에서 날짜가 '11월 1…'로 잘리지 않게, 잘리는 대신 살짝 줄인다.
+        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('${d.month}월 ${d.day}일 (${wd[d.weekday - 1]})${isPast ? ' · 지난 날' : isFuture ? ' · 예정' : ' · 오늘'}')),
         actions: [
           if (plan != null && !plan.isRest && !plan.isFinished && !isPast)
             IconButton(tooltip: 'AI 코치', icon: const Icon(Icons.auto_awesome), onPressed: () => showAiCoach(context, d)),

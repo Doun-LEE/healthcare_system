@@ -24,7 +24,8 @@ class TodayScreen extends StatelessWidget {
       endDrawer: plan == null || plan.isRest || plan.exercises.isEmpty ? null : PlanOverviewDrawer(plan: plan),
       drawerEdgeDragWidth: 36,
       appBar: AppBar(
-        title: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})'),
+        // 아이콘이 많아 좁은 폰에서 날짜가 '11월 1…'로 잘리지 않게, 잘리는 대신 살짝 줄인다.
+        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})')),
         actions: [
           if (plan == null || !plan.isFinished)
             IconButton(

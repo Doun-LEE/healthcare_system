@@ -13,6 +13,7 @@ import 'widgets/equipment_look.dart';
 import 'widgets/real_photos.dart';
 import 'widgets/exercise_sheet.dart';
 import 'widgets/app_sheet.dart';
+import 'widgets/seg_label.dart';
 
 /// '기구 수정하기' 모드. 켜야만 기구 빼기(휴지통·밀어서 빼기)가 보인다(실수로 지우지 않게).
 final _equipEditing = ValueNotifier(false);
@@ -498,9 +499,9 @@ Future<CustomEquipment?> customEquipmentDialog(BuildContext context, {String ini
             const SizedBox(height: 8),
             SegmentedButton<LoadMechanism>(
               segments: const [
-                ButtonSegment(value: LoadMechanism.pin, label: Text('핀')),
-                ButtonSegment(value: LoadMechanism.plate, label: Text('원판')),
-                ButtonSegment(value: LoadMechanism.free, label: Text('프리')),
+                ButtonSegment(value: LoadMechanism.pin, label: SegLabel('핀')),
+                ButtonSegment(value: LoadMechanism.plate, label: SegLabel('원판')),
+                ButtonSegment(value: LoadMechanism.free, label: SegLabel('프리')),
               ],
               selected: {mech},
               showSelectedIcon: false,
@@ -672,8 +673,8 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
               Expanded(
                 child: SegmentedButton<bool>(
                   segments: const [
-                    ButtonSegment(value: false, label: Text('종류별'), icon: Icon(Icons.category_outlined)),
-                    ButtonSegment(value: true, label: Text('브랜드별'), icon: Icon(Icons.storefront_outlined)),
+                    ButtonSegment(value: false, label: SegLabel('종류별'), icon: Icon(Icons.category_outlined)),
+                    ButtonSegment(value: true, label: SegLabel('브랜드별'), icon: Icon(Icons.storefront_outlined)),
                   ],
                   selected: {_byBrand},
                   showSelectedIcon: false,
@@ -1176,9 +1177,9 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
             const SizedBox(height: 4),
             SegmentedButton<LoadMechanism>(
               segments: const [
-                ButtonSegment(value: LoadMechanism.pin, label: Text('핀'), icon: Icon(Icons.push_pin_outlined)),
-                ButtonSegment(value: LoadMechanism.plate, label: Text('원판'), icon: Icon(Icons.album_outlined)),
-                ButtonSegment(value: LoadMechanism.free, label: Text('프리')),
+                ButtonSegment(value: LoadMechanism.pin, label: SegLabel('핀'), icon: Icon(Icons.push_pin_outlined)),
+                ButtonSegment(value: LoadMechanism.plate, label: SegLabel('원판'), icon: Icon(Icons.album_outlined)),
+                ButtonSegment(value: LoadMechanism.free, label: SegLabel('프리')),
               ],
               selected: {_mech == LoadMechanism.none ? LoadMechanism.pin : _mech},
               showSelectedIcon: false,
@@ -1219,8 +1220,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               const SizedBox(height: 4),
               SegmentedButton<String>(
                 segments: const [
-                  ButtonSegment(value: 'plates', label: Text('끼운 원판만')),
-                  ButtonSegment(value: 'full', label: Text('빈 기구 포함')),
+                  ButtonSegment(value: 'plates', label: SegLabel('끼운 원판만')),
+                  ButtonSegment(value: 'full', label: SegLabel('빈 기구 포함')),
                 ],
                 selected: {_plateBasis ?? 'plates'},
                 showSelectedIcon: false,
@@ -1247,8 +1248,8 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
           const SizedBox(height: 4),
           SegmentedButton<String>(
             segments: const [
-              ButtonSegment(value: 'total', label: Text('양쪽 합계')),
-              ButtonSegment(value: 'perSide', label: Text('한쪽 기준')),
+              ButtonSegment(value: 'total', label: SegLabel('양쪽 합계')),
+              ButtonSegment(value: 'perSide', label: SegLabel('한쪽 기준')),
             ],
             selected: {_basis ?? (GymEquipment.perSideByDefault(widget.type) || _dual ? 'perSide' : 'total')},
             showSelectedIcon: false,

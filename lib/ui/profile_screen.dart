@@ -20,6 +20,7 @@ import 'friends_screen.dart';
 import 'shared_gym_admin_screen.dart';
 import 'widgets/version_section.dart';
 import 'widgets/rank_badge.dart';
+import 'widgets/seg_label.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
 class ProfileScreen extends StatelessWidget {
@@ -78,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
           // 신체 스펙
           _Section(title: '신체 스펙', children: [
             SegmentedButton<Sex>(
-              segments: Sex.values.map((s) => ButtonSegment(value: s, label: Text(s.label))).toList(),
+              segments: Sex.values.map((s) => ButtonSegment(value: s, label: SegLabel(s.label))).toList(),
               selected: {u.sex},
               onSelectionChanged: (s) => _edit(state, (p) => p.sex = s.first),
             ),
@@ -110,14 +111,14 @@ class ProfileScreen extends StatelessWidget {
             ),
             if (!u.levelAuto)
               SegmentedButton<TrainingLevel>(
-                segments: TrainingLevel.values.map((l) => ButtonSegment(value: l, label: Text(l.label))).toList(),
+                segments: TrainingLevel.values.map((l) => ButtonSegment(value: l, label: SegLabel(l.label))).toList(),
                 selected: {u.level},
                 onSelectionChanged: (s) => _edit(state, (p) => p.level = s.first),
               ),
             const SizedBox(height: 14),
             Text('운동 목표', style: text.labelLarge),
             SegmentedButton<TrainingGoal>(
-              segments: TrainingGoal.values.map((g) => ButtonSegment(value: g, label: Text(g.label))).toList(),
+              segments: TrainingGoal.values.map((g) => ButtonSegment(value: g, label: SegLabel(g.label))).toList(),
               selected: {u.goal},
               onSelectionChanged: (s) => _edit(state, (p) => p.goal = s.first),
             ),
@@ -255,8 +256,8 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 4),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'shift', label: Text('루틴 뒤로 밀기')),
-                ButtonSegment(value: 'keep', label: Text('루틴 그대로')),
+                ButtonSegment(value: 'shift', label: SegLabel('루틴 뒤로 밀기')),
+                ButtonSegment(value: 'keep', label: SegLabel('루틴 그대로')),
               ],
               selected: {u.restMode},
               showSelectedIcon: false,
@@ -289,9 +290,9 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 4),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'auto', label: Text('자동')),
-                ButtonSegment(value: 'custom', label: Text('직접 정하기')),
-                ButtonSegment(value: 'off', label: Text('안 함')),
+                ButtonSegment(value: 'auto', label: SegLabel('자동')),
+                ButtonSegment(value: 'custom', label: SegLabel('직접 정하기')),
+                ButtonSegment(value: 'off', label: SegLabel('안 함')),
               ],
               selected: {u.warmupMode},
               showSelectedIcon: false,

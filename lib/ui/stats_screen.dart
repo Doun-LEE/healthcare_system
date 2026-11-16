@@ -8,6 +8,7 @@ import '../engine/stats.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'widgets/muscle_heat.dart';
+import 'widgets/seg_label.dart';
 
 /// 기록 탭: 완료한 세션으로 부위별 밸런스, 주간 빈도, 주요 운동 무게 추이.
 class StatsScreen extends StatefulWidget {
@@ -33,14 +34,17 @@ class _StatsScreenState extends State<StatsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('기록 · 밸런스'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
+        // 기간 고르기는 제목 아래 한 줄(앱바 오른쪽에 두면 좁은 폰에서 글자가 깨짐).
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: SegmentedButton<String>(
+              expandedInsets: EdgeInsets.zero,
               segments: const [
-                ButtonSegment(value: 'week', label: Text('이번 주')),
-                ButtonSegment(value: 'month', label: Text('이번 달')),
-                ButtonSegment(value: 'year', label: Text('올해')),
+                ButtonSegment(value: 'week', label: SegLabel('이번 주')),
+                ButtonSegment(value: 'month', label: SegLabel('이번 달')),
+                ButtonSegment(value: 'year', label: SegLabel('올해')),
               ],
               selected: {_period},
               showSelectedIcon: false,
@@ -48,7 +52,7 @@ class _StatsScreenState extends State<StatsScreen> {
               onSelectionChanged: (v) => setState(() => _period = v.first),
             ),
           ),
-        ],
+        ),
       ),
       body: s.sessions == 0
           ? Center(

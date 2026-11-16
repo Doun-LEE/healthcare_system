@@ -12,6 +12,7 @@ import '../../state/app_state.dart';
 import 'equipment_3d.dart';
 import 'real_photos.dart';
 import '../../data/exercise_photos.dart';
+import 'seg_label.dart';
 
 /// 기구 썸네일: 실물 사진이 있으면 사진, 없으면 브랜드/사용자 스타일의 3D.
 class EquipmentThumb extends StatelessWidget {
@@ -128,9 +129,9 @@ class _EquipmentLookSectionState extends State<EquipmentLookSection> {
             segments: [
               ButtonSegment(
                   value: false,
-                  label: Text(eq.hasPhoto ? '내가 찍은 사진' : '실제 사용 모습'),
+                  label: SegLabel(eq.hasPhoto ? '내가 찍은 사진' : '실제 사용 모습'),
                   icon: const Icon(Icons.photo_outlined)),
-              const ButtonSegment(value: true, label: Text('3D'), icon: Icon(Icons.view_in_ar_outlined)),
+              const ButtonSegment(value: true, label: SegLabel('3D'), icon: Icon(Icons.view_in_ar_outlined)),
             ],
             selected: {show3d},
             showSelectedIcon: false,

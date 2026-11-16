@@ -158,7 +158,7 @@ class _MapPainter extends CustomPainter {
         ..color = ring
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke);
-      axisRects.add(_text(canvas, '${p.style.intensity.round()}', w + const Offset(5, -1), size: 9, color: p.color, w: FontWeight.w800, align: Alignment.centerLeft));
+      axisRects.add(_text(canvas, '${p.style.intensity.round()}', w + Offset((at(p.style) - w).distance < 16 ? 13 : 5, -1), size: 9, color: p.color, w: FontWeight.w800, align: Alignment.centerLeft));
       final s = shadow(p.style);
       canvas.drawOval(Rect.fromCenter(center: s, width: 12, height: 6), Paint()..color = p.color.withValues(alpha: 0.4));
       _dashed(canvas, s, at(p.style), Paint()

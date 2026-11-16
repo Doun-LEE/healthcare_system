@@ -52,12 +52,18 @@ class LevelCard extends StatelessWidget {
       Row(children: [
         Icon(Icons.military_tech_outlined, color: cs.primary, size: 28),
         const SizedBox(width: 8),
-        Text('종합 $gradeText', style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary)),
-        if (a.score != null) ...[
-          const SizedBox(width: 8),
-          Text('${a.score!.round()}점 / 100', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-        ],
-        const Spacer(),
+        // 좁은 폰에서 넘치지 않게: 등급·점수는 남는 폭 안에서 줄바꿈.
+        Expanded(
+          child: Wrap(crossAxisAlignment: WrapCrossAlignment.end, spacing: 8, children: [
+            Text('종합 $gradeText', style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.primary)),
+            if (a.score != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text('${a.score!.round()}점 / 100', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+              ),
+          ]),
+        ),
+        const SizedBox(width: 6),
         Chip(label: Text('엔진 ${a.level.label}'), visualDensity: VisualDensity.compact),
       ]),
       if (a.score != null) ...[
@@ -73,7 +79,13 @@ class LevelCard extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(children: [
-            SizedBox(width: 72, child: Text(it.name, style: text.bodyMedium)),
+            SizedBox(
+              width: 76,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(fit: BoxFit.scaleDown, child: Text(it.name, maxLines: 1, style: text.bodyMedium)),
+              ),
+            ),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _Bar(value: it.missing ? 0 : it.score / 100, color: it.missing ? cs.outlineVariant : _gradeColor(it.grade, cs), height: 6),
