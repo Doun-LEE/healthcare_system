@@ -5,6 +5,7 @@
 /// 무게·세트는 파트너 화면에 "파트너 무게"로 표시되고, 공통 루틴 생성에 쓰인다.
 library;
 
+import '../engine/training_style.dart';
 import '../models/models.dart';
 
 /// 계정의 공개 ID: `닉네임#1234`. uid 해시로 4자리를 만들어 닉네임이 같아도 구분된다.
@@ -69,7 +70,14 @@ class PartnerProfile {
     this.exercisePref = const {},
     this.lastDone = const {},
     this.machineWeights = const {},
+    this.publishedStyle,
   });
+
+  /// 상대 기기가 기록으로 계산해 올린 운동 성향. 옛 버전이면 없음.
+  final TrainingStyle? publishedStyle;
+
+  /// 운동 성향. 올린 값이 없으면 프로필로 추정.
+  TrainingStyle get style => publishedStyle ?? TrainingStyle.prior(profile);
 
   /// 운동 선호도(교체·추가·삭제로 배운 값). 함께 할 루틴을 짤 때 모두의 평균을 쓴다.
   final Map<String, double> exercisePref;
@@ -174,6 +182,7 @@ class PartnerProfile {
             p.key: dateKey(p.value.lastPerformed!),
       },
       'mw': {for (final p in progress.entries) if (p.value.machineWeights.isNotEmpty) p.key: p.value.machineWeights},
+      'style': TrainingStyle.of(me, plans).toJson(),
       'plans': {
         for (final p in plans)
           if (!p.isRest && !p.date.isBefore(from) && !p.date.isAfter(to))
@@ -281,6 +290,7 @@ class PartnerProfile {
         for (final e in ((j['last'] as Map?) ?? const {}).entries)
           if (e.value is String && DateTime.tryParse(e.value as String) != null) e.key as String: DateTime.parse(e.value as String),
       },
+      publishedStyle: TrainingStyle.fromJson(j['style']),
       machineWeights: {
         for (final e in ((j['mw'] as Map?) ?? const {}).entries)
           if (e.value is Map)

@@ -1,3 +1,4 @@
+import 'widgets/style_map.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -145,6 +146,19 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                     Text('레벨', style: text.titleMedium),
                     const SizedBox(height: 8),
                     LevelCard(profile: u),
+                  ]),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(widget.isMe ? '운동 성향' : '운동 성향 · 나와 비교', style: text.titleMedium),
+                    const SizedBox(height: 8),
+                    widget.isMe
+                        ? StyleCard(people: [('나', pp.style)], trendFrom: context.read<AppState>().myStyleLastMonth)
+                        : StyleCard(people: [('나', context.read<AppState>().myStyle), (pp.name, pp.style)]),
                   ]),
                 ),
               ),

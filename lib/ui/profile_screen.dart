@@ -1,3 +1,4 @@
+import 'widgets/style_map.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -51,7 +52,11 @@ class ProfileScreen extends StatelessWidget {
             _Stat(label: '연속 주', value: '${state.currentStreakWeeks}주'),
             _Stat(label: '숙련도', value: u.level.label),
           ]),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          _Section(title: '운동 성향', children: [
+            StyleCard(people: [('나', state.myStyle)], trendFrom: state.myStyleLastMonth),
+          ]),
+          const SizedBox(height: 8),
 
           // 신체 스펙
           _Section(title: '신체 스펙', children: [

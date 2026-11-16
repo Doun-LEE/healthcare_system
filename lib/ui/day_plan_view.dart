@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../engine/training_style.dart';
+import '../services/cloud_sync.dart';
+import '../services/partner.dart';
+import 'widgets/style_map.dart';
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
 import '../engine/session_generator.dart';
@@ -244,6 +248,7 @@ class DayPlanView extends StatelessWidget {
         if (logging && !plan.isFinished && plan.exercises.isNotEmpty)
           _WorkoutClock(plan: plan, onStart: () => state.startWorkout(plan)),
         if (plan.partnerName != null && !plan.isFinished) _PartnerConditionLine(plan: plan),
+        if (plan.partnerName != null) _PartnerStyleTile(plan: plan),
         const SizedBox(height: 8),
     ];
     final tail = <Widget>[
@@ -423,6 +428,64 @@ double _partnerWeight(BuildContext context, DayPlan plan, PlannedExercise pe, St
   if (pc == null || pc.load == 1.0) return base;
   final inc = exerciseById(pe.exerciseId)!.loadType.increment;
   return max(inc, LoadEstimator.roundTo(base * pc.load, inc));
+}
+
+/// 파트너 날: 사람마다의 운동 성향과 함께 할 때의 성향(접어 두고 눌러서 지도 보기).
+class _PartnerStyleTile extends StatefulWidget {
+  const _PartnerStyleTile({required this.plan});
+  final DayPlan plan;
+
+  /// 파트너 공개 프로필은 화면을 다시 그릴 때마다 받지 않게 잠깐 들고 있는다.
+  static final Map<String, Future<PartnerProfile?>> _cache = {};
+
+  @override
+  State<_PartnerStyleTile> createState() => _PartnerStyleTileState();
+}
+
+class _PartnerStyleTileState extends State<_PartnerStyleTile> {
+  late Future<List<PartnerProfile?>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    final members = context.read<AppState>().membersOf(widget.plan);
+    _future = !CloudSync.instance.signedIn || members.isEmpty
+        ? Future.value(const [])
+        : Future.wait([
+            for (final m in members) _PartnerStyleTile._cache.putIfAbsent(m.uid, () => CloudSync.instance.fetchPartner(m.uid).catchError((_) => null)),
+          ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final state = context.read<AppState>();
+    return FutureBuilder<List<PartnerProfile?>>(
+      future: _future,
+      builder: (c, snap) {
+        final others = (snap.data ?? const []).whereType<PartnerProfile>().toList();
+        if (others.isEmpty) return const SizedBox.shrink();
+        final people = [('나', state.myStyle), for (final o in others) (o.name, o.style)];
+        final together = TrainingStyle.combine(people.map((p) => p.$2).toList());
+        return Card(
+          margin: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              dense: true,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              leading: Icon(Icons.explore_outlined, color: cs.secondary, size: 20),
+              title: Text('운동 성향 · 함께: ${together.name}', style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+              subtitle: Text(people.map((p) => '${p.$1} ${p.$2.name}').join(' · '), style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              children: [StyleCard(people: people)],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// 파트너가 그날 입력한 컨디션을 보여준다. 아직 없으면 안내.

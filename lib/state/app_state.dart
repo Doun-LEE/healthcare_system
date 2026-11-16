@@ -1,6 +1,7 @@
 /// 앱 전역 상태. 저장소를 메모리에 올려두고 변경 시마다 저장한다.
 library;
 
+import '../engine/training_style.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -1549,6 +1550,20 @@ class AppState extends ChangeNotifier {
   }
 
   // ───────── 계획 ─────────
+
+  /// 내 운동 성향(프로필 + 최근 4주 기록).
+  TrainingStyle get myStyle {
+    final u = currentUser;
+    return u == null ? const TrainingStyle(50, 50) : TrainingStyle.of(u, myPlans);
+  }
+
+  /// 4주 전 시점의 내 성향(그때 기록이 있었을 때만). 지난달 대비 변화 표시용.
+  TrainingStyle? get myStyleLastMonth {
+    final u = currentUser;
+    if (u == null) return null;
+    final s = TrainingStyle.of(u, myPlans, now: DateTime.now().subtract(const Duration(days: 28)));
+    return s.sessions == 0 ? null : s;
+  }
 
   List<DayPlan> get myPlans {
     final u = currentUser;
