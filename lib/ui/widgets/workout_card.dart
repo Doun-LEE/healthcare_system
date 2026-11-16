@@ -98,12 +98,9 @@ class WorkoutSummaryCard extends StatelessWidget {
     required this.plan,
     required this.userName,
     this.equipmentLabel,
-    this.showAll = false,
     this.style = AppThemeStyle.basic,
   });
 
-  /// 운동을 전부 펼쳐 보여줄지(기본은 8개까지).
-  final bool showAll;
   final DayPlan plan;
   final String userName;
   final AppThemeStyle style;
@@ -119,7 +116,6 @@ class WorkoutSummaryCard extends StatelessWidget {
     var sets = 0, volume = 0.0, cardioMin = 0;
     double bestW = 0;
     int bestR = 0;
-    String? bestName;
     String? bestId;
     for (final e in plan.exercises) {
       final ex = exerciseById(e.exerciseId);
@@ -135,32 +131,28 @@ class WorkoutSummaryCard extends StatelessWidget {
           if (w > bestW || (w == bestW && w > 0 && r > bestR)) {
             bestW = w;
             bestR = r;
-            bestName = ex?.name;
             bestId = e.exerciseId;
           }
         }
       }
     }
-    final shown = showAll ? done : done.take(8).toList();
-    // 부위별 완료 세트(유산소는 분 대신 구간 수로 세지 않고 따로 표시).
     final groupSets = <MuscleGroup, int>{};
     for (final e in done) {
       if (exerciseById(e.exerciseId)?.loadType == LoadType.cardio) continue;
       groupSets[e.effectiveGroup] = (groupSets[e.effectiveGroup] ?? 0) + e.sets.where((x) => x.completed).length;
     }
-    final splitOrder = groupSets.keys.toList()..sort((a, b) => groupSets[b]!.compareTo(groupSets[a]!));
     const sectionOrder = [MuscleGroup.cardio, MuscleGroup.legs, MuscleGroup.back, MuscleGroup.chest, MuscleGroup.shoulder, MuscleGroup.arms, MuscleGroup.abs];
-    final sections = <MuscleGroup, List<PlannedExercise>>{};
-    for (final e in shown) {
-      sections.putIfAbsent(e.effectiveGroup, () => []).add(e);
-    }
-    final sectionKeys = sections.keys.toList()..sort((a, b) => sectionOrder.indexOf(a).compareTo(sectionOrder.indexOf(b)));
+    final splitOrder = groupSets.keys.toList()..sort((a, b) => groupSets[b]!.compareTo(groupSets[a]!));
+    // 한 화면(9:16)에 다 들어가게: 부위 순서로 줄 세우고, 7개 이상이면 2열 타일.
+    final ordered = [...done]..sort((a, b) => sectionOrder.indexOf(a.effectiveGroup).compareTo(sectionOrder.indexOf(b.effectiveGroup)));
+    final twoCol = ordered.length > 6;
     const wd = ['월', '화', '수', '목', '금', '토', '일'];
     final percent = (plan.completionRatio * 100).round();
     final radius = style.radius.clamp(10.0, 26.0);
 
     return Container(
-      width: 340,
+      width: cardWidth,
+      height: cardHeight,
       decoration: BoxDecoration(
         gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [look.bg1, look.bg2]),
         borderRadius: BorderRadius.circular(radius),
@@ -201,10 +193,9 @@ class WorkoutSummaryCard extends StatelessWidget {
           ),
           if (look.mascot != null) Positioned(right: 14, top: 44, child: look.mascot!),
           Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(children: [
                   Container(
@@ -225,7 +216,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                         style: TextStyle(color: look.muted, fontSize: 12, fontWeight: FontWeight.w500)),
                   ),
                 ]),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -235,7 +226,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                           child: Text(plan.displayTitle,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: look.fg, fontSize: 24, fontWeight: FontWeight.w800, height: 1.15)),
+                              style: TextStyle(color: look.fg, fontSize: 22, fontWeight: FontWeight.w800, height: 1.15)),
                         ),
                       ]),
                       const SizedBox(height: 4),
@@ -253,8 +244,8 @@ class WorkoutSummaryCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   // 수행률 링
                   SizedBox(
-                    width: 58,
-                    height: 58,
+                    width: 48,
+                    height: 48,
                     child: CustomPaint(
                       painter: _RingPainter(plan.completionRatio, look.accent, look.line),
                       child: Center(
@@ -264,7 +255,7 @@ class WorkoutSummaryCard extends StatelessWidget {
                   ),
                   if (look.mascot != null) SizedBox(width: look.mascot is MarineHero ? 66 : 54),
                 ]),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Row(children: [
                   _Stat(look: look, label: '운동', value: '${done.length}'),
                   const SizedBox(width: 6),
@@ -274,51 +265,29 @@ class WorkoutSummaryCard extends StatelessWidget {
                   if (cardioMin > 0) ...[const SizedBox(width: 6), _Stat(look: look, label: '유산소', value: '$cardioMin분')],
                 ]),
                 if (splitOrder.length > 1) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _SplitBar(look: look, order: splitOrder, sets: groupSets),
                 ],
-                if (bestName != null && bestW > 0) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: look.accent.withValues(alpha: look.dark ? 0.14 : 0.18),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: look.accent.withValues(alpha: 0.5)),
-                    ),
-                    child: Row(children: [
-                      const Text('🏆', style: TextStyle(fontSize: 13)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: RichText(
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
-                            style: TextStyle(color: look.muted, fontSize: 12),
-                            children: [
-                              const TextSpan(text: '오늘의 최고  '),
-                              TextSpan(text: bestName, style: TextStyle(color: look.fg, fontWeight: FontWeight.w600)),
-                              TextSpan(text: '  ${_kg(bestW)}kg × $bestR', style: TextStyle(color: look.dark ? look.accent : look.accent, fontWeight: FontWeight.w800)),
-                            ],
-                          ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topCenter,
+                      child: SizedBox(
+                        width: cardWidth - 40,
+                        child: _ExerciseGrid(
+                          look: look,
+                          items: ordered,
+                          twoCol: twoCol,
+                          equipment: equipmentLabel,
+                          bestId: bestW > 0 ? bestId : null,
                         ),
                       ),
-                    ]),
+                    ),
                   ),
-                ],
-                const SizedBox(height: 12),
-                Container(height: 1, color: look.line),
-                const SizedBox(height: 8),
-                for (final g in sectionKeys) ...[
-                  _SectionHeader(look: look, group: g, sets: groupSets[g], exercises: sections[g]!),
-                  for (final e in sections[g]!)
-                    _ExerciseLine(look: look, e: e, equipment: equipmentLabel?.call(e), best: e.exerciseId == bestId && bestW > 0),
-                ],
-                if (!showAll && done.length > 8)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text('외 ${done.length - 8}개 더', style: TextStyle(color: look.faint, fontSize: 12)),
-                  ),
+                ),
                 const SizedBox(height: 10),
                 Container(height: 1, color: look.line),
                 const SizedBox(height: 8),
@@ -335,7 +304,9 @@ class WorkoutSummaryCard extends StatelessWidget {
     );
   }
 
-  static String _kg(double w) => w % 1 == 0 ? w.toInt().toString() : w.toString();
+  /// 인스타 스토리·폰 화면 비율(9:16). 스크롤 없이 한 장에 다 보이게 고정.
+  static const cardWidth = 340.0;
+  static const cardHeight = cardWidth * 16 / 9;
 }
 
 class _RingPainter extends CustomPainter {
@@ -371,11 +342,11 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-          decoration: BoxDecoration(color: look.tile, borderRadius: BorderRadius.circular(12)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(value, style: TextStyle(color: look.fg, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1)),
-            const SizedBox(height: 2),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+          decoration: BoxDecoration(color: look.tile, borderRadius: BorderRadius.circular(10)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+            Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: TextStyle(color: look.fg, fontSize: 16, fontWeight: FontWeight.w800, height: 1.1)))),
+            const SizedBox(width: 4),
             Text(label, style: TextStyle(color: look.faint, fontSize: 10.5)),
           ]),
         ),
@@ -476,81 +447,114 @@ class _SplitBar extends StatelessWidget {
   }
 }
 
-/// 부위 소제목: "하체 ───── 12세트".
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.look, required this.group, required this.sets, required this.exercises});
+/// 운동 목록. 6개 이하는 한 줄에 하나(넓은 타일), 7개 이상은 2열 타일.
+class _ExerciseGrid extends StatelessWidget {
+  const _ExerciseGrid({required this.look, required this.items, required this.twoCol, this.equipment, this.bestId});
   final CardLook look;
-  final MuscleGroup group;
-  final int? sets;
-  final List<PlannedExercise> exercises;
+  final List<PlannedExercise> items;
+  final bool twoCol;
+  final String Function(PlannedExercise)? equipment;
+  final String? bestId;
+
+  Widget _tile(PlannedExercise e) => _ExerciseTile(
+        look: look,
+        e: e,
+        equipment: equipment?.call(e),
+        best: e.exerciseId == bestId,
+        wide: !twoCol,
+      );
 
   @override
   Widget build(BuildContext context) {
-    final right = group == MuscleGroup.cardio
-        ? '${exercises.fold<int>(0, (a, e) => a + e.sets.where((s) => s.completed).fold<int>(0, (b, s) => b + (s.doneReps ?? s.targetReps)))}분'
-        : '${sets ?? 0}세트';
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 2),
-      child: Row(children: [
-        Text(group.label, style: TextStyle(color: look.accent, fontSize: 11.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
-        const SizedBox(width: 8),
-        Expanded(child: Container(height: 1, color: look.line)),
-        const SizedBox(width: 8),
-        Text(right, style: TextStyle(color: look.faint, fontSize: 10.5, fontWeight: FontWeight.w600)),
-      ]),
-    );
+    if (!twoCol) {
+      return Column(children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 5),
+          _tile(items[i]),
+        ],
+      ]);
+    }
+    return Column(children: [
+      for (var i = 0; i < items.length; i += 2) ...[
+        if (i > 0) const SizedBox(height: 5),
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: _tile(items[i])),
+            const SizedBox(width: 6),
+            Expanded(child: i + 1 < items.length ? _tile(items[i + 1]) : const SizedBox()),
+          ]),
+        ),
+      ],
+    ]);
   }
 }
 
-/// 운동 하나: 이름 + 오른쪽 큰 값(최고 무게 등) / 기구 / 세트 칩.
-class _ExerciseLine extends StatelessWidget {
-  const _ExerciseLine({required this.look, required this.e, required this.equipment, this.best = false});
+/// 운동 하나: 이름(+최고 무게) / 부위·기구 / 세트("80×12 · 120×8", 최고 세트 강조).
+class _ExerciseTile extends StatelessWidget {
+  const _ExerciseTile({required this.look, required this.e, required this.equipment, this.best = false, this.wide = false});
   final CardLook look;
   final PlannedExercise e;
   final String? equipment;
   final bool best;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
     final name = exerciseById(e.exerciseId)?.name ?? '';
     final eq = (equipment ?? '').trim();
     final chips = _chipsFor(e);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-          Expanded(
-            child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: look.fg, fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.2)),
+    final nameStyle = TextStyle(color: look.fg, fontSize: 13, fontWeight: FontWeight.w700, height: 1.2);
+    final sets = Text.rich(
+      TextSpan(children: [
+        for (var i = 0; i < chips.length; i++) ...[
+          if (i > 0) TextSpan(text: wide ? ' · ' : ' ', style: TextStyle(color: look.faint)),
+          TextSpan(
+            text: chips[i].label.replaceAll('kg×', '×'),
+            style: chips[i].top ? TextStyle(color: look.accent, fontWeight: FontWeight.w800) : null,
           ),
-          if (best) const Padding(padding: EdgeInsets.only(right: 3), child: Text('🏆', style: TextStyle(fontSize: 11))),
-          Text(_headline(e), style: TextStyle(color: best ? look.accent : look.fg, fontSize: 13.5, fontWeight: FontWeight.w800)),
+        ],
+      ]),
+      maxLines: 1,
+      softWrap: false,
+      textAlign: wide ? TextAlign.right : TextAlign.left,
+      style: TextStyle(color: look.muted, fontSize: 11, height: 1.25, fontFeatures: const [FontFeature.tabularFigures()]),
+    );
+    final sub = Text.rich(
+      TextSpan(children: [
+        TextSpan(text: e.effectiveGroup.label, style: TextStyle(color: look.accent, fontWeight: FontWeight.w700)),
+        if (eq.isNotEmpty) TextSpan(text: ' · $eq'),
+      ]),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(color: look.faint, fontSize: 9.5, height: 1.3),
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(9, 5, 9, 5),
+      decoration: BoxDecoration(
+        color: best ? look.accent.withValues(alpha: look.dark ? 0.14 : 0.18) : look.tile,
+        borderRadius: BorderRadius.circular(10),
+        border: best ? Border.all(color: look.accent.withValues(alpha: 0.6)) : null,
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          if (best) const Padding(padding: EdgeInsets.only(right: 3), child: Text('🏆', style: TextStyle(fontSize: 10))),
+          Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle)),
+          if (wide) ...[
+            const SizedBox(width: 4),
+            Text(_headline(e), style: TextStyle(color: best ? look.accent : look.fg, fontSize: 12.5, fontWeight: FontWeight.w800)),
+          ],
         ]),
-        if (eq.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: Text(eq, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: look.faint, fontSize: 10.5)),
-          ),
-        if (chips.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Wrap(spacing: 4, runSpacing: 4, children: [
-            for (final c in chips)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                decoration: BoxDecoration(
-                  color: c.top ? look.accent.withValues(alpha: look.dark ? 0.18 : 0.2) : look.tile,
-                  borderRadius: BorderRadius.circular(6),
-                  border: c.top ? Border.all(color: look.accent.withValues(alpha: 0.7)) : null,
-                ),
-                child: Text(c.label,
-                    style: TextStyle(
-                      color: c.top ? look.fg : look.muted,
-                      fontSize: 10.5,
-                      fontWeight: c.top ? FontWeight.w700 : FontWeight.w500,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    )),
-              ),
-          ]),
+        const SizedBox(height: 2),
+        if (wide)
+          Row(children: [
+            Expanded(child: sub),
+            const SizedBox(width: 8),
+            Flexible(flex: 2, child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: sets)),
+          ])
+        else ...[
+          sub,
+          const SizedBox(height: 2),
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: sets),
         ],
       ]),
     );
@@ -560,7 +564,6 @@ class _ExerciseLine extends StatelessWidget {
 /// 완료 카드를 보여주고 이미지로 공유/저장한다. 카드 스타일은 앱 테마가 기본, 공유 전에 바꿀 수 있다.
 Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userName) async {
   final key = GlobalKey();
-  var showAll = false;
   var style = themeStyleOf(context);
   await showDialog<void>(
     context: context,
@@ -574,7 +577,6 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
             child: WorkoutSummaryCard(
               plan: plan,
               userName: userName,
-              showAll: showAll,
               style: style,
               equipmentLabel: (e) => context.read<AppState>().equipmentLabelFor(plan, e.equipmentType, pe: e),
             ),
@@ -591,12 +593,6 @@ Future<void> shareWorkoutImage(BuildContext context, DayPlan plan, String userNa
                 onSelected: (_) => setDialog(() => style = s),
               ),
           ]),
-          if (plan.exercises.where((e) => e.anyCompleted).length > 8)
-            TextButton.icon(
-              onPressed: () => setDialog(() => showAll = !showAll),
-              icon: Icon(showAll ? Icons.unfold_less : Icons.unfold_more, color: Colors.white),
-              label: Text(showAll ? '접기' : '전부 펼치기', style: const TextStyle(color: Colors.white)),
-            ),
           const SizedBox(height: 8),
           Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('닫기', style: TextStyle(color: Colors.white))),

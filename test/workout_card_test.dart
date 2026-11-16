@@ -43,7 +43,7 @@ void main() {
       home: Scaffold(
         body: SingleChildScrollView(
           child: Center(
-            child: WorkoutSummaryCard(plan: plan, userName: '이도운', showAll: true, equipmentLabel: (e) => '렉스코 ${e.equipmentType.label}'),
+            child: WorkoutSummaryCard(plan: plan, userName: '이도운', equipmentLabel: (e) => '렉스코 ${e.equipmentType.label}'),
           ),
         ),
       ),
@@ -54,9 +54,12 @@ void main() {
     expect(find.text('전신·유산소'), findsOneWidget); // 유산소(천국의 계단)가 들어 있으면 제목에도 보인다
     expect(find.text('100%'), findsOneWidget); // 수행률 링
     expect(find.textContaining('체감 6/10'), findsOneWidget);
-    // 최고 기록: 140kg × 1
-    expect(find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText().contains('140kg × 1')), findsOneWidget);
+    // 최고 기록(140kg × 1)은 그 운동 타일에 🏆와 함께 강조
+    expect(find.text('🏆'), findsOneWidget);
+    expect(find.textContaining('140×1', findRichText: true), findsOneWidget);
+    // 9:16 한 장(스크롤 없음)
+    expect(tester.getSize(find.byType(WorkoutSummaryCard)).aspectRatio, closeTo(9 / 16, 0.01));
     // 세트가 이름 아래 줄로 내려가 잘리지 않는다(같은 세트 묶기 포함)
-    expect(find.text('50kg×12 ×3'), findsOneWidget);
+    expect(find.textContaining('50×12 ×3', findRichText: true), findsOneWidget);
   });
 }
