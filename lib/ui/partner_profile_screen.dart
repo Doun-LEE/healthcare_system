@@ -97,9 +97,10 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
           }
           final finished = pp.finishedPlans;
           final upcoming = pp.upcomingPlans;
-          final recent4w = finished.where((p) => DateTime.now().difference(p.date).inDays <= 28).toList();
-          final volume = recent4w.fold(0.0, (a, p) => a + p.volume);
-          final avgCompletion = recent4w.isEmpty ? 0 : (recent4w.map((p) => p.completion).reduce((a, b) => a + b) / recent4w.length * 100).round();
+          final r = pp.recent;
+          final volume = r.volume;
+          final avgCompletion = (r.completion * 100).round();
+          final diff = r.diff;
           final u = pp.profile;
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -118,7 +119,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                           Text(pp.name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
                           Text('${pp.handle.isEmpty ? '' : '${pp.handle} · '}${u.sex.label} · ${u.age}세 · ${u.heightCm.round()}cm · ${u.weightKg.round()}kg',
                               style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
-                          Text('${u.goal.label} · ${u.splitDays}분할 · 하루 ${u.sessionMinutes}분', style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
+                          Text('${u.goal.label} · ${u.splitDays}분할 · 하루 ${u.sessionMinutes}분 설정${pp.recent.avgMinutes == null ? '' : ' (실제 평균 ${pp.recent.avgMinutes}분)'}', style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
                         ]),
                       ),
                     ]),
@@ -171,11 +172,34 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                     Text('최근 4주', style: text.titleMedium),
                     const SizedBox(height: 8),
                     Row(children: [
-                      _Stat(label: '세션', value: '${recent4w.length}회', dark: true),
+                      _Stat(label: '세션', value: '${r.sessions}회', dark: true),
                       _Stat(label: '볼륨', value: volume >= 1000 ? '${(volume / 1000).toStringAsFixed(1)}t' : '${volume.round()}kg', dark: true),
                       _Stat(label: '평균 수행', value: '$avgCompletion%', dark: true),
                       _Stat(label: '예정', value: '${upcoming.length}일', dark: true),
                     ]),
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      _Stat(label: '실제 평균 운동 시간', value: r.avgMinutes == null ? '-' : '${r.avgMinutes}분', dark: true),
+                      _Stat(label: '루틴 예상 평균', value: r.avgPlanned == null ? '-' : '${r.avgPlanned}분', dark: true),
+                      _Stat(
+                        label: '예상 대비',
+                        value: diff == null ? '-' : diff == 0 ? '딱 맞춤' : diff > 0 ? '+$diff분' : '$diff분',
+                        dark: true,
+                      ),
+                      _Stat(label: '예상보다 길게', value: r.timed == 0 ? '-' : '${r.over}/${r.timed}회', dark: true),
+                    ]),
+                    if (diff != null && r.avgPlanned != null && r.avgPlanned! > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          diff > r.avgPlanned! * 0.1
+                              ? '루틴 예상보다 평균 $diff분(${(diff / r.avgPlanned! * 100).round()}%) 더 오래 운동해요. 쉬는 시간이 길거나 세트를 더 하는 편이에요.'
+                              : diff < -r.avgPlanned! * 0.1
+                                  ? '루틴 예상보다 평균 ${-diff}분 빨리 끝내요. 휴식을 짧게 가져가는 편이에요.'
+                                  : '루틴 예상 시간과 거의 비슷하게 운동해요.',
+                          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                      ),
                   ]),
                 ),
               ),

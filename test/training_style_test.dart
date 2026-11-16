@@ -1,5 +1,6 @@
 import 'package:fit_routine/engine/training_style.dart';
 import 'package:fit_routine/models/models.dart';
+import 'package:fit_routine/services/partner.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -54,5 +55,24 @@ void main() {
     expect(TrainingStyle.chemistry([a, b]), contains('차이 큼'));
     expect(TrainingStyle.chemistry([a, const TrainingStyle(85, 78)]), contains('찰떡'));
     expect(TrainingStyle.fromJson(a.toJson())!.x, 90);
+  });
+
+  test('최근 4주 실제 운동 시간 vs 루틴 예상 시간(끝내기 잊은 기록은 빼기)', () {
+    DayPlan timed(int ago, int est, int actual) {
+      final start = now.subtract(Duration(days: ago, hours: 5));
+      return DayPlan(id: 't$ago', userId: 'u', date: now.subtract(Duration(days: ago)), kind: DayKind.workout, focus: const [], title: '', exercises: const [])
+        ..estimatedMinutes = est
+        ..startedAt = start
+        ..endedAt = start.add(Duration(minutes: actual))
+        ..finishedAt = start.add(Duration(minutes: actual));
+    }
+    final r = RecentSummary.of([timed(1, 80, 100), timed(3, 80, 90), timed(5, 80, 78), timed(7, 80, 600), timed(40, 80, 200)], now: now);
+    expect(r.sessions, 4);
+    expect(r.timed, 3);
+    expect(r.avgMinutes, 89);
+    expect(r.avgPlanned, 80);
+    expect(r.diff, 9);
+    expect(r.over, 2);
+    expect(RecentSummary.fromJson(r.toJson())!.diff, 9);
   });
 }

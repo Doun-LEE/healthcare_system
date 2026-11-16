@@ -71,7 +71,14 @@ class PartnerProfile {
     this.lastDone = const {},
     this.machineWeights = const {},
     this.publishedStyle,
+    this.publishedRecent,
   });
+
+  /// 상대 기기가 올린 최근 4주 요약(공개 루틴은 앞뒤 2주뿐이라 4주 통계는 따로 받는다).
+  final RecentSummary? publishedRecent;
+
+  /// 최근 4주 요약. 옛 버전이라 없으면 받은 루틴으로 계산.
+  RecentSummary get recent => publishedRecent ?? RecentSummary.ofPartnerPlans(finishedPlans);
 
   /// 상대 기기가 기록으로 계산해 올린 운동 성향. 옛 버전이면 없음.
   final TrainingStyle? publishedStyle;
@@ -183,6 +190,7 @@ class PartnerProfile {
       },
       'mw': {for (final p in progress.entries) if (p.value.machineWeights.isNotEmpty) p.key: p.value.machineWeights},
       'style': TrainingStyle.of(me, plans).toJson(),
+      'recent': RecentSummary.of(plans).toJson(),
       'plans': {
         for (final p in plans)
           if (!p.isRest && !p.date.isBefore(from) && !p.date.isAfter(to))
@@ -291,6 +299,7 @@ class PartnerProfile {
           if (e.value is String && DateTime.tryParse(e.value as String) != null) e.key as String: DateTime.parse(e.value as String),
       },
       publishedStyle: TrainingStyle.fromJson(j['style']),
+      publishedRecent: RecentSummary.fromJson(j['recent']),
       machineWeights: {
         for (final e in ((j['mw'] as Map?) ?? const {}).entries)
           if (e.value is Map)
@@ -463,4 +472,125 @@ class InboxItem {
   final DateTime? date;
   final String? code;
   final String title;
+}
+
+/// 최근 4주 운동 요약: 세션·볼륨·수행률, 그리고 실제 운동 시간과 루틴 예상 시간 비교.
+class RecentSummary {
+  const RecentSummary({
+    required this.sessions,
+    required this.volume,
+    required this.completion,
+    this.avgMinutes,
+    this.avgPlanned,
+    this.timed = 0,
+    this.over = 0,
+  });
+
+  final int sessions;
+  final double volume;
+
+  /// 평균 수행률 0~1.
+  final double completion;
+
+  /// 실제 운동 시간 평균(분). 시간을 잰 운동이 없으면 null.
+  final int? avgMinutes;
+
+  /// 같은 운동들의 루틴 예상 시간 평균(분).
+  final int? avgPlanned;
+
+  /// 시간을 잰 운동 수.
+  final int timed;
+
+  /// 예상보다 10% 넘게 오래 한 운동 수.
+  final int over;
+
+  /// 실제 − 예상(분).
+  int? get diff => avgMinutes == null || avgPlanned == null ? null : avgMinutes! - avgPlanned!;
+
+  static const _days = 28;
+
+  /// 시작을 누르고 끝내기를 잊은 기록(예상의 3배 넘게, 4시간 넘게)은 시간 통계에서 뺀다.
+  static bool _sane(int actual, int est) => actual > 0 && !(actual > 240 && (est == 0 || actual > est * 3));
+
+  static RecentSummary of(List<DayPlan> plans, {DateTime? now}) {
+    final t = now ?? DateTime.now();
+    final recent = plans.where((p) {
+      if (!p.isFinished || p.isOff) return false;
+      final d = t.difference(p.date).inDays;
+      return d >= 0 && d <= _days;
+    }).toList();
+    var vol = 0.0, comp = 0.0, sumA = 0, sumE = 0, timed = 0, over = 0;
+    for (final p in recent) {
+      comp += p.completionRatio;
+      for (final e in p.exercises) {
+        if (e.skipMine) continue;
+        for (final s in e.sets) {
+          if (s.completed) vol += s.effectiveWeight * s.effectiveReps;
+        }
+      }
+      final a = p.actualMinutes;
+      if (a != null && p.estimatedMinutes > 0 && _sane(a, p.estimatedMinutes)) {
+        sumA += a;
+        sumE += p.estimatedMinutes;
+        timed++;
+        if (a > p.estimatedMinutes * 1.1) over++;
+      }
+    }
+    return RecentSummary(
+      sessions: recent.length,
+      volume: vol,
+      completion: recent.isEmpty ? 0 : comp / recent.length,
+      avgMinutes: timed == 0 ? null : (sumA / timed).round(),
+      avgPlanned: timed == 0 ? null : (sumE / timed).round(),
+      timed: timed,
+      over: over,
+    );
+  }
+
+  static RecentSummary ofPartnerPlans(List<PartnerPlan> plans) {
+    final t = DateTime.now();
+    final recent = plans.where((p) => t.difference(p.date).inDays <= _days).toList();
+    var sumA = 0, sumE = 0, timed = 0, over = 0;
+    for (final p in recent) {
+      final a = p.actualMinutes;
+      if (a != null && p.estimatedMinutes > 0 && _sane(a, p.estimatedMinutes)) {
+        sumA += a;
+        sumE += p.estimatedMinutes;
+        timed++;
+        if (a > p.estimatedMinutes * 1.1) over++;
+      }
+    }
+    return RecentSummary(
+      sessions: recent.length,
+      volume: recent.fold(0.0, (a, p) => a + p.volume),
+      completion: recent.isEmpty ? 0 : recent.map((p) => p.completion).reduce((a, b) => a + b) / recent.length,
+      avgMinutes: timed == 0 ? null : (sumA / timed).round(),
+      avgPlanned: timed == 0 ? null : (sumE / timed).round(),
+      timed: timed,
+      over: over,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'n': sessions,
+        'vol': volume.round(),
+        'c': (completion * 100).round(),
+        if (avgMinutes != null) 'avg': avgMinutes,
+        if (avgPlanned != null) 'est': avgPlanned,
+        't': timed,
+        'o': over,
+      };
+
+  static RecentSummary? fromJson(Object? j) {
+    if (j is! Map) return null;
+    return RecentSummary(
+      sessions: (j['n'] as num?)?.toInt() ?? 0,
+      volume: (j['vol'] as num?)?.toDouble() ?? 0,
+      completion: ((j['c'] as num?)?.toDouble() ?? 0) / 100,
+      avgMinutes: (j['avg'] as num?)?.toInt(),
+      avgPlanned: (j['est'] as num?)?.toInt(),
+      timed: (j['t'] as num?)?.toInt() ?? 0,
+      over: (j['o'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
