@@ -1171,7 +1171,10 @@ class _ExerciseCard extends StatelessWidget {
                         case 'down':
                           await state.moveExercise(plan, pe, 1);
                         default:
-                          if (v.startsWith('target:')) {
+                          if (v.startsWith('side:')) {
+                            final to = exerciseById(v.substring(5));
+                            if (to != null) await _applySwap(context, state, ex, to);
+                          } else if (v.startsWith('target:')) {
                             final g = v.substring(7);
                             await state.setExerciseTarget(plan, pe, g == ex.group.name ? null : MuscleGroup.parse(g));
                           }
@@ -1185,8 +1188,19 @@ class _ExerciseCard extends StatelessWidget {
                             child: Text('${pe.effectiveGroup == g ? '✓ ' : ''}타깃: ${g.label}'),
                           ),
                       PopupMenuItem(value: 'pin', child: Text(pe.pinned ? '📌 고정 해제' : '📌 고정 (다시 짜도 유지)')),
-                      if (!isCardio && !ex.activity)
-                        PopupMenuItem(value: 'oneSide', child: Text(pe.oneSide ? '양쪽 같이 하기' : '한쪽씩 하기 (원레그·원암, 좌우 각각)')),
+                      // 원래 한쪽씩 하는 운동(원암 랫풀다운 등)은 '한쪽씩 하기' 대신 양쪽 운동으로 바꾸기.
+                      // 양쪽 운동에 전용 한쪽 버전이 있으면 그 운동으로 바꾸기, 없으면 좌우 각각 표시만 켜기.
+                      if (!isCardio && !ex.activity) ...[
+                        if (pe.oneSide)
+                          const PopupMenuItem(value: 'oneSide', child: Text('양쪽 같이 하기'))
+                        else if (ex.unilateral) ...[
+                          if (bothSidesOf(ex.id) case final b? when b.canDoWith(state.availableFor(plan)))
+                            PopupMenuItem(value: 'side:${b.id}', child: Text('양쪽으로 바꾸기 (${b.name})')),
+                        ] else if (oneSideOf(ex.id) case final o? when o.canDoWith(state.availableFor(plan)))
+                          PopupMenuItem(value: 'side:${o.id}', child: Text('한쪽씩 하기 (${o.name}으로 바꾸기)'))
+                        else
+                          const PopupMenuItem(value: 'oneSide', child: Text('한쪽씩 하기 (원레그·원암, 좌우 각각)')),
+                      ],
                       if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
                       if (isCardio) const PopupMenuItem(value: 'photo', child: Text('📷 기록 사진으로 채우기')),
                       if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) const PopupMenuItem(value: 'clearCardio', child: Text('세부 기록 지우기')),
@@ -1488,6 +1502,12 @@ class _ExerciseCard extends StatelessWidget {
       }),
     );
     if (chosen == null || !context.mounted) return;
+    await _applySwap(context, state, ex, chosen);
+  }
+
+  /// [ex] → [chosen]으로 바꾼다. 파트너 날이면 같이 바꿀지 나만 바꿀지 묻는다.
+  Future<void> _applySwap(BuildContext context, AppState state, Exercise ex, Exercise chosen) async {
+    if (!context.mounted) return;
     // 파트너 날: 같이 바꾸자고 제안(상대 앱에 바로 수락/거절 창) 또는 나만 바꾸기.
     final members = state.membersOf(plan);
     if (plan.partnerName != null && !pe.personal && !pe.warmup && members.isNotEmpty) {

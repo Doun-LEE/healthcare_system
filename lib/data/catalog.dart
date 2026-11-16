@@ -2410,6 +2410,30 @@ String motionOf(String exerciseId) => _sameMotion[exerciseId] ?? familyOf(exerci
 bool hasFamily(String exerciseId) => _familyOf.containsKey(exerciseId);
 
 /// 같은 계열의 다른 운동 id들.
+/// 원래 한쪽씩 하는 운동 → 같은 동작의 양쪽 운동.
+const _bothSidesOf = {
+  'single_arm_pulldown': 'lat_pulldown',
+  'single_arm_cable_row': 'seated_row',
+  'db_row': 'bb_row',
+  'meadows_row': 'tbar_row',
+  'single_leg_press': 'leg_press',
+  'cable_lateral': 'lateral_raise',
+  'concentration_curl': 'db_curl',
+  'bayesian_curl': 'cable_curl',
+  'cable_abduction': 'hip_abduction',
+};
+
+/// 한쪽씩 하는 운동의 양쪽 버전(원암 랫풀다운 → 랫풀다운). 없으면 null.
+Exercise? bothSidesOf(String id) => exerciseById(_bothSidesOf[id] ?? '');
+
+/// 양쪽 운동의 한쪽 버전(랫풀다운 → 원암 랫풀다운). 없으면 null.
+Exercise? oneSideOf(String id) {
+  for (final e in _bothSidesOf.entries) {
+    if (e.value == id) return exerciseById(e.key);
+  }
+  return null;
+}
+
 List<String> familySiblings(String exerciseId) {
   final f = _familyOf[exerciseId];
   return f == null ? const [] : [for (final id in _families[f]!) if (id != exerciseId) id];
