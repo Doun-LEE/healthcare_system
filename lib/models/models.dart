@@ -86,7 +86,7 @@ enum EquipmentType {
 
   // ── 등 ──
   latPulldown('랫풀다운', EquipmentCategory.back, ['lat pulldown', '랫풀', '암풀다운', 'arm pulldown', '풀다운']),
-  latPulldownPlateLoaded('플레이트 로디드 랫풀다운(아이소 풀다운)', EquipmentCategory.back, ['iso lateral pulldown', 'hammer pulldown', '해머 풀다운', '아이소 풀다운', '아이소 래터럴 풀다운']),
+  latPulldownPlateLoaded('플레이트 로디드 랫풀다운(아이소 풀다운)', EquipmentCategory.back, ['iso lateral pulldown', 'hammer pulldown', '해머 풀다운', '아이소 풀다운', '아이소 래터럴 풀다운', '와이드 풀다운', 'wide pulldown', '플레이트 풀다운', '원판 풀다운', '엠토쳐 풀다운', '버티컬 풀다운']),
   seatedRow('시티드 로우(케이블)', EquipmentCategory.back, ['seated row', 'cable row', '로우']),
   chestSupportedRow('체스트 서포티드 로우 머신', EquipmentCategory.back, ['chest supported row', '체스트 서포티드 로우', '인클라인 로우', 'seal row']),
   seatedRowMachine('시티드 로우 머신', EquipmentCategory.back, ['seated row machine', '시티드 로우 머신', '로우 머신']),
@@ -174,11 +174,11 @@ enum EquipmentType {
   final List<String> aliases;
 
   bool matches(String query) {
-    final q = query.trim().toLowerCase();
+    // 띄어쓰기 무시('와이드풀다운' = '와이드 풀다운').
+    String n(String v) => v.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    final q = n(query);
     if (q.isEmpty) return true;
-    return label.toLowerCase().contains(q) ||
-        name.toLowerCase().contains(q) ||
-        aliases.any((a) => a.toLowerCase().contains(q));
+    return n(label).contains(q) || n(name).contains(q) || aliases.any((a) => n(a).contains(q));
   }
 
   static EquipmentType parse(String v) =>

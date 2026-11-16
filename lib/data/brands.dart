@@ -58,9 +58,10 @@ class EquipmentBrand {
   Color get badgeColor => color ?? style.frame;
 
   bool matches(String q) {
-    final s = q.trim().toLowerCase();
+    String n(String v) => v.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+    final s = n(q);
     if (s.isEmpty) return true;
-    return name.toLowerCase().contains(s) || aliases.any((a) => a.toLowerCase().contains(s));
+    return n(name).contains(s) || aliases.any((a) => n(a).contains(s));
   }
 }
 

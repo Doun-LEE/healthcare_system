@@ -599,7 +599,7 @@ class _EquipmentPickerState extends State<_EquipmentPicker> {
     final q = _query.trim().toLowerCase();
     final tokens = q.split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
     // 여러 단어 검색: 단어마다 브랜드 이름/별칭 또는 모델 이름/종류 중 어딘가에 있으면 통과.
-    bool hit(EquipmentBrand b, BrandModel m) => tokens.every((t) => b.matches(t) || m.name.toLowerCase().contains(t) || m.type.matches(t));
+    bool hit(EquipmentBrand b, BrandModel m) => tokens.every((t) => b.matches(t) || m.name.toLowerCase().replaceAll(' ', '').contains(t) || m.type.matches(t));
     final brands = equipmentBrands.where((b) => q.isEmpty || b.models.any((m) => hit(b, m))).toList();
     return ListView(
       controller: ctrl,
