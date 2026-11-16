@@ -46,6 +46,8 @@ jobs:
           else patch=$((patch+1)); fi
           here=$(git tag --points-at HEAD --list 'v*' | sort -V | tail -n1)
           [ -n "$here" ] && major=$(echo "${here#v}" | cut -d. -f1) && minor=$(echo "${here#v}" | cut -d. -f2) && patch=$(echo "${here#v}" | cut -d. -f3)
+          # 빌드 번호 = 커밋 수 + 1000: 웹과 APK가 같은 번호, 예전 run_number(수백)보다 커서 안드로이드 업데이트도 됨.
+          echo "build=$(( $(git rev-list --count HEAD) + 1000 ))" >> "$GITHUB_OUTPUT"
           echo "version=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
 
       - uses: subosito/flutter-action@v2
@@ -64,8 +66,8 @@ jobs:
             --base-href "/" \
             --pwa-strategy offline-first \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }} \
-            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ github.run_number }}
+            --build-number=${{ steps.ver.outputs.build }} \
+            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ steps.ver.outputs.build }}
 
       # firebase-tools를 직접 실행한다. 실패하면 원인 문구를 annotation(공개)으로 남겨
       # 로그인 없이도 실패 이유를 볼 수 있게 한다(키 내용은 출력하지 않음).
@@ -128,8 +130,8 @@ jobs:
             --base-href "/${{ github.event.repository.name }}/" \
             --pwa-strategy offline-first \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }} \
-            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ github.run_number }}
+            --build-number=${{ steps.ver.outputs.build }} \
+            --dart-define=APP_BUILD=${{ steps.ver.outputs.version }}+${{ steps.ver.outputs.build }}
           mv build/web pages
 
       - uses: actions/configure-pages@v5

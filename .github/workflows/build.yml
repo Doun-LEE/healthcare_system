@@ -38,6 +38,8 @@ jobs:
           else patch=$((patch+1)); fi
           next="$major.$minor.$patch"
           if [ "${{ github.event_name }}" != "push" ]; then next="$next-dev"; fi
+          # 빌드 번호 = 커밋 수 + 1000: 웹과 APK가 같은 번호, 예전 run_number(수백)보다 커서 안드로이드 업데이트도 됨.
+          echo "build=$(( $(git rev-list --count HEAD) + 1000 ))" >> "$GITHUB_OUTPUT"
           echo "version=$next" >> "$GITHUB_OUTPUT"
           echo "tag=v$next" >> "$GITHUB_OUTPUT"
           echo "last=$last next=v$next"
@@ -83,7 +85,7 @@ jobs:
           flutter build apk --release \
             --target-platform android-arm,android-arm64 \
             --build-name=${{ steps.ver.outputs.version }} \
-            --build-number=${{ github.run_number }} 2>&1 | tee build.log
+            --build-number=${{ steps.ver.outputs.build }} 2>&1 | tee build.log
           rc=${PIPESTATUS[0]}
           set -e
           if [ "$rc" != "0" ]; then
