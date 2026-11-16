@@ -28,6 +28,7 @@ import '../services/record_code.dart';
 import '../services/routine_share.dart';
 import '../services/supa_rows.dart';
 import '../services/supa_sync.dart';
+import '../engine/rank.dart';
 
 String newId() {
   final r = Random();
@@ -1555,7 +1556,13 @@ class AppState extends ChangeNotifier {
   /// 내 운동 성향(프로필 + 최근 4주 기록).
   TrainingStyle get myStyle {
     final u = currentUser;
-    return u == null ? const TrainingStyle(50, 50) : TrainingStyle.of(u, myPlans);
+    return u == null ? const TrainingStyle(50, 30, 50) : TrainingStyle.of(u, myPlans);
+  }
+
+  /// 내 랭크(힘 + 최근 4주 꾸준함).
+  Rank? get myRank {
+    final u = currentUser;
+    return u == null ? null : Rank.of(u, sessions4w: RecentSummary.of(myPlans).sessions);
   }
 
   /// 4주 전 시점의 내 성향(그때 기록이 있었을 때만). 지난달 대비 변화 표시용.

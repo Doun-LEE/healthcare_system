@@ -8,6 +8,7 @@ import '../services/partner.dart';
 import '../state/app_state.dart';
 import 'chat_screen.dart';
 import 'partner_profile_screen.dart';
+import 'widgets/rank_badge.dart';
 
 /// 친구(운동 파트너) 목록 화면: 안 읽은 메시지·마지막 메시지, 요청 수락, ID로 추가.
 class FriendsScreen extends StatelessWidget {
@@ -266,7 +267,7 @@ class FriendAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Badge(
+    final avatar = Badge(
       isLabelVisible: unread > 0,
       label: Text('$unread'),
       offset: const Offset(2, -2),
@@ -276,6 +277,12 @@ class FriendAvatar extends StatelessWidget {
         child: Text(partner.display.characters.first,
             style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w700, fontSize: radius * 0.85)),
       ),
+    );
+    if (partner.pending || !CloudSync.instance.signedIn) return avatar;
+    // 랭크 마크: 상대 공개 프로필(10분 캐시)로 계산.
+    return FutureBuilder<PartnerProfile?>(
+      future: CloudSync.instance.fetchPartnerCached(partner.uid),
+      builder: (c, snap) => RankedAvatar(rank: snap.data?.rank, radius: radius, child: avatar),
     );
   }
 }

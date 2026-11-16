@@ -19,6 +19,7 @@ import 'widgets/body_records.dart';
 import 'friends_screen.dart';
 import 'shared_gym_admin_screen.dart';
 import 'widgets/version_section.dart';
+import 'widgets/rank_badge.dart';
 
 /// 신체 스펙·인바디 스캔·분할/시간 설정·API 키·접근 코드·로그아웃.
 class ProfileScreen extends StatelessWidget {
@@ -46,6 +47,22 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          if (state.myRank case final r?)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  RankPlate(rank: r),
+                  const SizedBox(height: 6),
+                  Text(
+                    r.estimated
+                        ? '힘은 숙련도로 어림했어요. 아래 3대 기록·체성분을 넣으면 정확해져요. 꾸준함은 최근 4주 운동 횟수(12회 만점).'
+                        : '힘(3대·체성분 레벨 판정) 70% + 꾸준함(최근 4주 운동 횟수, 12회 만점) 30%.',
+                    style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                ]),
+              ),
+            ),
           // 통계
           Row(children: [
             _Stat(label: '완료 세션', value: '${state.completedSessions}'),

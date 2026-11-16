@@ -9,6 +9,7 @@ import '../services/partner.dart';
 import '../state/app_state.dart';
 import 'chat_screen.dart';
 import 'widgets/level_card.dart';
+import 'widgets/rank_badge.dart';
 
 /// 친구 프로필: 스탯 카드(레벨), 기록 요약, 최근 운동 기록, 예정 루틴.
 class PartnerProfileScreen extends StatefulWidget {
@@ -112,7 +113,11 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      CircleAvatar(radius: 22, child: Text(pp.name.isEmpty ? '?' : pp.name.characters.first, style: const TextStyle(fontSize: 20))),
+                      RankedAvatar(
+                        rank: pp.rank,
+                        radius: 22,
+                        child: CircleAvatar(radius: 22, child: Text(pp.name.isEmpty ? '?' : pp.name.characters.first, style: const TextStyle(fontSize: 20))),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -123,7 +128,9 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                         ]),
                       ),
                     ]),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
+                    RankPlate(rank: pp.rank, color: cs.onPrimaryContainer),
+                    const SizedBox(height: 10),
                     Row(children: [
                       _Stat(label: '스쿼트', value: u.squat1rm == null ? '-' : '${u.squat1rm!.round()}'),
                       _Stat(label: '벤치', value: u.bench1rm == null ? '-' : '${u.bench1rm!.round()}'),

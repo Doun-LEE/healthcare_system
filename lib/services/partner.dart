@@ -7,6 +7,7 @@ library;
 
 import '../engine/training_style.dart';
 import '../models/models.dart';
+import '../engine/rank.dart';
 
 /// 계정의 공개 ID: `닉네임#1234`. uid 해시로 4자리를 만들어 닉네임이 같아도 구분된다.
 String makeHandle(String name, String uid) {
@@ -85,6 +86,9 @@ class PartnerProfile {
 
   /// 운동 성향. 올린 값이 없으면 프로필로 추정.
   TrainingStyle get style => publishedStyle ?? TrainingStyle.prior(profile);
+
+  /// 랭크(힘 + 최근 4주 꾸준함).
+  Rank get rank => Rank.of(profile, sessions4w: recent.sessions);
 
   /// 운동 선호도(교체·추가·삭제로 배운 값). 함께 할 루틴을 짤 때 모두의 평균을 쓴다.
   final Map<String, double> exercisePref;

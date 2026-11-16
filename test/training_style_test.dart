@@ -27,15 +27,16 @@ void main() {
     final diet = UserProfile(id: 'b', name: 'b', sex: Sex.female, goal: TrainingGoal.fatLoss, level: TrainingLevel.beginner, levelAuto: false);
     final a = TrainingStyle.of(lifter, const []);
     final b = TrainingStyle.of(diet, const []);
-    expect(a.x, greaterThan(b.x));
+    expect(a.weight, greaterThan(b.weight));
+    expect(b.cardio, greaterThan(a.cardio));
+    expect(a.intensity, greaterThan(b.intensity));
     expect(a.sessions, 0);
-    expect(TrainingStyle.of(diet, const []).x, lessThan(50));
   });
 
   test('기록 8회면 기록만으로: 저반복 바벨 → 헤비 리프터, 유산소만 → 유산소 쪽', () {
     final p = UserProfile(id: 'c', name: 'c', goal: TrainingGoal.fatLoss);
     final heavy = [
-      for (var i = 0; i < 8; i++) day(i * 3, [('bb_squat', EquipmentType.squatRack, [(140, 4), (140, 4), (140, 4)]), ('deadlift', EquipmentType.barbell, [(180, 3), (180, 3)])], rpe: 9),
+      for (var i = 0; i < 8; i++) day(i * 3, [('bb_squat', EquipmentType.squatRack, [(140, 4), (140, 4), (140, 4), (140, 4), (140, 4)]), ('deadlift', EquipmentType.barbell, [(180, 3), (180, 3), (180, 3), (180, 3)]), ('bb_bench', EquipmentType.flatBench, [(120, 5), (120, 5), (120, 5)])], rpe: 9),
     ];
     final s = TrainingStyle.of(p, heavy, now: now);
     expect(s.dataWeight, 1);
@@ -43,18 +44,24 @@ void main() {
 
     final cardio = [for (var i = 0; i < 8; i++) day(i * 3, [('treadmill_walk', EquipmentType.treadmill, [(0, 40)])], rpe: 3)];
     final c = TrainingStyle.of(p, cardio, now: now);
-    expect(c.x, lessThan(35));
+    expect(c.weight, lessThan(10));
+    expect(c.cardio, 100);
     expect(c.zone, StyleZone.healingWalker);
   });
 
   test('함께 성향은 평균, 차이가 크면 궁합 문구가 달라진다', () {
-    const a = TrainingStyle(90, 80), b = TrainingStyle(20, 20);
+    const a = TrainingStyle(90, 80, 80), b = TrainingStyle(20, 30, 20);
     final t = TrainingStyle.combine([a, b]);
-    expect(t.x, 55);
+    expect(t.weight, 55);
     expect(t.zone, StyleZone.allRounder);
+    expect(const TrainingStyle(80, 70, 70).zone, StyleZone.hybrid);
+    expect(const TrainingStyle(20, 20, 70).zone, StyleZone.express);
     expect(TrainingStyle.chemistry([a, b]), contains('차이 큼'));
-    expect(TrainingStyle.chemistry([a, const TrainingStyle(85, 78)]), contains('찰떡'));
-    expect(TrainingStyle.fromJson(a.toJson())!.x, 90);
+    expect(TrainingStyle.chemistry([a, const TrainingStyle(85, 78, 75)]), contains('찰떡'));
+    expect(TrainingStyle.fromJson(a.toJson())!.cardio, 80);
+    // 옛 버전 값(x: 웨이트 비중, y: 강도)도 읽는다.
+    final old = TrainingStyle.fromJson({'x': 80, 'y': 70, 'n': 8})!;
+    expect((old.weight, old.cardio, old.intensity), (80.0, 20.0, 70.0));
   });
 
   test('최근 4주 실제 운동 시간 vs 루틴 예상 시간(끝내기 잊은 기록은 빼기)', () {

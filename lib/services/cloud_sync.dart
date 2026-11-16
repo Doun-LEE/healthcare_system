@@ -258,6 +258,17 @@ class CloudSync {
     return PartnerLink(uid: d['uid'] as String, name: (d['name'] as String?) ?? '', handle: (d['handle'] as String?) ?? '');
   }
 
+  static final Map<String, (DateTime, Future<PartnerProfile?>)> _partnerCache = {};
+
+  /// 친구 띠처럼 여러 번 그려지는 곳용: 10분 동안은 한 번 받은 공개 프로필을 다시 쓴다.
+  Future<PartnerProfile?> fetchPartnerCached(String uid) {
+    final hit = _partnerCache[uid];
+    if (hit != null && DateTime.now().difference(hit.$1).inMinutes < 10) return hit.$2;
+    final f = fetchPartner(uid).catchError((Object _) => null);
+    _partnerCache[uid] = (DateTime.now(), f);
+    return f;
+  }
+
   Future<PartnerProfile?> fetchPartner(String uid) async {
     // 느린 연결에서 무한정 기다리지 않게 제한(넘으면 TimeoutException).
     final snap = await _db.doc('users/$uid/public/profile').get().timeout(const Duration(seconds: 12));
