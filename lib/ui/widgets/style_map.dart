@@ -31,7 +31,7 @@ class StyleMap extends StatelessWidget {
 
   static double heightFor(double width) {
     final l = (width - 44) / (2 * cos(pi / 6));
-    return l + l * 0.72 + 44;
+    return l + l * 0.72 + 56;
   }
 
   @override
@@ -81,9 +81,11 @@ class _MapPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-  void _text(Canvas c, String s, Offset at, {double size = 10, Color? color, FontWeight w = FontWeight.w500, Alignment align = Alignment.center}) {
+  Rect _text(Canvas c, String s, Offset at, {double size = 10, Color? color, FontWeight w = FontWeight.w500, Alignment align = Alignment.center}) {
     final tp = _tp(s, size, color ?? zoneText, w);
-    tp.paint(c, at - Offset((align.x + 1) / 2 * tp.width, (align.y + 1) / 2 * tp.height));
+    final tl = at - Offset((align.x + 1) / 2 * tp.width, (align.y + 1) / 2 * tp.height);
+    tp.paint(c, tl);
+    return tl & tp.size;
   }
 
   @override
@@ -91,9 +93,10 @@ class _MapPainter extends CustomPainter {
     final cx = cos(pi / 6), sy = sin(pi / 6);
     final l = (size.width - 44) / (2 * cx);
     final h = l * 0.72;
-    final o = Offset(size.width / 2, size.height - 30);
+    // 원점(웨이트 0·유산소 0·가볍게)은 두 벽이 만나는 뒤 모서리. 웨이트는 오른쪽 아래로, 유산소는 왼쪽 아래로 커진다.
+    final o = Offset(size.width / 2, size.height - 30 - l);
     // (웨이트, 유산소, 강도) 0~1 → 화면.
-    Offset p3(double u, double v, double k) => o + Offset((u - v) * l * cx, -(u + v) * l * sy - k * h);
+    Offset p3(double u, double v, double k) => o + Offset((u - v) * l * cx, (u + v) * l * sy - k * h);
     Offset at(TrainingStyle s) => p3(s.weight / 100, s.cardio / 100, s.intensity / 100);
     Offset shadow(TrainingStyle s) => p3(s.weight / 100, s.cardio / 100, 0);
     Path poly(List<Offset> pts) => Path()..addPolygon(pts, true);
@@ -105,16 +108,16 @@ class _MapPainter extends CustomPainter {
       ..color = grid.withValues(alpha: 0.6)
       ..strokeWidth = 0.6;
 
-    // 뒤 벽 두 장(강도 눈금)
-    final wallR = [p3(1, 0, 0), p3(1, 1, 0), p3(1, 1, 1), p3(1, 0, 1)];
-    final wallL = [p3(0, 1, 0), p3(1, 1, 0), p3(1, 1, 1), p3(0, 1, 1)];
-    for (final w in [wallR, wallL]) {
+    // 뒤 벽 두 장(강도 눈금): 웨이트 축 벽(유산소 0), 유산소 축 벽(웨이트 0)
+    final wallW = [p3(0, 0, 0), p3(1, 0, 0), p3(1, 0, 1), p3(0, 0, 1)];
+    final wallC = [p3(0, 0, 0), p3(0, 1, 0), p3(0, 1, 1), p3(0, 0, 1)];
+    for (final w in [wallW, wallC]) {
       canvas.drawPath(poly(w), Paint()..color = wall);
       canvas.drawPath(poly(w), gp);
     }
     for (final k in [1 / 3, 2 / 3]) {
-      canvas.drawLine(p3(1, 0, k), p3(1, 1, k), faint);
-      canvas.drawLine(p3(0, 1, k), p3(1, 1, k), faint);
+      canvas.drawLine(p3(0, 0, k), p3(1, 0, k), faint);
+      canvas.drawLine(p3(0, 0, k), p3(0, 1, k), faint);
     }
     // 바닥(가운데 선 = 많고 적음 기준 50)
     final fl = [p3(0, 0, 0), p3(1, 0, 0), p3(1, 1, 0), p3(0, 1, 0)];
@@ -127,12 +130,15 @@ class _MapPainter extends CustomPainter {
     _text(canvas, '둘 다 많이', p3(0.75, 0.75, 0), size: 9);
     _text(canvas, '둘 다 적게', p3(0.25, 0.25, 0), size: 9);
 
-    // 축 이름
-    _text(canvas, '웨이트 →', p3(0.55, 0, 0) + const Offset(6, 6), size: 10, color: axisText, w: FontWeight.w700, align: Alignment.topLeft);
-    _text(canvas, '← 유산소', p3(0, 0.55, 0) + const Offset(-6, 6), size: 10, color: axisText, w: FontWeight.w700, align: Alignment.topRight);
+    // 축 이름: 축 끝(많은 쪽)에
+    // 축 이름은 각 축 벽 아래쪽(바닥 모서리 위)에, 커지는 방향 화살표와 함께.
+    final axisRects = <Rect>[];
+    axisRects.add(_text(canvas, '웨이트 ↘', p3(0.78, 0, 0.05), size: 10, color: axisText, w: FontWeight.w800, align: Alignment.bottomCenter));
+    axisRects.add(_text(canvas, '↙ 유산소', p3(0, 0.78, 0.05), size: 10, color: axisText, w: FontWeight.w800, align: Alignment.bottomCenter));
     _text(canvas, '고강도', p3(0, 1, 1) + const Offset(-4, 0), size: 9.5, color: axisText, align: Alignment.centerRight);
-    _text(canvas, '가볍게', p3(0, 1, 0) + const Offset(-4, 0), size: 9.5, color: axisText, align: Alignment.centerRight);
-    _text(canvas, '↑ 강도', p3(1, 0, 1) + const Offset(4, 0), size: 9.5, color: axisText, align: Alignment.centerLeft);
+    _text(canvas, '가볍게', p3(0, 1, 0) + const Offset(-4, -4), size: 9.5, color: axisText, align: Alignment.bottomRight);
+    _text(canvas, '↑ 강도', p3(0, 0, 1) + const Offset(0, -4), size: 9.5, color: axisText, w: FontWeight.w700, align: Alignment.bottomCenter);
+    _text(canvas, '0', p3(0, 0, 0) + const Offset(0, -3), size: 8.5, color: axisText, align: Alignment.bottomCenter);
 
     // 바닥 그림자 + 세로 점선
     for (final p in points) {
@@ -154,7 +160,7 @@ class _MapPainter extends CustomPainter {
     }
     // 화면 위(뒤)에 있는 점부터 그려 앞 점이 위에 오게.
     final order = [...points]..sort((a, b) => at(a.style).dy.compareTo(at(b.style).dy));
-    final placed = <Rect>[];
+    final placed = <Rect>[...axisRects];
     final dots = {for (final p in points) p: Rect.fromCircle(center: at(p.style), radius: 9)};
     for (final p in order) {
       final pt = at(p.style);
