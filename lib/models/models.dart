@@ -80,7 +80,7 @@ enum EquipmentType {
   chestPressPlateLoaded('해머 체스트 프레스(플레이트 로디드)', EquipmentCategory.chest, ['hammer strength', 'plate loaded', 'iso lateral', '해머스트렝스', '아이소', '해머 프레스', '해머프레스', '해머 체스트']),
   lyingChestPress('라잉 체스트 프레스 머신(누워서 미는)', EquipmentCategory.chest, ['lying chest press', 'horizontal bench press', 'iso-lateral bench press', 'bench press machine', '라잉', '라잉 체스트', '누워서', '벤치형', '플레이트 벤치']),
   lyingInclinePress('라잉 인클라인 체스트 프레스 머신(누워서 미는)', EquipmentCategory.chest, ['lying incline press', 'incline bench press machine', 'super incline bench', '라잉 인클라인', '누워서 인클라인', '인클라인 벤치 프레스']),
-  pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이']),
+  pecDeck('펙덱 플라이/리어델트', EquipmentCategory.chest, ['pec deck', 'pec fly', 'rear delt', '펙 플라이', 'pec dec', '팩덱', '펙덱', '버터플라이', 'butterfly', '플라이 머신']),
   cableMachine('케이블 크로스오버', EquipmentCategory.chest, ['cable crossover', 'cable machine', '케이블 머신', '케이블', '암풀다운', '케이블 크런치', '페이스풀']),
   functionalTrainer('펑셔널 트레이너(듀얼 케이블)', EquipmentCategory.chest, ['functional trainer', 'dual cable', 'ft']),
 
