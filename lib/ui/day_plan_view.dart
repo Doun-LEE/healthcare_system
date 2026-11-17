@@ -1224,7 +1224,7 @@ class _ExerciseCard extends StatelessWidget {
                 unit: unit,
                 showWeight: !isCardio && !isBw,
                 levelText: isCardio && pe.sets[i].effectiveLevel != null && cardioLevels[ex.id] != null
-                    ? cardioLevels[ex.id]!.format(pe.sets[i].effectiveLevel!)
+                    ? cardioLevels[ex.id]!.format(pe.sets[i].effectiveLevel!, s: pe.sets[i].effectiveSpeed)
                     : null,
                 // 나만 뺀 운동은 체크·수정 잠금.
                 editable: logging && !pe.skipMine,
@@ -1294,14 +1294,16 @@ class _ExerciseCard extends StatelessWidget {
       showWeight: showWeight,
       levelSpec: spec,
       initialLevel: planning ? s.level : s.effectiveLevel,
+      initialSpeed: (planning ? s.speed : s.effectiveSpeed) ??
+          (ex == null || state.currentUser == null ? null : SessionGenerator.cardioSpeedFor(ex, state.currentUser!, state.progress[ex.id])),
       maxReps: isCardio ? 1440 : 999, // 횟수는 사실상 제한 없음(유산소는 분, 24시간)
     );
     if (result == null) return;
     final weight = showWeight ? result.$2 / f : null;
     if (planning) {
-      await state.setTarget(plan, pe, index: i, reps: result.$1, weight: weight, level: result.$3);
+      await state.setTarget(plan, pe, index: i, reps: result.$1, weight: weight, level: result.$3, speed: result.$4);
     } else {
-      await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3); // 완료 체크는 체크박스로만
+      await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3, speed: result.$4); // 완료 체크는 체크박스로만
     }
   }
 

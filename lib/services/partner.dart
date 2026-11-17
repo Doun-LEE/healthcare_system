@@ -214,7 +214,7 @@ class PartnerProfile {
                     'q': e.equipmentType.name,
                     's': [
                       for (final s in e.sets)
-                        {'r': s.effectiveReps, 'w': s.effectiveWeight, if (s.completed) 'd': true, if (s.effectiveLevel != null) 'l': s.effectiveLevel},
+                        {'r': s.effectiveReps, 'w': s.effectiveWeight, if (s.completed) 'd': true, if (s.effectiveLevel != null) 'l': s.effectiveLevel, if (s.effectiveSpeed != null) 'v': s.effectiveSpeed},
                     ],
                   },
               ],
@@ -413,6 +413,7 @@ class PartnerPlan {
                     weight: (s['w'] as num?)?.toDouble() ?? 0,
                     done: (s['d'] as bool?) ?? false,
                     level: (s['l'] as num?)?.toInt(),
+                    speed: (s['v'] as num?)?.toInt(),
                   ),
               ],
             ),
@@ -428,11 +429,12 @@ class PartnerExercise {
 }
 
 class PartnerSet {
-  const PartnerSet({required this.reps, required this.weight, required this.done, this.level});
+  const PartnerSet({required this.reps, required this.weight, required this.done, this.level, this.speed});
   final int reps;
   final double weight;
   final bool done;
   final int? level;
+  final int? speed;
 }
 
 /// 파트너가 그날 입력한 컨디션. 파트너 운동일 화면에 보여주고 파트너 무게에 배율을 곱한다.

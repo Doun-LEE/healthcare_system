@@ -127,7 +127,12 @@ List<Map<String, dynamic>> planExerciseRows(DayPlan p) => [
           'group_override': p.exercises[i].groupOverride?.name,
           'extra': p.exercises[i].toJson()
             ..remove('sets')
-            ..remove('cardio'),
+            ..remove('cardio')
+            // 세트 열에 없는 속도는 여기에(세트 순서대로 [처방, 실제]).
+            ..addAll({
+              if (p.exercises[i].sets.any((s) => s.speed != null || s.doneSpeed != null))
+                'setSpeeds': [for (final s in p.exercises[i].sets) [s.speed, s.doneSpeed]],
+            }),
           'deleted_at': null,
         }
     ];
@@ -240,7 +245,7 @@ DayPlan planFromRows(
   final sorted = [...exercises]..sort((a, b) => (a['position'] as num).compareTo(b['position'] as num));
   j['exercises'] = [
     for (final e in sorted)
-      {
+      _withSpeeds({
         ...Map<String, dynamic>.from((e['extra'] as Map?) ?? const {}),
         'exerciseId': e['exercise_id'],
         'equipmentType': e['equipment_type'],
@@ -259,9 +264,24 @@ DayPlan planFromRows(
             }
         ],
         if (cardioBy[e['id']] case final c?) 'cardio': _cardioJson(c),
-      }
+      })
   ];
   return DayPlan.fromJson(j);
+}
+
+/// extra의 setSpeeds를 세트 JSON에 되돌린다.
+Map<String, dynamic> _withSpeeds(Map<String, dynamic> e) {
+  final sp = e.remove('setSpeeds');
+  if (sp is! List) return e;
+  final sets = e['sets'] as List;
+  for (var k = 0; k < sets.length && k < sp.length; k++) {
+    final v = sp[k];
+    if (v is! List || v.length < 2) continue;
+    final s = sets[k] as Map<String, dynamic>;
+    if (v[0] is num) s['speed'] = (v[0] as num).toInt();
+    if (v[1] is num) s['doneSpeed'] = (v[1] as num).toInt();
+  }
+  return e;
 }
 
 Map<String, dynamic> _cardioJson(Map<String, dynamic> c) => CardioStats(

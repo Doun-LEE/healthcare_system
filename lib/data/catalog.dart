@@ -2231,7 +2231,7 @@ const List<Exercise> exerciseCatalog = [
 
 /// 유산소 기구의 강도 단계 정의: 라벨, 범위, 숙련도별 시작 레벨.
 class CardioLevelSpec {
-  const CardioLevelSpec({required this.label, required this.unit, required this.min, required this.max, required this.start, this.extra});
+  const CardioLevelSpec({required this.label, required this.unit, required this.min, required this.max, required this.start, this.extra, this.second});
   final String label; // 예: '레벨', '경사'
   final String unit; // 예: '', '%'
   final int min;
@@ -2240,8 +2240,11 @@ class CardioLevelSpec {
   /// [초급, 중급, 고급] 시작값.
   final List<int> start;
 
-  /// 단계와 같이 보여 줄 안내(예: 경사 단계 + '속도 5~6km/h'). '{v}'는 지금 단계 숫자로 바뀐다.
+  /// 단계와 같이 보여 줄 고정 안내(예: 경사 단계 + '속도 5~6km/h').
   final String? extra;
+
+  /// 따로 기록하는 두 번째 값(마운틴 클라이머 머신: 인클라인 + 속도).
+  final CardioLevelSpec? second;
 
   int startFor(TrainingLevel l, TrainingGoal g) {
     var v = start[l.index];
@@ -2249,7 +2252,8 @@ class CardioLevelSpec {
     return v.clamp(min, max);
   }
 
-  String format(int v) => '$label $v$unit${extra == null ? '' : ' · ${extra!.replaceAll('{v}', '$v')}'}';
+  String format(int v, {int? s}) =>
+      '$label $v$unit${second != null && s != null ? ' · ${second!.label} $s${second!.unit}' : ''}${extra == null ? '' : ' · $extra'}';
 }
 
 /// exerciseId → 강도 단계 정의. 없는 유산소는 "편한 속도"로만 처방한다.
@@ -2266,7 +2270,8 @@ const Map<String, CardioLevelSpec> cardioLevels = {
   'ski_erg': CardioLevelSpec(label: '댐퍼', unit: '', min: 1, max: 10, start: [4, 5, 6]),
   'elliptical': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
   'jacobs': CardioLevelSpec(label: '속도', unit: '', min: 1, max: 10, start: [3, 5, 7]),
-  'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30], extra: '속도 {v}'),
+  'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30],
+      second: CardioLevelSpec(label: '속도', unit: '', min: 0, max: 50, start: [10, 20, 30])),
   'stair_run': CardioLevelSpec(label: '층', unit: '층', min: 5, max: 40, start: [8, 14, 20]),
 };
 

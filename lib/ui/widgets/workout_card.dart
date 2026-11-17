@@ -371,7 +371,7 @@ List<_Chip> _chipsFor(PlannedExercise e) {
     final spec = cardioLevels[e.exerciseId];
     return [
       for (final s in done)
-        _Chip('${s.doneReps ?? s.targetReps}분${spec != null && s.effectiveLevel != null ? ' · ${spec.format(s.effectiveLevel!)}' : ''}', false),
+        _Chip('${s.doneReps ?? s.targetReps}분${spec != null && s.effectiveLevel != null ? ' · ${spec.format(s.effectiveLevel!, s: s.effectiveSpeed)}' : ''}', false),
     ];
   }
   final maxW = done.map((s) => s.doneWeight ?? s.targetWeight).fold<double>(0, math.max);

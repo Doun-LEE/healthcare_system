@@ -219,12 +219,13 @@ class SessionGenerator {
         final minutes = (cardioSec / 60).round().clamp(10, 30);
         final level = cardioLevelFor(cardio, req.profile, req.progress[cardio.id]);
         final spec = cardioLevels[cardio.id];
+        final speed = cardioSpeedFor(cardio, req.profile, req.progress[cardio.id]);
         picked.add(PlannedExercise(
           exerciseId: cardio.id,
           equipmentType: cardio.pickEquipment(req.available),
           restSeconds: 0,
-          sets: [SetEntry(targetReps: minutes, targetWeight: 0, level: level)],
-          note: '${cardioFirst ? '워밍업' : '마무리'} 유산소 $minutes분${level != null && spec != null ? ' · ${spec.format(level)}' : ''}',
+          sets: [SetEntry(targetReps: minutes, targetWeight: 0, level: level, speed: speed)],
+          note: '${cardioFirst ? '워밍업' : '마무리'} 유산소 $minutes분${level != null && spec != null ? ' · ${spec.format(level, s: speed)}' : ''}',
         ));
       }
     }
@@ -752,6 +753,13 @@ class SessionGenerator {
     if (spec == null) return null;
     final l = prog?.level ?? spec.startFor(p.level, p.goal);
     return l.clamp(spec.min, spec.max);
+  }
+
+  /// 유산소 두 번째 값(속도): 지난번에 한 값, 없으면 숙련도별 시작값.
+  static int? cardioSpeedFor(Exercise ex, UserProfile p, ExerciseProgress? prog) {
+    final sp = cardioLevels[ex.id]?.second;
+    if (sp == null) return null;
+    return (prog?.speed ?? sp.startFor(p.level, p.goal)).clamp(sp.min, sp.max);
   }
 
   /// 세션의 총 예상 시간(분).

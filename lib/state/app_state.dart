@@ -218,7 +218,7 @@ class AppState extends ChangeNotifier {
   /// 앞으로 할 날의 처방(목표 무게·횟수)을 직접 바꾼다. 그 운동의 모든 세트에 적용.
   /// 처방 바꾸기. [index] 세트를 고른 값으로 하고, 나머지 세트도 같은 만큼 옮긴다
   /// (램프업처럼 세트마다 무게가 다르면 그 간격을 유지).
-  Future<void> setTarget(DayPlan plan, PlannedExercise pe, {int index = 0, int? reps, double? weight, int? level}) async {
+  Future<void> setTarget(DayPlan plan, PlannedExercise pe, {int index = 0, int? reps, double? weight, int? level, int? speed}) async {
     final ref = pe.sets[index.clamp(0, pe.sets.length - 1)];
     final dw = weight == null ? 0.0 : weight - ref.targetWeight;
     final dr = reps == null ? 0 : reps - ref.targetReps;
@@ -229,6 +229,7 @@ class AppState extends ChangeNotifier {
         targetWeight: max(0.0, s0.targetWeight + dw),
         level: level ?? s0.level,
         extra: s0.extra,
+        speed: speed ?? s0.speed,
       );
     }
     plan.custom = true;
@@ -2152,8 +2153,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateSet(DayPlan plan, PlannedExercise ex, int setIndex,
-      {int? reps, double? weight, int? level, bool? completed}) async {
+      {int? reps, double? weight, int? level, int? speed, bool? completed}) async {
     final s = ex.sets[setIndex];
+    if (speed != null) s.doneSpeed = speed;
     if (reps != null) s.doneReps = reps;
     if (weight != null) s.doneWeight = weight;
     if (level != null) s.doneLevel = level;
@@ -2194,7 +2196,7 @@ class AppState extends ChangeNotifier {
     // 유산소는 구간 추가: 직전 구간 레벨에서 5분으로 시작(레벨·시간은 바꿔서 기록).
     final cardio = exerciseById(ex.exerciseId)?.loadType == LoadType.cardio;
     ex.sets.add(SetEntry(
-        targetReps: cardio ? 5 : last.targetReps, targetWeight: last.targetWeight, level: last.effectiveLevel ?? last.level, extra: true));
+        targetReps: cardio ? 5 : last.targetReps, targetWeight: last.targetWeight, level: last.effectiveLevel ?? last.level, speed: last.effectiveSpeed, extra: true));
     await _save();
     await resyncPartnerDay(plan);
   }
@@ -3078,7 +3080,7 @@ class AppState extends ChangeNotifier {
       }
       while (pe.sets.length < want) {
         final last = pe.sets.last;
-        pe.sets.add(SetEntry(targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level));
+        pe.sets.add(SetEntry(targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level, speed: last.speed));
       }
     }
     plan.intensityFactor = target;
@@ -3725,6 +3727,7 @@ class AppState extends ChangeNotifier {
                     targetReps: did && s.completed ? s.effectiveReps : s.targetReps,
                     targetWeight: did && s.completed ? s.effectiveWeight : s.targetWeight,
                     level: did && s.completed ? s.effectiveLevel : s.level,
+                    speed: did && s.completed ? s.effectiveSpeed : s.speed,
                   ),
             ],
             note: '${source.date.month}/${source.date.day} 루틴 그대로',

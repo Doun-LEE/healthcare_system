@@ -296,7 +296,7 @@ class _PlanTile extends StatelessWidget {
     for (final s in e.sets) {
       final w = s.weight;
       final core = cardio
-          ? '${s.reps}분${s.level != null && cardioLevels[e.exerciseId] != null ? ' ${cardioLevels[e.exerciseId]!.format(s.level!)}' : ''}'
+          ? '${s.reps}분${s.level != null && cardioLevels[e.exerciseId] != null ? ' ${cardioLevels[e.exerciseId]!.format(s.level!, s: s.speed)}' : ''}'
           : (w > 0 ? '${w % 1 == 0 ? w.toInt() : w}kg×${s.reps}' : '${s.reps}회');
       parts.add(plan.finished && !s.done ? '($core)' : core);
     }

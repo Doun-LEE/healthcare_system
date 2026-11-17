@@ -20,6 +20,7 @@ class SetEditorSheet extends StatefulWidget {
     required this.showWeight,
     this.levelSpec,
     this.initialLevel,
+    this.initialSpeed,
     this.maxReps = 999,
   });
 
@@ -29,6 +30,7 @@ class SetEditorSheet extends StatefulWidget {
   /// 횟수(유산소는 분) 휠의 최대값.
   final int maxReps;
   final int? initialLevel;
+  final int? initialSpeed;
   final int targetReps;
   final double targetWeight;
   final int initialReps;
@@ -37,8 +39,8 @@ class SetEditorSheet extends StatefulWidget {
   final String unit;
   final bool showWeight;
 
-  /// 저장하면 (reps, weight, level), 취소하면 null.
-  static Future<(int, double, int?)?> show(
+  /// 저장하면 (reps, weight, level, speed), 취소하면 null.
+  static Future<(int, double, int?, int?)?> show(
     BuildContext context, {
     required String title,
     required int targetReps,
@@ -50,9 +52,10 @@ class SetEditorSheet extends StatefulWidget {
     required bool showWeight,
     CardioLevelSpec? levelSpec,
     int? initialLevel,
+    int? initialSpeed,
     int maxReps = 999,
   }) =>
-      showAppSheet<(int, double, int?)>(
+      showAppSheet<(int, double, int?, int?)>(
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
@@ -68,6 +71,7 @@ class SetEditorSheet extends StatefulWidget {
           showWeight: showWeight,
           levelSpec: levelSpec,
           initialLevel: initialLevel,
+          initialSpeed: initialSpeed,
           maxReps: maxReps,
         ),
       );
@@ -88,7 +92,10 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
   late final FixedExtentScrollController _weightCtrl;
   late int _level;
   late final FixedExtentScrollController _levelCtrl;
+  late int _speed;
+  late final FixedExtentScrollController _speedCtrl;
   CardioLevelSpec? get _spec => widget.levelSpec;
+  CardioLevelSpec? get _spec2 => widget.levelSpec?.second;
 
   double get _step => widget.weightStep > 0 ? widget.weightStep : 2.5;
 
@@ -103,6 +110,9 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final sp = _spec;
     _level = sp == null ? 0 : (widget.initialLevel ?? sp.min).clamp(sp.min, sp.max);
     _levelCtrl = FixedExtentScrollController(initialItem: sp == null ? 0 : _level - sp.min);
+    final s2 = _spec2;
+    _speed = s2 == null ? 0 : (widget.initialSpeed ?? s2.min).clamp(s2.min, s2.max);
+    _speedCtrl = FixedExtentScrollController(initialItem: s2 == null ? 0 : _speed - s2.min);
   }
 
   @override
@@ -110,6 +120,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     _repsCtrl.dispose();
     _weightCtrl.dispose();
     _levelCtrl.dispose();
+    _speedCtrl.dispose();
     super.dispose();
   }
 
@@ -223,6 +234,20 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                     ),
                   ),
                 ],
+                if (_spec2 != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _Wheel(
+                      label: _spec2!.label,
+                      controller: _speedCtrl,
+                      count: _spec2!.max - _spec2!.min + 1,
+                      selected: _speed - _spec2!.min,
+                      highlight: widget.initialSpeed != null && _speed > widget.initialSpeed! ? cs.primary : null,
+                      itemText: (i) => '${i + _spec2!.min}${_spec2!.unit}',
+                      onChanged: (i) => setState(() => _speed = i + _spec2!.min),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -254,7 +279,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
               const SizedBox(width: 4),
               FilledButton.icon(
-                onPressed: () => Navigator.pop(context, (_reps, widget.showWeight ? _weight : 0.0, _spec == null ? null : _level)),
+                onPressed: () => Navigator.pop(context, (_reps, widget.showWeight ? _weight : 0.0, _spec == null ? null : _level, _spec2 == null ? null : _speed)),
                 icon: const Icon(Icons.check),
                 label: const Text('저장'),
               ),
@@ -279,11 +304,20 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     setState(() => _level = v);
   }
 
+  void _jumpS(int speed) {
+    final sp = _spec2;
+    if (sp == null) return;
+    final v = speed.clamp(sp.min, sp.max);
+    _speedCtrl.animateToItem(v - sp.min, duration: const Duration(milliseconds: 150), curve: Curves.easeOut);
+    setState(() => _speed = v);
+  }
+
   /// 휠 대신 키보드로 입력. 입력한 값은 휠에도 반영된다.
   Future<void> _directInput() async {
     final wCtrl = TextEditingController(text: widget.showWeight ? _fmt(_weight) : '');
     final rCtrl = TextEditingController(text: '$_reps');
     final lCtrl = TextEditingController(text: _spec == null ? '' : '$_level');
+    final sCtrl = TextEditingController(text: _spec2 == null ? '' : '$_speed');
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -308,6 +342,12 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: '${_spec!.label} (${_spec!.min}~${_spec!.max})'),
             ),
+          if (_spec2 != null)
+            TextField(
+              controller: sCtrl,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: '${_spec2!.label} (${_spec2!.min}~${_spec2!.max})'),
+            ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('취소')),
@@ -322,6 +362,8 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     if (r != null) _jumpR(r);
     final l = int.tryParse(lCtrl.text.trim());
     if (l != null) _jumpL(l);
+    final sv = int.tryParse(sCtrl.text.trim());
+    if (sv != null) _jumpS(sv);
   }
 }
 

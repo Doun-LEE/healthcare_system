@@ -1028,6 +1028,8 @@ class SetEntry {
     this.level,
     this.doneLevel,
     this.extra = false,
+    this.speed,
+    this.doneSpeed,
   });
 
   final int targetReps;
@@ -1041,6 +1043,11 @@ class SetEntry {
   /// 유산소 기구 강도 단계(스텝밀 레벨, 트레드밀 경사%, 바이크 저항 등). 근력 운동은 null.
   final int? level;
   int? doneLevel;
+
+  /// 유산소 두 번째 값(마운틴 클라이머 머신 속도 등). 없으면 null.
+  final int? speed;
+  int? doneSpeed;
+  int? get effectiveSpeed => doneSpeed ?? speed;
 
   /// 처방 외에 직접 추가한 세트. 완료하면 다음 루틴 볼륨을 올리는 근거가 된다.
   final bool extra;
@@ -1058,6 +1065,8 @@ class SetEntry {
         'level': level,
         'doneLevel': doneLevel,
         if (extra) 'extra': true,
+        if (speed != null) 'speed': speed,
+        if (doneSpeed != null) 'doneSpeed': doneSpeed,
       };
 
   factory SetEntry.fromJson(Map<String, dynamic> j) => SetEntry(
@@ -1069,6 +1078,8 @@ class SetEntry {
         level: j['level'] as int?,
         doneLevel: j['doneLevel'] as int?,
         extra: (j['extra'] as bool?) ?? false,
+        speed: j['speed'] as int?,
+        doneSpeed: j['doneSpeed'] as int?,
       );
 }
 
@@ -1428,6 +1439,7 @@ class ExerciseProgress {
     this.consecutiveSuccess = 0,
     this.consecutiveFail = 0,
     this.level,
+    this.speed,
     List<SetRecord>? lastSets,
     Map<String, double>? machineWeights,
     this.lastMachine,
@@ -1451,6 +1463,9 @@ class ExerciseProgress {
 
   /// 유산소 기구 강도 단계(현재 작업 레벨).
   int? level;
+
+  /// 유산소 두 번째 값(마운틴 클라이머 머신 속도). 지난번에 한 값.
+  int? speed;
   DateTime? lastPerformed;
   int timesPerformed;
   int consecutiveSuccess;
@@ -1465,6 +1480,7 @@ class ExerciseProgress {
         'consecutiveSuccess': consecutiveSuccess,
         'consecutiveFail': consecutiveFail,
         'level': level,
+        if (speed != null) 'speed': speed,
         if (lastSets.isNotEmpty) 'lastSets': [for (final s in lastSets) s.toJson()],
         if (machineWeights.isNotEmpty) 'machineWeights': machineWeights,
         if (lastMachine != null) 'lastMachine': lastMachine,
@@ -1482,6 +1498,7 @@ class ExerciseProgress {
         consecutiveSuccess: j['consecutiveSuccess'] as int,
         consecutiveFail: j['consecutiveFail'] as int,
         level: j['level'] as int?,
+        speed: j['speed'] as int?,
         lastSets: [for (final e in (j['lastSets'] as List?) ?? const []) SetRecord.fromJson(Map<String, dynamic>.from(e as Map))],
         machineWeights: {for (final e in ((j['machineWeights'] as Map?) ?? const {}).entries) e.key as String: (e.value as num).toDouble()},
         lastMachine: j['lastMachine'] as String?,

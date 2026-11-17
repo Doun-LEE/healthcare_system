@@ -78,6 +78,12 @@ class Progression {
           ? null
           : (leveled.fold<double>(0, (a, s) => a + s.effectiveLevel! * max(1, s.effectiveReps)) / lvMin).round();
       if (doneLevel != null) current.level = doneLevel; // 사용자가 바꾼 레벨이 새 기준
+      // 속도는 따로: 실제로 한 속도(시간 가중 평균)를 다음에도 그대로.
+      final sped = done.where((s) => s.effectiveSpeed != null).toList();
+      if (sped.isNotEmpty) {
+        final m = sped.fold<int>(0, (a, s) => a + max(1, s.effectiveReps));
+        current.speed = (sped.fold<double>(0, (a, s) => a + s.effectiveSpeed! * max(1, s.effectiveReps)) / m).round();
+      }
       final targetMin = planned.sets.where((s) => !s.extra).fold<int>(0, (a, s) => a + s.targetReps);
       final doneMin = done.fold<int>(0, (a, s) => a + s.effectiveReps);
       if (doneMin >= targetMin) {
@@ -86,16 +92,16 @@ class Progression {
         final easy = rpe != null && rpe <= 4;
         if (spec != null && current.level != null && (current.targetReps >= 30 || easy) && current.level! < spec.max) {
           current.level = current.level! + 1;
-          return ProgressionResult(current, '완주 → 다음 ${spec.format(current.level!)} (${current.targetReps}분)');
+          return ProgressionResult(current, '완주 → 다음 ${spec.format(current.level!, s: current.speed)} (${current.targetReps}분)');
         }
         current.targetReps = min(40, current.targetReps + 2);
-        return ProgressionResult(current, '완주 → 다음 ${current.targetReps}분${spec != null && current.level != null ? ' · ${spec.format(current.level!)}' : ''}');
+        return ProgressionResult(current, '완주 → 다음 ${current.targetReps}분${spec != null && current.level != null ? ' · ${spec.format(current.level!, s: current.speed)}' : ''}');
       }
       current.consecutiveFail += 1;
       if (spec != null && current.level != null && current.consecutiveFail >= 2 && current.level! > spec.min) {
         current.level = current.level! - 1;
         current.consecutiveFail = 0;
-        return ProgressionResult(current, '2회 못 채움 → ${spec.format(current.level!)}로 낮춤');
+        return ProgressionResult(current, '2회 못 채움 → ${spec.format(current.level!, s: current.speed)}로 낮춤');
       }
       return ProgressionResult(current, '유지 ${current.targetReps}분');
     }
