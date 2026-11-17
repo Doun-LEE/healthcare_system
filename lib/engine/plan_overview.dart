@@ -50,8 +50,24 @@ class GroupTally {
   final MuscleGroup group;
   int exercises = 0;
   int sets = 0;
+
+  /// 유산소 총 분.
+  int minutes = 0;
   final Map<String, int> subs = {};
+
+  /// '운동 3개 · 12세트' / 유산소는 '20분'.
+  String get amount => group == MuscleGroup.cardio ? '$minutes분' : '운동 $exercises개 · $sets세트';
+
+  /// '윗가슴 2 · 아랫가슴 1'
+  String get subText => [for (final e in subs.entries) e.value > 1 ? '${e.key} ${e.value}' : e.key].join(' · ');
 }
+
+/// 날짜가 안 된 루틴을 구성으로만 한 줄: '가슴 3개·12세트 · 삼두 … · 유산소 20분'.
+String compositionLine(DayPlan plan) => [
+      for (final t in tallyPlan(plan).values)
+        if (t.exercises > 0)
+          t.group == MuscleGroup.cardio ? '${t.group.label} ${t.minutes}분' : '${t.group.label} ${t.exercises}개·${t.sets}세트',
+    ].join(' · ');
 
 Map<MuscleGroup, GroupTally> tallyPlan(DayPlan plan) {
   final out = {for (final g in overviewGroups) g: GroupTally(g)};
@@ -63,6 +79,7 @@ Map<MuscleGroup, GroupTally> tallyPlan(DayPlan plan) {
     final t = out[g]!;
     t.exercises++;
     t.sets += p.sets.length;
+    if (g == MuscleGroup.cardio) t.minutes += p.sets.fold<int>(0, (a, s) => a + s.targetReps);
     for (final s in subsOf(ex, g)) {
       t.subs[s] = (t.subs[s] ?? 0) + 1;
     }

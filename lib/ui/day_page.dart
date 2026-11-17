@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../engine/plan_overview.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'copy_routine.dart';
@@ -85,7 +86,9 @@ class DayPage extends StatelessWidget {
                 ],
               ),
             )
-          : DayPlanView(plan: plan, editable: !isPast, logging: !isFuture),
+          : isFuture && !plan.isRest && !plan.isFinished && plan.exercises.isNotEmpty
+              ? _FuturePlan(plan: plan, date: d)
+              : DayPlanView(plan: plan, editable: !isPast, logging: !isFuture),
     );
   }
 
@@ -119,5 +122,90 @@ class DayPage extends StatelessWidget {
           if (context.mounted) Navigator.of(context).pop();
         }
     }
+  }
+}
+
+/// 아직 안 온 날: 헬스장이 정해지지 않았으니 부위·세트 구성만 보여 주고, 운동 목록은 눌러야 펼친다.
+class _FuturePlan extends StatefulWidget {
+  const _FuturePlan({required this.plan, required this.date});
+  final DayPlan plan;
+  final DateTime date;
+
+  @override
+  State<_FuturePlan> createState() => _FuturePlanState();
+}
+
+class _FuturePlanState extends State<_FuturePlan> {
+  bool _list = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final state = context.watch<AppState>();
+    final plan = widget.plan;
+    if (_list) {
+      return Column(children: [
+        Material(
+          color: cs.surfaceContainerHigh,
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.info_outline, size: 20),
+            title: const Text('운동은 예시예요 · 헬스장이 정해지면 바뀔 수 있어요'),
+            trailing: TextButton(onPressed: () => setState(() => _list = false), child: const Text('구성만 보기')),
+          ),
+        ),
+        Expanded(child: DayPlanView(plan: plan, editable: true, logging: false)),
+      ]);
+    }
+    // 근력 부위 먼저, 유산소는 맨 뒤.
+    final tally = [for (final t in tallyPlan(plan).values) if (t.exercises > 0) t]
+      ..sort((a, b) => (a.group == MuscleGroup.cardio ? 1 : 0) - (b.group == MuscleGroup.cardio ? 1 : 0));
+    final sets = tally.where((t) => t.group != MuscleGroup.cardio).fold<int>(0, (a, t) => a + t.sets);
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+      Text(plan.displayTitle, style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 4),
+      Text(
+        '본운동 $sets세트${plan.estimatedMinutes > 0 ? ' · 약 ${plan.estimatedMinutes}분' : ''}${placeLabel(context, plan)}${plan.partnerName != null ? ' · 👥 ${plan.partnerName}' : ''}',
+        style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      const SizedBox(height: 4),
+      Text('헬스장이 아직 정해지지 않아서 부위·세트 구성만 보여요. 어떤 운동을 할지는 그날 기구에 맞춰 골라요.',
+          style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      const SizedBox(height: 12),
+      for (final t in tally)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(t.group.label, style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+                Text(t.amount, style: text.titleSmall?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+              ]),
+              if (t.subs.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(t.subText, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                ),
+            ]),
+          ),
+        ),
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        if (state.gyms.length > 1)
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              if (await confirmRebuildIfStarted(context, plan) && context.mounted) await makeDayWithGym(context, widget.date);
+            },
+            icon: const Icon(Icons.place_outlined),
+            label: const Text('헬스장 정하기'),
+          ),
+        OutlinedButton.icon(
+          onPressed: () => setState(() => _list = true),
+          icon: const Icon(Icons.list),
+          label: const Text('운동 목록 보기 · 수정'),
+        ),
+      ]),
+    ]);
   }
 }
