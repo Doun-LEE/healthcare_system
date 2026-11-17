@@ -211,15 +211,8 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text('최근 운동 기록', style: text.titleMedium),
-              if (finished.isEmpty)
-                Padding(padding: const EdgeInsets.all(12), child: Text('아직 완료한 기록이 없어요.', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant))),
-              for (final p in finished.take(14)) _PlanTile(plan: p),
-              const SizedBox(height: 12),
-              Text('예정 루틴', style: text.titleMedium),
-              if (upcoming.isEmpty)
-                Padding(padding: const EdgeInsets.all(12), child: Text('예정된 루틴이 없어요.', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant))),
-              for (final p in upcoming.take(14)) _PlanTile(plan: p),
+              Text('운동 달력', style: text.titleMedium),
+              _PartnerCalendar(plans: [...finished, ...upcoming]),
             ],
           );
         },
@@ -246,9 +239,129 @@ class _Stat extends StatelessWidget {
   }
 }
 
+/// 친구 루틴 달력: 내 달력처럼 한 달을 칸으로 보여 주고, 날짜를 누르면 아래에 그날 운동.
+class _PartnerCalendar extends StatefulWidget {
+  const _PartnerCalendar({required this.plans});
+  final List<PartnerPlan> plans;
+
+  @override
+  State<_PartnerCalendar> createState() => _PartnerCalendarState();
+}
+
+class _PartnerCalendarState extends State<_PartnerCalendar> {
+  late DateTime _month;
+  DateTime? _selected;
+
+  static String _k(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _month = DateTime(now.year, now.month);
+    // 처음엔 오늘(루틴 있으면) 또는 가장 최근 완료한 날.
+    final today = widget.plans.where((p) => _k(p.date) == _k(now));
+    final done = widget.plans.where((p) => p.finished).toList()..sort((a, b) => b.date.compareTo(a.date));
+    _selected = today.isNotEmpty ? now : (done.isNotEmpty ? done.first.date : null);
+    if (_selected != null) _month = DateTime(_selected!.year, _selected!.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final byDay = {for (final p in widget.plans) _k(p.date): p};
+    final first = DateTime(_month.year, _month.month, 1);
+    final days = DateTime(_month.year, _month.month + 1, 0).day;
+    final lead = first.weekday % 7;
+    final rows = ((lead + days) / 7).ceil();
+    final now = DateTime.now();
+    final sel = _selected == null ? null : byDay[_k(_selected!)];
+    const wd = ['일', '월', '화', '수', '목', '금', '토'];
+
+    Widget cell(int day) {
+      if (day < 1 || day > days) return const SizedBox(height: 50);
+      final date = DateTime(_month.year, _month.month, day);
+      final p = byDay[_k(date)];
+      final isToday = _k(date) == _k(now);
+      final isSel = _selected != null && _k(date) == _k(_selected!);
+      final bg = p == null ? null : (p.finished ? cs.surfaceContainerHighest : cs.primaryContainer);
+      final fg = p == null ? cs.onSurface : (p.finished ? cs.onSurfaceVariant : cs.onPrimaryContainer);
+      return GestureDetector(
+        onTap: () => setState(() => _selected = date),
+        child: Container(
+          height: 50,
+          margin: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isSel ? cs.primary : (isToday ? cs.outline : Colors.transparent), width: isSel ? 2 : 1),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text('$day', style: TextStyle(fontSize: 12, fontWeight: isToday ? FontWeight.bold : null, color: fg)),
+              const Spacer(),
+              if (p != null && p.finished) Icon(Icons.check, size: 11, color: cs.primary),
+            ]),
+            if (p != null)
+              Flexible(
+                child: Text(focusTitle(p.focus), maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 9.5, height: 1.15, color: fg)),
+              ),
+          ]),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+          child: Column(children: [
+            Row(children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)),
+              ),
+              Expanded(child: Center(child: Text('${_month.year}년 ${_month.month}월', style: text.titleSmall))),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)),
+              ),
+            ]),
+            Row(children: [
+              for (var i = 0; i < 7; i++)
+                Expanded(
+                  child: Center(
+                    child: Text(wd[i], style: TextStyle(fontSize: 12, color: i == 0 ? cs.error : (i == 6 ? cs.primary : cs.onSurfaceVariant))),
+                  ),
+                ),
+            ]),
+            for (var r = 0; r < rows; r++)
+              Row(children: [for (var c = 0; c < 7; c++) Expanded(child: cell(r * 7 + c - lead + 1))]),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+              child: Text('최근 5주 기록과 2주 뒤까지 예정 루틴이 보여요.', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+            ),
+          ]),
+        ),
+      ),
+      if (_selected != null)
+        sel == null
+            ? Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text('${_selected!.month}/${_selected!.day} 운동 없음', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+              )
+            : _PlanTile(key: ValueKey(_k(sel.date)), plan: sel, expanded: true),
+    ]);
+  }
+}
+
 class _PlanTile extends StatelessWidget {
-  const _PlanTile({required this.plan});
+  const _PlanTile({super.key, required this.plan, this.expanded = false});
   final PartnerPlan plan;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -262,6 +375,7 @@ class _PlanTile extends StatelessWidget {
         : '${plan.exercises.length}개 운동 · 약 ${plan.estimatedMinutes}분';
     return Card(
       child: ExpansionTile(
+        initiallyExpanded: expanded,
         leading: SizedBox(
           width: 44,
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

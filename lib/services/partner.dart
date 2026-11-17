@@ -146,7 +146,7 @@ class PartnerProfile {
     List<Gym> gyms = const [],
   }) {
     final today = dateOnly(DateTime.now());
-    final from = today.subtract(const Duration(days: 7));
+    final from = today.subtract(const Duration(days: 35)); // 친구 달력: 최근 5주
     final to = today.add(const Duration(days: 14));
     return {
       'uid': uid,
