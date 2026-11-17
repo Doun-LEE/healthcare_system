@@ -122,7 +122,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       Expanded(
                         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                           Text(pp.name, style: text.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
-                          Text('${pp.handle.isEmpty ? '' : '${pp.handle} · '}${u.sex.label} · ${u.age}세 · ${u.heightCm.round()}cm · ${u.weightKg.round()}kg',
+                          Text('${pp.handle.isEmpty ? '' : '${pp.handle} · '}${u.sex.label}${u.showBodyInfo ? ' · ${u.age}세 · ${u.heightCm.round()}cm · ${u.weightKg.round()}kg' : ''}',
                               style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
                           Text('${u.goal.label} · ${u.splitDays}분할 · 하루 ${u.sessionMinutes}분 설정${pp.recent.avgMinutes == null ? '' : ' (실제 평균 ${pp.recent.avgMinutes}분)'}', style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
                         ]),
@@ -137,7 +137,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                       _Stat(label: '데드', value: u.deadlift1rm == null ? '-' : '${u.deadlift1rm!.round()}'),
                       _Stat(label: '3대 합계', value: (u.squat1rm == null && u.bench1rm == null && u.deadlift1rm == null) ? '-' : '${((u.squat1rm ?? 0) + (u.bench1rm ?? 0) + (u.deadlift1rm ?? 0)).round()}'),
                     ]),
-                    if (u.skeletalMuscleKg != null || u.bodyFatPct != null)
+                    if (u.showBodyInfo && (u.skeletalMuscleKg != null || u.bodyFatPct != null))
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text('골격근 ${u.skeletalMuscleKg?.toStringAsFixed(1) ?? '-'}kg · 체지방 ${u.bodyFatPct?.toStringAsFixed(1) ?? '-'}%',

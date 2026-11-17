@@ -96,6 +96,13 @@ class ProfileScreen extends StatelessWidget {
             ),
             BodyRecordsCard(user: u),
             LiftRecordsCard(user: u),
+            SwitchListTile(
+              value: u.showBodyInfo,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('친구에게 나이·키·몸무게 보이기'),
+              subtitle: Text(u.showBodyInfo ? '친구 프로필에 나이·키·몸무게·골격근·체지방이 보여요.' : '비공개 · 친구에게는 성별만 보여요.'),
+              onChanged: (v) => _edit(state, (p) => p.showBodyInfo = v),
+            ),
             const SizedBox(height: 14),
             Text('레벨 판정', style: text.labelLarge),
             Text('키·체중·나이·성별·골격근·체지방·3대 기록으로 리프트별·체성분별 등급을 매기고 종합 레벨을 정합니다.',

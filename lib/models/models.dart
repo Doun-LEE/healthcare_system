@@ -334,6 +334,7 @@ class UserProfile {
     this.restMode = 'shift',
     this.autoAdjust = true,
     this.stretching = true,
+    this.showBodyInfo = false,
     Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
@@ -431,6 +432,9 @@ class UserProfile {
   /// 운동 전 스트레칭(동적 스트레칭·모빌리티)을 워밍업에 넣을지. 워밍업 설정과 따로.
   bool stretching;
 
+  /// 친구 프로필에 나이·키·몸무게·체성분을 보여 줄지. 기본은 비공개.
+  bool showBodyInfo;
+
   /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
   final Map<String, int> aiUsage;
 
@@ -510,6 +514,7 @@ class UserProfile {
         'restMode': restMode,
         'autoAdjust': autoAdjust,
         if (!stretching) 'stretching': false,
+        if (showBodyInfo) 'showBodyInfo': true,
         if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
@@ -557,6 +562,7 @@ class UserProfile {
         autoAdjust: (j['autoAdjust'] as bool?) ?? true,
         // 예전에 워밍업을 '안 함'으로 둔 사람은 스트레칭도 꺼진 채로.
         stretching: (j['stretching'] as bool?) ?? (j['warmupMode'] != 'off'),
+        showBodyInfo: (j['showBodyInfo'] as bool?) ?? false,
         aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
