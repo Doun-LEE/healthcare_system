@@ -171,6 +171,27 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 같은 동작을 다른 도구로(고블릿 스쿼트: 케틀벨 ↔ 덤벨). 무게는 새 도구 눈금에 맞춰 반올림.
+  Future<void> setEquipmentType(DayPlan plan, PlannedExercise pe, EquipmentType type) async {
+    if (pe.equipmentType == type) return;
+    final i = plan.exercises.indexOf(pe);
+    final ex = exerciseById(pe.exerciseId);
+    if (i < 0 || ex == null) return;
+    final step = stepForPlan(plan)[type] ?? ex.loadType.increment;
+    plan.exercises[i] = pe.copyWith(equipmentType: type, clearMachine: true, sets: [
+      for (final s in pe.sets)
+        SetEntry(
+          targetReps: s.targetReps,
+          targetWeight: s.targetWeight > 0 ? max(step, LoadEstimator.roundTo(s.targetWeight, step)) : s.targetWeight,
+          level: s.level,
+          extra: s.extra,
+        ),
+    ]);
+    _markCustom(plan);
+    await _save();
+    await resyncPartnerDay(plan);
+  }
+
   /// 화면 무게 배율(기구별 '한쪽/양쪽' 기준). 표시 = 내부 × 배율.
   /// 덤벨 하나를 두 손으로 드는 운동(풀오버 등)은 덤벨 1개 무게 그대로.
   /// 합계 기준 원판 머신(하이 로우 등)을 '한쪽씩' 하면 한쪽에만 원판을 끼우므로 합계의 반을 보여준다.

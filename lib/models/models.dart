@@ -1165,9 +1165,9 @@ class PlannedExercise {
       );
 
   /// 같은 운동을 몇 가지만 바꾼 복사본.
-  PlannedExercise copyWith({bool? personal, bool? skipMine, List<SetEntry>? sets, String? note}) => PlannedExercise(
+  PlannedExercise copyWith({bool? personal, bool? skipMine, List<SetEntry>? sets, String? note, EquipmentType? equipmentType, bool clearMachine = false}) => PlannedExercise(
         exerciseId: exerciseId,
-        equipmentType: equipmentType,
+        equipmentType: equipmentType ?? this.equipmentType,
         restSeconds: restSeconds,
         sets: sets ?? this.sets,
         note: note ?? this.note,
@@ -1178,7 +1178,7 @@ class PlannedExercise {
         skipMine: skipMine ?? this.skipMine,
         oneSide: oneSide,
         cardio: cardio,
-        machine: machine,
+        machine: clearMachine ? null : machine,
       );
 }
 
