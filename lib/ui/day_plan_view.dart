@@ -1175,7 +1175,9 @@ class _ExerciseCard extends StatelessWidget {
                         case 'down':
                           await state.moveExercise(plan, pe, 1);
                         default:
-                          if (v.startsWith('side:')) {
+                          if (v.startsWith('type:')) {
+                            await state.setEquipmentType(plan, pe, EquipmentType.values.byName(v.substring(5)));
+                          } else if (v.startsWith('side:')) {
                             final to = exerciseById(v.substring(5));
                             if (to != null) await _applySwap(context, state, ex, to);
                           } else if (v.startsWith('target:')) {
@@ -1202,9 +1204,14 @@ class _ExerciseCard extends StatelessWidget {
                             PopupMenuItem(value: 'side:${b.id}', child: Text('양쪽으로 바꾸기 (${b.name})')),
                         ] else if (oneSideOf(ex.id) case final o? when o.canDoWith(state.availableFor(plan)))
                           PopupMenuItem(value: 'side:${o.id}', child: Text('한쪽씩 하기 (${o.name}으로 바꾸기)'))
-                        else
+                        else if (canDoOneSide(ex))
                           const PopupMenuItem(value: 'oneSide', child: Text('한쪽씩 하기 (원레그·원암, 좌우 각각)')),
                       ],
+                      // 같은 동작을 다른 도구로(고블릿: 케틀벨 ↔ 덤벨).
+                      if (!isCardio && !pe.anyCompleted && !plan.isFinished)
+                        for (final t in ex.equipment)
+                          if (t != pe.equipmentType && ex.equipment.length >= 2)
+                            PopupMenuItem(value: 'type:${t.name}', child: Text('${_ro(t.label)} 바꾸기')),
                       if (pe.skipMine) const PopupMenuItem(value: 'unskip', child: Text('나도 다시 하기')),
                       if (isCardio) const PopupMenuItem(value: 'photo', child: Text('📷 기록 사진으로 채우기')),
                       if (isCardio && pe.cardio != null && !pe.cardio!.isEmpty) const PopupMenuItem(value: 'clearCardio', child: Text('세부 기록 지우기')),
@@ -1305,6 +1312,16 @@ class _ExerciseCard extends StatelessWidget {
     } else {
       await state.updateSet(plan, pe, i, reps: result.$1, weight: weight, level: result.$3, speed: result.$4); // 완료 체크는 체크박스로만
     }
+  }
+
+  /// '덤벨로', '바벨로', '머신으로': 받침 없거나 ㄹ이면 '로'.
+  static String _ro(String w) {
+    final name = w.split('(').first.trim();
+    if (name.isEmpty) return w;
+    final c = name.codeUnitAt(name.length - 1);
+    if (c < 0xAC00 || c > 0xD7A3) return '$name(으)로';
+    final jong = (c - 0xAC00) % 28;
+    return jong == 0 || jong == 8 ? '$name로' : '$name으로';
   }
 
   /// 같은 종류 기구가 여러 대일 때 실제로 쓰는(쓴) 기구 고르기.

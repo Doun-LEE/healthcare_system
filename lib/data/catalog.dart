@@ -2536,3 +2536,13 @@ const nicheExerciseIds = {'shrug', 'calf_raise', 'seated_calf', 'wrist_curl', 'f
 
 /// 덤벨 하나를 두 손으로 드는 운동(풀오버·고블릿 스쿼트·오버헤드 익스텐션). 무게는 덤벨 1개 그대로, '한 손/양손' 구분이 없다.
 const singleDumbbellIds = {'db_pullover', 'goblet_squat', 'overhead_tri'};
+
+/// 두 손으로 기구 하나를 같이 드는 운동(케틀벨 스윙 등): 한쪽씩 하기가 말이 안 된다.
+const _twoHandIds = {'kb_swing', 'wall_ball', 'landmine_squat', 'tbar_row', 'trap_deadlift', 'landmine_row'};
+
+/// 메뉴에 '한쪽씩 하기(좌우 각각)'를 보여 줄 운동인지. 바벨·맨몸·덤벨 하나 두 손 운동은 제외.
+bool canDoOneSide(Exercise ex) =>
+    ex.loadType != LoadType.barbell &&
+    ex.loadType != LoadType.bodyweight &&
+    !singleDumbbellIds.contains(ex.id) &&
+    !_twoHandIds.contains(ex.id);

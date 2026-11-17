@@ -14,4 +14,13 @@ void main() {
       expect(oneSideOf(b.id)?.id, e.id);
     }
   });
+
+  test('고블릿·바벨·맨몸은 한쪽씩 하기 메뉴가 없고, 덤벨·머신은 있다', () {
+    for (final id in ['goblet_squat', 'bb_squat', 'kb_swing', 'db_pullover']) {
+      expect(canDoOneSide(exerciseById(id)!), isFalse, reason: id);
+    }
+    for (final id in ['db_curl', 'leg_ext', 'lateral_raise']) {
+      expect(canDoOneSide(exerciseById(id)!), isTrue, reason: id);
+    }
+  });
 }
