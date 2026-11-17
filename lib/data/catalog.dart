@@ -2240,7 +2240,7 @@ class CardioLevelSpec {
   /// [초급, 중급, 고급] 시작값.
   final List<int> start;
 
-  /// 단계와 같이 보여 줄 고정 안내(예: 경사 단계 + '속도 5~6km/h').
+  /// 단계와 같이 보여 줄 안내(예: 경사 단계 + '속도 5~6km/h'). '{v}'는 지금 단계 숫자로 바뀐다.
   final String? extra;
 
   int startFor(TrainingLevel l, TrainingGoal g) {
@@ -2249,7 +2249,7 @@ class CardioLevelSpec {
     return v.clamp(min, max);
   }
 
-  String format(int v) => '$label $v$unit${extra == null ? '' : ' · $extra'}';
+  String format(int v) => '$label $v$unit${extra == null ? '' : ' · ${extra!.replaceAll('{v}', '$v')}'}';
 }
 
 /// exerciseId → 강도 단계 정의. 없는 유산소는 "편한 속도"로만 처방한다.
@@ -2266,7 +2266,7 @@ const Map<String, CardioLevelSpec> cardioLevels = {
   'ski_erg': CardioLevelSpec(label: '댐퍼', unit: '', min: 1, max: 10, start: [4, 5, 6]),
   'elliptical': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
   'jacobs': CardioLevelSpec(label: '속도', unit: '', min: 1, max: 10, start: [3, 5, 7]),
-  'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30], extra: '속도 분당 60~90걸음'),
+  'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30], extra: '속도 {v}'),
   'stair_run': CardioLevelSpec(label: '층', unit: '층', min: 5, max: 40, start: [8, 14, 20]),
 };
 
