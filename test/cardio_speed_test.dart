@@ -10,7 +10,9 @@ void main() {
   test('마운틴 클라이머 머신: 인클라인과 속도를 따로 보여 준다', () {
     final spec = cardioLevels['versa']!;
     expect(spec.second, isNotNull);
-    expect(spec.format(15, s: 22), '인클라인 15% · 속도 22');
+    expect(spec.format(15, s: 75), '인클라인 15% · 속도 7.5');
+    expect(spec.second!.max, 120); // 12.0까지
+    expect(spec.second!.parse('7.3'), 73);
     expect(spec.format(15), '인클라인 15%');
     expect(cardioLevels['treadmill_walk']!.format(9), '경사 9% · 속도 5~6km/h');
   });

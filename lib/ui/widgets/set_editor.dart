@@ -229,7 +229,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                       count: _spec!.max - _spec!.min + 1,
                       selected: _level - _spec!.min,
                       highlight: widget.initialLevel != null && _level > widget.initialLevel! ? cs.primary : null,
-                      itemText: (i) => '${i + _spec!.min}${_spec!.unit}',
+                      itemText: (i) => '${_spec!.show(i + _spec!.min)}${_spec!.unit}',
                       onChanged: (i) => setState(() => _level = i + _spec!.min),
                     ),
                   ),
@@ -243,7 +243,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
                       count: _spec2!.max - _spec2!.min + 1,
                       selected: _speed - _spec2!.min,
                       highlight: widget.initialSpeed != null && _speed > widget.initialSpeed! ? cs.primary : null,
-                      itemText: (i) => '${i + _spec2!.min}${_spec2!.unit}',
+                      itemText: (i) => _spec2!.show(i + _spec2!.min),
                       onChanged: (i) => setState(() => _speed = i + _spec2!.min),
                     ),
                   ),
@@ -317,7 +317,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     final wCtrl = TextEditingController(text: widget.showWeight ? _fmt(_weight) : '');
     final rCtrl = TextEditingController(text: '$_reps');
     final lCtrl = TextEditingController(text: _spec == null ? '' : '$_level');
-    final sCtrl = TextEditingController(text: _spec2 == null ? '' : '$_speed');
+    final sCtrl = TextEditingController(text: _spec2 == null ? '' : _spec2!.show(_speed));
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -345,8 +345,8 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
           if (_spec2 != null)
             TextField(
               controller: sCtrl,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: '${_spec2!.label} (${_spec2!.min}~${_spec2!.max})'),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: '${_spec2!.label} (${_spec2!.show(_spec2!.min)}~${_spec2!.show(_spec2!.max)})'),
             ),
         ]),
         actions: [
@@ -362,7 +362,7 @@ class _SetEditorSheetState extends State<SetEditorSheet> {
     if (r != null) _jumpR(r);
     final l = int.tryParse(lCtrl.text.trim());
     if (l != null) _jumpL(l);
-    final sv = int.tryParse(sCtrl.text.trim());
+    final sv = _spec2?.parse(sCtrl.text);
     if (sv != null) _jumpS(sv);
   }
 }

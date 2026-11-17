@@ -2231,7 +2231,7 @@ const List<Exercise> exerciseCatalog = [
 
 /// 유산소 기구의 강도 단계 정의: 라벨, 범위, 숙련도별 시작 레벨.
 class CardioLevelSpec {
-  const CardioLevelSpec({required this.label, required this.unit, required this.min, required this.max, required this.start, this.extra, this.second});
+  const CardioLevelSpec({required this.label, required this.unit, required this.min, required this.max, required this.start, this.extra, this.second, this.tenths = false});
   final String label; // 예: '레벨', '경사'
   final String unit; // 예: '', '%'
   final int min;
@@ -2246,6 +2246,19 @@ class CardioLevelSpec {
   /// 따로 기록하는 두 번째 값(마운틴 클라이머 머신: 인클라인 + 속도).
   final CardioLevelSpec? second;
 
+  /// 소수 첫째 자리까지(값은 10배 정수로 저장: 75 → 7.5).
+  final bool tenths;
+
+  /// 저장값 → 화면 숫자.
+  String show(int v) => tenths ? (v / 10).toStringAsFixed(1) : '$v';
+
+  /// 화면에 입력한 숫자 → 저장값.
+  int? parse(String t) {
+    final d = double.tryParse(t.trim());
+    if (d == null) return null;
+    return tenths ? (d * 10).round() : d.round();
+  }
+
   int startFor(TrainingLevel l, TrainingGoal g) {
     var v = start[l.index];
     if (g == TrainingGoal.fatLoss) v += 1;
@@ -2253,7 +2266,7 @@ class CardioLevelSpec {
   }
 
   String format(int v, {int? s}) =>
-      '$label $v$unit${second != null && s != null ? ' · ${second!.label} $s${second!.unit}' : ''}${extra == null ? '' : ' · $extra'}';
+      '$label ${show(v)}$unit${second != null && s != null ? ' · ${second!.label} ${second!.show(s)}${second!.unit}' : ''}${extra == null ? '' : ' · $extra'}';
 }
 
 /// exerciseId → 강도 단계 정의. 없는 유산소는 "편한 속도"로만 처방한다.
@@ -2271,7 +2284,7 @@ const Map<String, CardioLevelSpec> cardioLevels = {
   'elliptical': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
   'jacobs': CardioLevelSpec(label: '속도', unit: '', min: 1, max: 10, start: [3, 5, 7]),
   'versa': CardioLevelSpec(label: '인클라인', unit: '%', min: 0, max: 50, start: [10, 20, 30],
-      second: CardioLevelSpec(label: '속도', unit: '', min: 0, max: 50, start: [10, 20, 30])),
+      second: CardioLevelSpec(label: '속도', unit: '', min: 0, max: 120, start: [30, 50, 70], tenths: true)),
   'stair_run': CardioLevelSpec(label: '층', unit: '층', min: 5, max: 40, start: [8, 14, 20]),
 };
 
