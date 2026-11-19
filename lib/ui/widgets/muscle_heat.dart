@@ -267,23 +267,25 @@ class _MuscleRecoveryListState extends State<MuscleRecoveryList> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final shown = _all ? widget.items : widget.items.take(8).toList();
-    final tired = widget.items.where((r) => r.percent < 100).length;
+    // 회복 중인 근육만 줄로 크게, 다 회복된 근육은 이름만 작게 모아서(스크롤 줄이기).
+    final tired = widget.items.where((r) => r.percent < 100).toList();
+    final ready = widget.items.where((r) => r.percent >= 100).toList();
+    final shown = _all ? tired : tired.take(6).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(
-        tired == 0 ? '모든 근육이 회복됐어요. 뭐든 들 수 있는 날!' : '회복 중인 근육 $tired개. 100%가 아닌 근육은 오늘 가볍게 가거나 다른 부위를 추천해요.',
+        tired.isEmpty ? '모든 근육이 회복됐어요. 뭐든 들 수 있는 날!' : '회복 중인 근육 ${tired.length}개. 100%가 아닌 근육은 오늘 가볍게 가거나 다른 부위를 추천해요.',
         style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
       ),
-      const SizedBox(height: 6),
+      const SizedBox(height: 4),
       for (final r in shown)
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 3),
           child: Row(children: [
-            MuscleThumb(muscle: r.muscle, size: 52),
-            const SizedBox(width: 12),
+            MuscleThumb(muscle: r.muscle, size: 40),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(r.muscle.label, style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                Text(r.muscle.label, style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
                 Text(
                   r.lastExercise != null && r.lastAt != null ? '${r.lastLabel} · ${r.lastExercise}' : r.lastLabel,
                   style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
@@ -295,12 +297,26 @@ class _MuscleRecoveryListState extends State<MuscleRecoveryList> {
             _Pct(percent: r.percent),
           ]),
         ),
-      if (widget.items.length > 8)
+      if (tired.length > 6)
         TextButton.icon(
           onPressed: () => setState(() => _all = !_all),
           icon: Icon(_all ? Icons.unfold_less : Icons.unfold_more, size: 18),
-          label: Text(_all ? '접기' : '나머지 ${widget.items.length - 8}개 보기'),
+          label: Text(_all ? '접기' : '회복 중 ${tired.length - 6}개 더 보기'),
         ),
+      if (ready.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Text('회복 완료 ${ready.length}개', style: text.labelLarge?.copyWith(color: cs.primary)),
+        const SizedBox(height: 4),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final r in ready)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: cs.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+              child: Text(r.muscle.label, style: text.bodySmall?.copyWith(color: cs.primary, fontWeight: FontWeight.w600)),
+            ),
+        ]),
+      ],
+      const SizedBox(height: 8),
       Text('회복 % = 마지막 자극 후 지난 시간 ÷ 부위 권장 회복 시간(하체 72h · 가슴/등/어깨/팔 48h · 복근 24h). 보조근으로 쓰인 날은 절반만 쳐요.',
           style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
     ]);
