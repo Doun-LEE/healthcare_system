@@ -578,6 +578,11 @@ Future<void> switchGymDialog(BuildContext context, DayPlan plan) async {
     ),
   );
   if (picked == null || !context.mounted) return;
+  // 아직 안 고른 날: 고른 헬스장으로 확정(다르면 그 기구로 같은 부위를 다시 짬).
+  if (state.needsGymPick(plan)) {
+    await state.pickDayGym(plan, picked);
+    return;
+  }
   final mode = await showDialog<String>(
     context: context,
     builder: (c) => SimpleDialog(
@@ -681,7 +686,11 @@ class _Header extends StatelessWidget {
                 if (plan.atOtherGym || gym != null)
                   ActionChip(
                     avatar: Icon(Icons.place_outlined, size: 16, color: cs.primary),
-                    label: Text(plan.atOtherGym ? '${plan.venueName} (파트너 헬스장)' : gym!.name),
+                    label: Text(plan.atOtherGym
+                        ? '${plan.venueName} (파트너 헬스장)'
+                        : state.needsGymPick(plan)
+                            ? '헬스장 미정 · 정하기'
+                            : gym!.name),
                     visualDensity: VisualDensity.compact,
                     onPressed: plan.isFinished ? null : () => switchGymDialog(context, plan),
                   ),
