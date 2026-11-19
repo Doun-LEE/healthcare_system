@@ -2273,8 +2273,8 @@ class CardioLevelSpec {
 const Map<String, CardioLevelSpec> cardioLevels = {
   'stairs': CardioLevelSpec(label: '레벨', unit: '', min: 3, max: 20, start: [5, 8, 11]),
   'treadmill_walk': CardioLevelSpec(label: '경사', unit: '%', min: 2, max: 15, start: [6, 9, 12],
-      second: CardioLevelSpec(label: '속도', unit: 'km/h', min: 10, max: 120, start: [45, 50, 55], tenths: true)),
-  'treadmill_run': CardioLevelSpec(label: '속도', unit: 'km/h', min: 6, max: 16, start: [8, 10, 12]),
+      second: CardioLevelSpec(label: '속도', unit: 'km/h', min: 10, max: 200, start: [45, 50, 55], tenths: true)),
+  'treadmill_run': CardioLevelSpec(label: '속도', unit: 'km/h', min: 6, max: 20, start: [8, 10, 12]),
   'curved_sprint': CardioLevelSpec(label: '인터벌', unit: '회', min: 4, max: 12, start: [5, 7, 9]),
   'bike': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [5, 8, 11]),
   'spin': CardioLevelSpec(label: '저항', unit: '', min: 1, max: 20, start: [6, 9, 12]),
