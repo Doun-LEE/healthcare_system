@@ -1222,6 +1222,7 @@ class DayPlan {
     this.gymId,
     this.jointAt,
     this.custom = false,
+    this.gymConfirmed = false,
     this.skipped = false,
     this.venueOwner,
     this.venueGymId,
@@ -1323,6 +1324,9 @@ class DayPlan {
   /// 이후 날짜를 자동으로 다시 맞출 때 이 날은 그대로 두고 기준으로 삼는다.
   bool custom;
 
+  /// 그날 갈 헬스장을 사용자가 골랐는지. 미리 짠 루틴은 false라 당일에 어디서 할지 묻는다.
+  bool gymConfirmed;
+
   /// 운동일이었지만 쉬기로 한 날(또는 안 하고 지나간 날). 계획한 부위는 남겨두고 '휴식'으로 표시한다.
   bool skipped;
 
@@ -1371,6 +1375,7 @@ class DayPlan {
         'gymId': gymId,
         if (jointAt != null) 'jointAt': jointAt!.toUtc().toIso8601String(),
         if (custom) 'custom': true,
+        if (gymConfirmed) 'gymOk': true,
         if (skipped) 'skipped': true,
         if (venueOwner != null) 'venueOwner': venueOwner,
         if (venueGymId != null) 'venueGymId': venueGymId,
@@ -1419,6 +1424,7 @@ class DayPlan {
         gymId: j['gymId'] as String?,
         jointAt: j['jointAt'] == null ? null : DateTime.tryParse(j['jointAt'] as String),
         custom: (j['custom'] as bool?) ?? false,
+        gymConfirmed: (j['gymOk'] as bool?) ?? false,
         skipped: (j['skipped'] as bool?) ?? false,
         venueOwner: j['venueOwner'] as String?,
         venueGymId: j['venueGymId'] as String?,

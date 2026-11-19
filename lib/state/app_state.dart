@@ -364,12 +364,40 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// 당일에 '오늘 어디서?'를 물어야 하는지: 헬스장이 둘 이상이고, 미리 짠 루틴을 아직 시작 안 했을 때.
+  bool needsGymPick(DayPlan plan) =>
+      _data.gyms.length >= 2 &&
+      !plan.gymConfirmed &&
+      !plan.isRest &&
+      !plan.isFinished &&
+      plan.partnerName == null &&
+      !plan.atOtherGym &&
+      plan.exercises.isNotEmpty &&
+      !plan.exercises.any((e) => e.anyCompleted);
+
+  /// 오늘 갈 헬스장을 골랐다. 짜인 헬스장과 같으면 그대로, 다르면 그 헬스장 기구로 같은 부위를 다시 짠다.
+  Future<void> pickDayGym(DayPlan plan, String gymId) async {
+    if ((gymOf(plan)?.id ?? activeGym?.id) == gymId) {
+      plan.gymId = gymId;
+      plan.gymConfirmed = true;
+      await _save();
+      return;
+    }
+    await rebuildDayAtGym(plan, gymId);
+    final p = planOn(plan.date);
+    if (p != null && !p.gymConfirmed) {
+      p.gymConfirmed = true;
+      await _save();
+    }
+  }
+
   /// 다른 헬스장으로 바꾸고, 같은 부위로 그 헬스장 기구에 맞춰 루틴을 새로 짠다
   /// (그 헬스장에만 있는 머신도 후보가 된다). 파트너 날이면 파트너에게도 다시 보낸다.
   Future<void> rebuildDayAtGym(DayPlan plan, String gymId) async {
     final gym = gymById(gymId);
     if (gym == null || plan.isFinished) return;
     plan.gymId = gymId;
+    plan.gymConfirmed = true;
     if (plan.partnerName != null && cloudSignedIn) {
       plan.venueOwner = CloudSync.instance.user!.uid;
       plan.venueGymId = gymId;
@@ -392,6 +420,7 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     final gym = _data.gyms.where((g) => g.id == gymId).firstOrNull;
     if (u == null || gym == null || plan.isFinished) return const [];
+    plan.gymConfirmed = true;
     final avail = gym.availableTypes;
     final msgs = <String>[];
     final used = plan.exercises.map((e) => e.exerciseId).toSet();
@@ -2129,6 +2158,11 @@ class AppState extends ChangeNotifier {
       dayPinned: {if (pinned.isNotEmpty) dateKey(d): pinned},
     )).build();
     if (existing != null) _data.plans.remove(existing);
+    if (gymId != null) {
+      for (final p in gen) {
+        p.gymConfirmed = true;
+      }
+    }
     _data.plans.addAll(gen);
     await _save();
     return gen.firstOrNull;
