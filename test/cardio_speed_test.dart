@@ -14,7 +14,7 @@ void main() {
     expect(spec.second!.max, 120); // 12.0까지
     expect(spec.second!.parse('7.3'), 73);
     expect(spec.format(15), '인클라인 15%');
-    expect(cardioLevels['treadmill_walk']!.format(9), '경사 9% · 속도 5~6km/h');
+    expect(cardioLevels['treadmill_walk']!.format(9, s: 55), '경사 9% · 속도 5.5km/h');
   });
 
   test('세트 속도(처방·실제)가 서버 행 왕복에서 살아남는다', () {

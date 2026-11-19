@@ -10,6 +10,8 @@ String placeLabel(BuildContext context, DayPlan p) {
   if (p.atOtherGym) return ' · 📍 ${p.venueName}';
   final state = context.read<AppState>();
   if (state.gyms.length < 2) return '';
+  // 미리 짠 루틴은 헬스장을 아직 안 고른 것: 기본 헬스장 이름 대신 '미정'.
+  if (!p.gymConfirmed && !p.isFinished && !p.exercises.any((e) => e.anyCompleted)) return ' · 📍 헬스장 미정';
   final g = state.gymOf(p);
   return g == null ? '' : ' · 📍 ${g.name}';
 }
