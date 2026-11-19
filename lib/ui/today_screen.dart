@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import 'copy_routine.dart';
+import 'day_page.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
 import 'widgets/partner_widgets.dart';
@@ -89,8 +90,13 @@ class TodayScreen extends StatelessWidget {
         children: [
           ThemedQuoteBanner(date: now, plan: plan),
           const InboxBanner(),
-          if (plan != null && state.needsGymPick(plan)) _GymAsk(plan: plan),
-          Expanded(child: plan == null ? _Empty(user: user) : DayPlanView(plan: plan)),
+          Expanded(
+            child: plan == null
+                ? _Empty(user: user)
+                : state.needsGymPick(plan)
+                    ? PlanComposition(plan: plan, date: plan.date, pickNow: true)
+                    : DayPlanView(plan: plan),
+          ),
         ],
       ),
     );
@@ -154,53 +160,6 @@ class _Empty extends StatelessWidget {
                 textAlign: TextAlign.center, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 미리 짠 루틴이면 당일에 '오늘 어디서 운동해요?'를 묻는다. 고르면 그 헬스장 기구로 같은 부위를 맞춘다.
-class _GymAsk extends StatefulWidget {
-  const _GymAsk({required this.plan});
-  final DayPlan plan;
-
-  @override
-  State<_GymAsk> createState() => _GymAskState();
-}
-
-class _GymAskState extends State<_GymAsk> {
-  bool _busy = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final cs = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    final current = state.gymOf(widget.plan)?.id ?? state.activeGym?.id;
-    return Material(
-      color: cs.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('오늘 어디서 운동해요?', style: text.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
-          Text('고르면 그 헬스장 기구로 같은 부위 루틴을 맞춰요.', style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
-          const SizedBox(height: 6),
-          if (_busy)
-            const Padding(padding: EdgeInsets.all(6), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
-          else
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              for (final g in state.gyms)
-                ActionChip(
-                  avatar: Icon(g.id == current ? Icons.star : Icons.place_outlined, size: 16),
-                  label: Text(g.name),
-                  onPressed: () async {
-                    setState(() => _busy = true);
-                    await state.pickDayGym(widget.plan, g.id);
-                    if (mounted) setState(() => _busy = false);
-                  },
-                ),
-            ]),
-        ]),
       ),
     );
   }

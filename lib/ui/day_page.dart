@@ -86,8 +86,8 @@ class DayPage extends StatelessWidget {
                 ],
               ),
             )
-          : isFuture && !plan.isRest && !plan.isFinished && plan.exercises.isNotEmpty
-              ? _FuturePlan(plan: plan, date: d)
+          : (isFuture && !plan.isRest && !plan.isFinished && plan.exercises.isNotEmpty) || (!isPast && state.needsGymPick(plan))
+              ? PlanComposition(plan: plan, date: d, pickNow: !isFuture)
               : DayPlanView(plan: plan, editable: !isPast, logging: !isFuture),
     );
   }
@@ -126,17 +126,21 @@ class DayPage extends StatelessWidget {
 }
 
 /// 아직 안 온 날: 헬스장이 정해지지 않았으니 부위·세트 구성만 보여 주고, 운동 목록은 눌러야 펼친다.
-class _FuturePlan extends StatefulWidget {
-  const _FuturePlan({required this.plan, required this.date});
+class PlanComposition extends StatefulWidget {
+  const PlanComposition({super.key, required this.plan, required this.date, this.pickNow = false});
   final DayPlan plan;
   final DateTime date;
 
+  /// 오늘: 헬스장을 바로 골라 확정하는 칩을 보여 준다.
+  final bool pickNow;
+
   @override
-  State<_FuturePlan> createState() => _FuturePlanState();
+  State<PlanComposition> createState() => _PlanCompositionState();
 }
 
-class _FuturePlanState extends State<_FuturePlan> {
+class _PlanCompositionState extends State<PlanComposition> {
   bool _list = false;
+  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
@@ -172,6 +176,35 @@ class _FuturePlanState extends State<_FuturePlan> {
       const SizedBox(height: 4),
       Text('헬스장이 아직 정해지지 않아서 부위·세트 구성만 보여요. 어떤 운동을 할지는 그날 기구에 맞춰 골라요.',
           style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      if (widget.pickNow) ...[
+        const SizedBox(height: 12),
+        Card(
+          color: cs.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('오늘 어디서 운동해요?', style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: cs.onPrimaryContainer)),
+              Text('고르면 그 헬스장 기구로 운동을 정해요.', style: text.bodySmall?.copyWith(color: cs.onPrimaryContainer)),
+              const SizedBox(height: 8),
+              if (_busy)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Wrap(spacing: 8, runSpacing: 6, children: [
+                  for (final g in state.gyms)
+                    ActionChip(
+                      avatar: const Icon(Icons.place_outlined, size: 16),
+                      label: Text(g.name),
+                      onPressed: () async {
+                        setState(() => _busy = true);
+                        await state.pickDayGym(plan, g.id);
+                        if (mounted) setState(() => _busy = false);
+                      },
+                    ),
+                ]),
+            ]),
+          ),
+        ),
+      ],
       const SizedBox(height: 12),
       for (final t in tally)
         Card(
@@ -192,7 +225,7 @@ class _FuturePlanState extends State<_FuturePlan> {
         ),
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
-        if (state.gyms.length > 1)
+        if (state.gyms.length > 1 && !widget.pickNow)
           FilledButton.tonalIcon(
             onPressed: () async {
               if (await confirmRebuildIfStarted(context, plan) && context.mounted) await makeDayWithGym(context, widget.date);
