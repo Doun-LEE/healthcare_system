@@ -321,6 +321,7 @@ class AppState extends ChangeNotifier {
   /// 계획을 새로 만들 때 이전 계획의 장소(헬스장·파트너 헬스장)를 그대로 옮긴다.
   void _copyVenue(DayPlan from, DayPlan to) {
     to.gymId = from.gymId;
+    to.gymConfirmed = from.gymConfirmed;
     to.venueOwner = from.venueOwner;
     to.venueGymId = from.venueGymId;
     to.venueName = from.venueName;
@@ -410,7 +411,8 @@ class AppState extends ChangeNotifier {
     plan.venueTypes = [];
     final base = (plan.title ?? '').split(' · ').first.replaceAll(' ✨', '');
     // changeDayFocus가 파트너 날이면 파트너에게도 다시 보낸다.
-    await changeDayFocus(plan.date, plan.focus, title: base.isEmpty ? null : base, shiftFollowing: false);
+    // 자동으로 짠 날은 자동 유산소도 그대로, 부위를 직접 고른 날은 고른 대로.
+    await changeDayFocus(plan.date, List.of(plan.focus), title: base.isEmpty ? null : base, shiftFollowing: false, keepAutoCardio: !plan.custom);
   }
 
   /// 다른 헬스장으로 바꾸고, 거기 없는 기구의 운동을 비슷한 운동으로 대체한다.
@@ -1904,6 +1906,7 @@ class AppState extends ChangeNotifier {
     List<MuscleGroup> groups, {
     String? title,
     bool shiftFollowing = true,
+    bool keepAutoCardio = false,
   }) async {
     final u = currentUser;
     if (u == null || groups.isEmpty) return;
@@ -1913,7 +1916,7 @@ class AppState extends ChangeNotifier {
 
     // 부위를 '추가'만 했으면(예: 전신에 유산소 추가) 짜 둔 루틴(파트너와 맞춘 것 포함)은 그대로 두고
     // 새 부위 운동만 뒤에 붙인다. 통째로 다시 만드는 건 부위를 빼거나 바꿨을 때만.
-    final added = groups.where((g) => !existing!.focus.contains(g)).toList();
+    final added = existing == null ? const <MuscleGroup>[] : groups.where((g) => !existing.focus.contains(g)).toList();
     if (existing != null &&
         !existing.isRest &&
         existing.exercises.isNotEmpty &&
@@ -1959,6 +1962,8 @@ class AppState extends ChangeNotifier {
       seed: d.millisecondsSinceEpoch ~/ 86400000 + groups.length,
       pinned: [for (final e in existing?.exercises ?? const <PlannedExercise>[]) if (e.pinned) e],
       avoidIds: _neighborIds(d),
+      // 부위를 직접 골랐으면 유산소도 고른 대로(빼면 자동 유산소도 안 붙임).
+      cardioOverride: keepAutoCardio ? null : groups.contains(MuscleGroup.cardio),
     )).generate();
     final plan = DayPlan(
       id: existing?.id ?? newId(),
@@ -2134,7 +2139,7 @@ class AppState extends ChangeNotifier {
       }
       lastRegenMessage = '파트너 정보를 지금 받을 수 없어(로그인·네트워크) 같은 부위로만 다시 만들었어요.';
       // 파트너 정보를 지금 못 쓰면(오프라인 등) 파트너 날은 그대로 두고 같은 부위로만 다시 짠다.
-      await changeDayFocus(d, existing.focus, title: (existing.title ?? '').split(' · ').first, shiftFollowing: false);
+      await changeDayFocus(d, List.of(existing.focus), title: (existing.title ?? '').split(' · ').first, shiftFollowing: false, keepAutoCardio: !existing.custom);
       return planOn(d);
     }
     final gym = gymById(gymId ?? (existing == null ? null : _ownGymIdOf(existing)));
@@ -2665,6 +2670,7 @@ class AppState extends ChangeNotifier {
         equipmentStep: stepForPlan(existing),
         machines: machinesForPlan(existing),
         seed: dateOnly(date).millisecondsSinceEpoch ~/ 86400000,
+        cardioOverride: existing.custom ? existing.focus.contains(MuscleGroup.cardio) : null,
       )).generate();
     }
     final plan = DayPlan(
