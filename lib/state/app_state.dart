@@ -1,6 +1,7 @@
 /// 앱 전역 상태. 저장소를 메모리에 올려두고 변경 시마다 저장한다.
 library;
 
+import '../engine/alcohol.dart';
 import '../engine/plan_overview.dart';
 import '../engine/training_style.dart';
 import 'dart:async';
@@ -560,6 +561,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _save() async {
+    _syncAllAlcohol();
     _data.updatedAt = DateTime.now();
     if (cloudSignedIn) _data.unsynced = true;
     _trackEdits();
@@ -3095,6 +3097,107 @@ class AppState extends ChangeNotifier {
       if (groupIntensitySync(p, [?p.condition, for (final c in next[dateKey(p.date)] ?? const <PartnerCondition>[]) c.condition])) changed = true;
     }
     if (changed) await _save();
+  }
+
+  /// 그 날 운동 시각: 시작했으면 시작 시각, 아니면 보통 운동 시각.
+  DateTime workoutTimeOf(DayPlan p) =>
+      p.startedAt ?? DateTime(p.date.year, p.date.month, p.date.day, currentUser?.workoutHour ?? 19);
+
+  /// 술자리 전후라 조절이 필요한 날이면 조언.
+  AlcoholAdvice? alcoholFor(DayPlan p) {
+    final u = currentUser;
+    if (u == null || u.drinks.isEmpty || p.isRest) return null;
+    return alcoholAdvice(workoutTimeOf(p), u.drinks);
+  }
+
+  /// 그 날짜에 잡힌 술자리(시작 시각).
+  List<DateTime> drinksOn(DateTime date) =>
+      [for (final d in currentUser?.drinks ?? const <DateTime>[]) if (dateOnly(d) == dateOnly(date)) d]..sort();
+
+  Future<void> addDrink(DateTime at) async {
+    final u = currentUser;
+    if (u == null) return;
+    final cut = today.subtract(const Duration(days: 3));
+    u.drinks
+      ..removeWhere((d) => d.isBefore(cut) || d == at)
+      ..add(at)
+      ..sort();
+    await _save();
+  }
+
+  Future<void> removeDrink(DateTime at) async {
+    currentUser?.drinks.remove(at);
+    await _save();
+  }
+
+  Future<void> setWorkoutHour(int h) async {
+    final u = currentUser;
+    if (u == null) return;
+    u.workoutHour = h.clamp(0, 23);
+    await _save();
+  }
+
+  /// 오늘~일주일 뒤, 아직 시작 안 한 루틴을 술자리에 맞춰 세트·무게를 줄이거나 되돌린다.
+  void _syncAllAlcohol() {
+    final u = currentUser;
+    if (u == null) return;
+    final from = today.subtract(const Duration(days: 1));
+    final to = today.add(const Duration(days: 8));
+    for (final p in _data.plans) {
+      if (p.userId != u.id || p.date.isBefore(from) || p.date.isAfter(to)) continue;
+      syncAlcohol(p, alcoholFor(p));
+    }
+  }
+
+  /// 술자리 배율을 루틴에 반영(이미 곱해 둔 배율은 나눠서 되돌린 뒤 새 배율). 바뀌면 true.
+  static bool syncAlcohol(DayPlan plan, AlcoholAdvice? a) {
+    if (plan.isRest || plan.isFinished || plan.isStarted || plan.exercises.any((e) => e.anyCompleted)) return false;
+    final wantV = a?.volume ?? 1.0;
+    final wantL = a?.load ?? 1.0;
+    final curV = plan.alcVolume <= 0 ? 1.0 : plan.alcVolume;
+    final curL = plan.alcLoad <= 0 ? 1.0 : plan.alcLoad;
+    if ((wantV - curV).abs() < 0.01 && (wantL - curL).abs() < 0.01) return false;
+    final sameSets = plan.partnerName != null; // 파트너 날은 세트 수를 서로 맞춰 두므로 무게만
+    for (final pe in plan.exercises) {
+      if (pe.warmup || pe.cardio != null || pe.sets.isEmpty) continue;
+      final ex = exerciseById(pe.exerciseId);
+      if (ex == null) continue;
+      if (ex.loadType == LoadType.cardio) {
+        if (sameSets) continue;
+        for (var i = 0; i < pe.sets.length; i++) {
+          final s = pe.sets[i];
+          pe.sets[i] = SetEntry(targetReps: max(5, (s.targetReps * wantV / curV).round()), targetWeight: s.targetWeight, level: s.level, speed: s.speed, extra: s.extra);
+        }
+        continue;
+      }
+      if (!sameSets) {
+        final want = max(2, (pe.sets.length * wantV / curV).round());
+        while (pe.sets.length > want) {
+          final top = pe.topSet.targetWeight;
+          pe.sets.removeAt(pe.sets.first.targetWeight < top ? 0 : pe.sets.length - 1);
+        }
+        while (pe.sets.length < want) {
+          final last = pe.sets.last;
+          pe.sets.add(SetEntry(targetReps: last.targetReps, targetWeight: last.targetWeight, level: last.level, speed: last.speed));
+        }
+      }
+      if ((wantL - curL).abs() >= 0.01) {
+        for (var i = 0; i < pe.sets.length; i++) {
+          final s = pe.sets[i];
+          if (s.targetWeight <= 0) continue;
+          pe.sets[i] = SetEntry(
+              targetReps: s.targetReps,
+              targetWeight: LoadEstimator.roundTo(s.targetWeight * wantL / curL, ex.loadType.increment),
+              level: s.level,
+              speed: s.speed,
+              extra: s.extra);
+        }
+      }
+    }
+    plan.alcVolume = wantV;
+    plan.alcLoad = wantL;
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    return true;
   }
 
   /// 컨디션 → 세트 배율(루틴 만들 때와 같은 기준).

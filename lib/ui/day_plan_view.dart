@@ -21,6 +21,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/drink_sheet.dart';
 import 'widgets/marine_hero.dart';
 import 'widgets/mascot.dart';
 import 'widgets/equipment_look.dart';
@@ -204,6 +205,7 @@ class DayPlanView extends StatelessWidget {
     // 위·아래 내용은 header/footer 로 붙인다.
     final head = <Widget>[
         _Header(plan: plan),
+        if (!plan.isFinished) AlcoholBanner(plan: plan),
         if (plan.skipped)
           Card(
             color: cs.tertiaryContainer,
@@ -693,6 +695,13 @@ class _Header extends StatelessWidget {
                             : gym!.name),
                     visualDensity: VisualDensity.compact,
                     onPressed: plan.isFinished ? null : () => switchGymDialog(context, plan),
+                  ),
+                if (!plan.isFinished)
+                  ActionChip(
+                    avatar: Icon(Icons.local_bar, size: 16, color: cs.primary),
+                    label: Text(state.drinksOn(plan.date).isEmpty ? '술 약속' : '술 약속 ${state.drinksOn(plan.date).length}'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => showDrinkSheet(context, plan.date),
                   ),
               ],
             ),

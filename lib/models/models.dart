@@ -335,6 +335,8 @@ class UserProfile {
     this.autoAdjust = true,
     this.stretching = true,
     this.showBodyInfo = false,
+    List<DateTime>? drinks,
+    this.workoutHour = 19,
     Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
@@ -360,7 +362,8 @@ class UserProfile {
     Set<InjuryArea>? injuries,
     Set<InjuryArea>? cautions,
     this.theme = 'basic',
-  })  : birthYear = birthYear ?? (DateTime.now().year - age),
+  })  : drinks = drinks ?? [],
+        birthYear = birthYear ?? (DateTime.now().year - age),
         bodyLog = bodyLog ?? [],
         liftLog = liftLog ?? [],
         injuries = injuries ?? {},
@@ -434,6 +437,12 @@ class UserProfile {
 
   /// 친구 프로필에 나이·키·몸무게·체성분을 보여 줄지. 기본은 비공개.
   bool showBodyInfo;
+
+  /// 술자리 시작 시각들(앞뒤 운동 조절용). 지난 건 며칠 뒤 지운다.
+  List<DateTime> drinks;
+
+  /// 보통 운동하는 시각(시). 술자리 전후 몇 시간인지 셀 때 쓴다.
+  int workoutHour;
 
   /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
   final Map<String, int> aiUsage;
@@ -515,6 +524,8 @@ class UserProfile {
         'autoAdjust': autoAdjust,
         if (!stretching) 'stretching': false,
         if (showBodyInfo) 'showBodyInfo': true,
+        if (drinks.isNotEmpty) 'drinks': [for (final d in drinks) d.toIso8601String()],
+        if (workoutHour != 19) 'wHour': workoutHour,
         if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
@@ -563,6 +574,8 @@ class UserProfile {
         // 예전에 워밍업을 '안 함'으로 둔 사람은 스트레칭도 꺼진 채로.
         stretching: (j['stretching'] as bool?) ?? (j['warmupMode'] != 'off'),
         showBodyInfo: (j['showBodyInfo'] as bool?) ?? false,
+        drinks: [for (final d in (j['drinks'] as List?) ?? const []) ?DateTime.tryParse(d as String)],
+        workoutHour: (j['wHour'] as num?)?.toInt() ?? 19,
         aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
@@ -1223,6 +1236,8 @@ class DayPlan {
     this.jointAt,
     this.custom = false,
     this.gymConfirmed = false,
+    this.alcVolume = 1.0,
+    this.alcLoad = 1.0,
     this.skipped = false,
     this.venueOwner,
     this.venueGymId,
@@ -1327,6 +1342,10 @@ class DayPlan {
   /// 그날 갈 헬스장을 사용자가 골랐는지. 미리 짠 루틴은 false라 당일에 어디서 할지 묻는다.
   bool gymConfirmed;
 
+  /// 술자리 때문에 지금 세트 수·무게에 곱해 둔 배율(되돌릴 때 씀).
+  double alcVolume;
+  double alcLoad;
+
   /// 운동일이었지만 쉬기로 한 날(또는 안 하고 지나간 날). 계획한 부위는 남겨두고 '휴식'으로 표시한다.
   bool skipped;
 
@@ -1376,6 +1395,8 @@ class DayPlan {
         if (jointAt != null) 'jointAt': jointAt!.toUtc().toIso8601String(),
         if (custom) 'custom': true,
         if (gymConfirmed) 'gymOk': true,
+        if (alcVolume != 1.0) 'alcV': alcVolume,
+        if (alcLoad != 1.0) 'alcL': alcLoad,
         if (skipped) 'skipped': true,
         if (venueOwner != null) 'venueOwner': venueOwner,
         if (venueGymId != null) 'venueGymId': venueGymId,
@@ -1425,6 +1446,8 @@ class DayPlan {
         jointAt: j['jointAt'] == null ? null : DateTime.tryParse(j['jointAt'] as String),
         custom: (j['custom'] as bool?) ?? false,
         gymConfirmed: (j['gymOk'] as bool?) ?? false,
+        alcVolume: (j['alcV'] as num?)?.toDouble() ?? 1.0,
+        alcLoad: (j['alcL'] as num?)?.toDouble() ?? 1.0,
         skipped: (j['skipped'] as bool?) ?? false,
         venueOwner: j['venueOwner'] as String?,
         venueGymId: j['venueGymId'] as String?,

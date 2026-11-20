@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import 'copy_routine.dart';
 import 'day_plan_view.dart';
 import 'widgets/ai_coach_sheet.dart';
+import 'widgets/drink_sheet.dart';
 import 'widgets/partner_widgets.dart';
 import 'widgets/place.dart';
 import 'widgets/plan_overview.dart';
@@ -51,6 +52,7 @@ class DayPage extends StatelessWidget {
             itemBuilder: (_) => [
               if (!isPast && (plan == null || !plan.isFinished)) const PopupMenuItem(value: 'copy', child: Text('지난 내 루틴 그대로 가져오기')),
               if (!isPast) const PopupMenuItem(value: 'import', child: Text('친구 루틴 불러오기')),
+              if (!isPast) const PopupMenuItem(value: 'drink', child: Text('🍺 술 약속')),
               if (!isPast && (plan == null || plan.isRest)) const PopupMenuItem(value: 'regen', child: Text('이 날 루틴 만들기')),
               if (!isPast && plan != null && !plan.isFinished) const PopupMenuItem(value: 'regen', child: Text('루틴 다시 생성')),
               if (plan == null || !plan.isFinished)
@@ -99,6 +101,8 @@ class DayPage extends StatelessWidget {
         await copyPastRoutineDialog(context, d);
       case 'import':
         await importRoutineDialog(context, d);
+      case 'drink':
+        await showDrinkSheet(context, d);
       case 'regen':
         if (await confirmRebuildIfStarted(context, plan)) await state.regenerateDay(d);
       case 'rest':
@@ -176,6 +180,8 @@ class _PlanCompositionState extends State<PlanComposition> {
       const SizedBox(height: 4),
       Text('헬스장이 아직 정해지지 않아서 부위·세트 구성만 보여요. 어떤 운동을 할지는 그날 기구에 맞춰 골라요.',
           style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+      const SizedBox(height: 8),
+      AlcoholBanner(plan: plan),
       if (widget.pickNow) ...[
         const SizedBox(height: 12),
         Card(
