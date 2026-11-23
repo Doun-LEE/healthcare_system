@@ -1808,8 +1808,14 @@ class AppState extends ChangeNotifier {
     final existing = planOn(date);
     if (existing != null && existing.isFinished) return;
     if (existing != null && awakeningOn(date)) {
-      if (existing.isRest || existing.skipped) {
-        _notice('🔥 각성모드: 기간 동안 쉬는 날을 바꾸거나 되돌릴 수 없어요.');
+      if (existing.skipped) {
+        _notice('🔥 각성모드: 쉬기로 한 날의 루틴은 이미 다른 날로 옮겼어요. 운동을 더 하고 싶으면 휴식일에 추가해요.');
+        return;
+      }
+      if (existing.isRest) {
+        // 휴식일 → 운동일 추가는 OK(더 하는 건 괜찮다). 다른 날 루틴은 그대로.
+        _data.plans.remove(existing);
+        await regenerateDay(date);
         return;
       }
       final to = _awakenMove(existing);
