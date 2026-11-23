@@ -2746,6 +2746,89 @@ class AppState extends ChangeNotifier {
     return gen.planExercise(ex);
   }
 
+  /// 운동·세트 수·횟수·순서·한쪽씩은 그대로 두고 무게만 지금 기준(기록·원판 한 칸·컨디션·술자리)으로 다시 맞춘다.
+  /// 각성모드처럼 루틴을 바꿀 수 없을 때도 쓸 수 있다. 바뀐 운동 수.
+  int _rebalance(DayPlan plan) {
+    final u = currentUser;
+    if (u == null || plan.isRest || plan.isFinished) return 0;
+    final steps = stepForPlan(plan);
+    final factor = (plan.loadFactor > 0 ? plan.loadFactor : 1.0) * (plan.alcLoad > 0 ? plan.alcLoad : 1.0);
+    var changed = 0;
+    for (var i = 0; i < plan.exercises.length; i++) {
+      final pe = plan.exercises[i];
+      if (pe.anyCompleted || pe.cardio != null || pe.sets.isEmpty) continue;
+      final ex = exerciseById(pe.exerciseId);
+      if (ex == null || ex.loadType == LoadType.cardio) continue;
+      final oldTop = pe.topSet.targetWeight;
+      if (oldTop <= 0) continue;
+      final step = steps[pe.equipmentType] ?? ex.loadType.increment;
+      double target;
+      final mw = pe.machine == null ? null : progress[pe.exerciseId]?.machineWeights[pe.machine!];
+      if (!pe.warmup && mw != null && mw > 0) {
+        target = mw;
+      } else {
+        final gen = SessionGenerator(SessionRequest(
+          groups: [ex.group],
+          available: {...availableFor(plan), ...ex.equipment},
+          progress: progress,
+          profile: u,
+          minutesBudget: 120,
+          intensityFactor: plan.intensityFactor > 0 ? plan.intensityFactor : 1.0,
+          equipmentMax: maxForPlan(plan),
+          equipmentStep: steps,
+          machines: machinesForPlan(plan),
+        ));
+        final fresh = pe.warmup ? gen.planWarmup(ex) : gen.planExercise(ex);
+        if (fresh.sets.isEmpty || fresh.equipmentType != pe.equipmentType) {
+          target = oldTop;
+        } else {
+          target = fresh.topSet.targetWeight;
+        }
+      }
+      if (target <= 0) continue;
+      if (!pe.warmup) target *= factor;
+      // 루틴 만들 때 '회복 중인 근육'이라 90%로 낮춘 운동은 그대로 낮춰 둔다.
+      if (!pe.warmup && (pe.note ?? '').contains('회복 중인 근육')) target *= 0.9;
+      final sets = [
+        for (final s0 in pe.sets)
+          SetEntry(
+            targetReps: s0.targetReps,
+            targetWeight: s0.targetWeight <= 0 ? s0.targetWeight : max(step, LoadEstimator.roundTo(s0.targetWeight / oldTop * target, step)),
+            level: s0.level,
+            speed: s0.speed,
+            extra: s0.extra,
+          ),
+      ];
+      var diff = false;
+      for (var k = 0; k < sets.length; k++) {
+        if ((sets[k].targetWeight - pe.sets[k].targetWeight).abs() > 0.001) diff = true;
+      }
+      if (!diff) continue;
+      plan.exercises[i] = pe.copyWith(sets: sets);
+      changed++;
+    }
+    return changed;
+  }
+
+  /// 그 날 루틴 무게만 다시 맞추기. 바뀐 운동 수.
+  Future<int> rebalanceWeights(DayPlan plan) async {
+    final n = _rebalance(plan);
+    if (n == 0) return 0;
+    await _save();
+    await resyncPartnerDay(plan);
+    return n;
+  }
+
+  /// 각성 기간 남은(오늘 이후, 시작 안 한) 루틴 무게를 모두 다시 맞춘다. 바뀐 날 수.
+  Future<int> rebalanceAwakenWeights() async {
+    var days = 0;
+    for (final p in myPlans.where((p) => awakeningOn(p.date) && !p.date.isBefore(today) && !p.isRest && !p.skipped && !p.isFinished && !p.isStarted).toList()) {
+      if (_rebalance(p) > 0) days++;
+    }
+    if (days > 0) await _save();
+    return days;
+  }
+
   /// 자세에 따라 타깃이 바뀌는 운동의 부위를 바꾼다(덤벨 풀오버: 등 → 가슴).
   Future<void> setExerciseTarget(DayPlan plan, PlannedExercise pe, MuscleGroup? group) async {
     _markCustom(plan);

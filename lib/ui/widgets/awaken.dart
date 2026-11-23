@@ -32,11 +32,24 @@ class AwakenCard extends StatelessWidget {
               style: text.bodySmall?.copyWith(color: cs.onErrorContainer),
             ),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.add),
-              label: const Text('기간 늘리기'),
-              onPressed: () => _extend(context, state),
-            ),
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('기간 늘리기'),
+                onPressed: () => _extend(context, state),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.tune),
+                label: const Text('남은 루틴 무게 다시 맞추기'),
+                onPressed: () async {
+                  final n = await state.rebalanceAwakenWeights();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(n == 0 ? '이미 지금 기준에 맞는 무게예요.' : '$n일 루틴 무게를 다시 맞췄어요. 운동·세트는 그대로예요.'),
+                  ));
+                },
+              ),
+            ]),
           ]),
         ),
       );

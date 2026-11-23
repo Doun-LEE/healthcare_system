@@ -64,4 +64,26 @@ void main() {
     await s.setWorkoutHour(19); // 저장 → 밀어 넣기 실행
     expect(s.planOn(y)!.skipped, isTrue);
   });
+
+  test('각성모드: 무게만 다시 맞추기(운동·세트 수·순서 그대로)', () async {
+    final s = await make();
+    await s.startAwakening(7);
+    final p = [for (var i = 0; i < 7; i++) s.planOn(s.today.add(Duration(days: i)))].whereType<DayPlan>().firstWhere((p) => !p.isRest);
+    final ids = [for (final e in p.exercises) e.exerciseId];
+    final counts = [for (final e in p.exercises) e.sets.length];
+    final reps = [for (final e in p.exercises) [for (final x in e.sets) x.targetReps]];
+    // 예전 기준으로 짠 것처럼 무게를 어긋나게
+    final i = p.exercises.indexWhere((e) => !e.warmup && e.sets.isNotEmpty && e.topSet.targetWeight > 0);
+    expect(i, greaterThanOrEqualTo(0));
+    final pe = p.exercises[i];
+    final good = pe.topSet.targetWeight;
+    p.exercises[i] = pe.copyWith(sets: [for (final x in pe.sets) SetEntry(targetReps: x.targetReps, targetWeight: x.targetWeight + 7.5)]);
+    final n = await s.rebalanceWeights(p);
+    expect(n, greaterThanOrEqualTo(1));
+    expect(p.exercises[i].topSet.targetWeight, good);
+    expect([for (final e in p.exercises) e.exerciseId], ids);
+    expect([for (final e in p.exercises) e.sets.length], counts);
+    expect([for (final e in p.exercises) [for (final x in e.sets) x.targetReps]], reps);
+    expect(await s.rebalanceAwakenWeights(), 0); // 방금 짠 루틴은 그대로
+  });
 }

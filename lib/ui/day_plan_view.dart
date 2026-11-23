@@ -716,6 +716,19 @@ class _Header extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     onPressed: () => showDrinkSheet(context, plan.date),
                   ),
+                if (!plan.isFinished && !plan.isRest)
+                  ActionChip(
+                    avatar: Icon(Icons.tune, size: 16, color: cs.primary),
+                    label: const Text('무게 다시 맞추기'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () async {
+                      final n = await state.rebalanceWeights(plan);
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(n == 0 ? '이미 지금 기준에 맞는 무게예요.' : '운동 $n개 무게를 다시 맞췄어요. 운동·세트 수·순서는 그대로예요.'),
+                      ));
+                    },
+                  ),
               ],
             ),
             const SizedBox(height: 8),
