@@ -837,11 +837,29 @@ class _WorkoutClockState extends State<_WorkoutClock> {
               await st.setWorkoutStart(p, at);
               return;
             }
+            if (v == 'cancel') {
+              final done = p.exercises.fold<int>(0, (a, e) => a + e.sets.where((s) => s.completed).length);
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('운동 시작을 취소할까요?'),
+                  content: Text(done == 0
+                      ? '시작 전 상태로 돌아가요.'
+                      : '체크한 세트 $done개도 안 한 걸로 되돌려요. 되돌릴 수 없어요.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('아니요')),
+                    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('시작 취소')),
+                  ],
+                ),
+              );
+              if (ok == true) await st.cancelWorkoutStart(p, clearSets: true);
+              return;
+            }
             await st.cancelWorkoutStart(p, resetToNow: v == 'now');
           },
           itemBuilder: (_) => [
             const PopupMenuItem(value: 'pick', child: Text('시작 시각 직접 정하기')),
-            if (!p.exercises.any((e) => e.anyCompleted)) const PopupMenuItem(value: 'cancel', child: Text('시작 취소 (잘못 눌렀어요)')),
+            const PopupMenuItem(value: 'cancel', child: Text('시작 취소')),
             const PopupMenuItem(value: 'now', child: Text('시작 시각을 지금으로')),
           ],
         ),

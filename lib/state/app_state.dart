@@ -2304,10 +2304,22 @@ class AppState extends ChangeNotifier {
   }
 
   /// 잘못 눌렀을 때: 시작 취소(세트 체크 전) 또는 시작 시각을 지금으로 재설정.
-  Future<void> cancelWorkoutStart(DayPlan plan, {bool resetToNow = false}) async {
+  Future<void> cancelWorkoutStart(DayPlan plan, {bool resetToNow = false, bool clearSets = false}) async {
     if (plan.isFinished) return;
     plan.startedAt = resetToNow ? DateTime.now() : null;
     plan.endedAt = null;
+    if (clearSets) {
+      // 시작 취소: 체크한 세트도 안 한 걸로 되돌린다(직접 적은 값은 지움).
+      for (final pe in plan.exercises) {
+        for (final s in pe.sets) {
+          s.completed = false;
+          s.doneReps = null;
+          s.doneWeight = null;
+          s.doneLevel = null;
+          s.doneSpeed = null;
+        }
+      }
+    }
     await _save();
   }
 
