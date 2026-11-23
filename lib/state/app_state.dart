@@ -729,7 +729,7 @@ class AppState extends ChangeNotifier {
           if (i < 0) {
             _data.plans.add(rp);
             changed++;
-          } else if (_progressRank(rp) > _progressRank(_data.plans[i])) {
+          } else if (_rankWith(rp, _data.deleted) > _rankWith(_data.plans[i], _data.deleted)) {
             _data.plans[i] = rp;
             changed++;
           }
@@ -1022,6 +1022,17 @@ class AppState extends ChangeNotifier {
     return 1;
   }
 
+  static String _unstartKey(DayPlan p) => 'unstart:${p.userId}|${dateKey(p.date)}';
+
+  /// 시작 취소한 날: 취소 전에 시작된 복사본(다른 기기·클라우드)은 '시작 안 함'으로 친다(되살아나지 않게).
+  static int _rankWith(DayPlan p, Map<String, DateTime> deleted) {
+    final r = _progressRank(p);
+    if (r != 2) return r;
+    final t = deleted[_unstartKey(p)];
+    if (t != null && !(p.startedAt ?? p.date).isAfter(t)) return 1;
+    return r;
+  }
+
   /// [from]에만 있거나 [from] 쪽이 더 진행된(운동 기록이 있는) 날의 계획을 [into]로 옮긴다. 옮긴 수.
   int _keepRecordedPlans({required AppData from, required AppData into}) {
     var n = 0;
@@ -1038,12 +1049,21 @@ class AppState extends ChangeNotifier {
     into.plans.removeWhere((p) => _progressRank(p) >= 2 && deletedLater(p));
     n += before - into.plans.length;
     for (final p in from.plans) {
-      if (_progressRank(p) < 2 || deletedLater(p)) continue;
+      // 시작 취소한 쪽(from)이 이기게: 상대 쪽 복사본이 취소 전에 시작된 것이면 취소한 상태로.
+      if (_progressRank(p) < 2) {
+        final i = into.plans.indexWhere((x) => x.userId == p.userId && dateKey(x.date) == dateKey(p.date));
+        if (i >= 0 && _progressRank(into.plans[i]) == 2 && _rankWith(into.plans[i], into.deleted) < 2) {
+          into.plans[i] = p;
+          n++;
+        }
+        continue;
+      }
+      if (_rankWith(p, into.deleted) < 2 || deletedLater(p)) continue;
       final i = into.plans.indexWhere((x) => x.userId == p.userId && dateKey(x.date) == dateKey(p.date));
       if (i < 0) {
         into.plans.add(p);
         n++;
-      } else if (_progressRank(into.plans[i]) < _progressRank(p)) {
+      } else if (_rankWith(into.plans[i], into.deleted) < _rankWith(p, into.deleted)) {
         into.plans[i] = p;
         n++;
       }
@@ -2308,6 +2328,7 @@ class AppState extends ChangeNotifier {
     if (plan.isFinished) return;
     plan.startedAt = resetToNow ? DateTime.now() : null;
     plan.endedAt = null;
+    if (!resetToNow) _data.deleted[_unstartKey(plan)] = DateTime.now();
     if (clearSets) {
       // 시작 취소: 체크한 세트도 안 한 걸로 되돌린다(직접 적은 값은 지움).
       for (final pe in plan.exercises) {
