@@ -950,7 +950,7 @@ class _EquipmentListState extends State<_EquipmentList> {
                     [
                       if (e.customName != null && e.customName!.isNotEmpty) e.type.label,
                       equipmentInfo(e.type).strengths.take(2).join(' · '),
-                      if (e.mechanism != LoadMechanism.none) '${e.mechanism.label.split(' ').first} ${e.effectiveStep}kg',
+                      if (e.mechanism != LoadMechanism.none) '${e.mechanism.label.split(' ').first} ${e.effectiveStepFor(state.currentUser?.sex ?? Sex.male)}kg',
                       if (e.maxWeightKg != null) '최대 ${e.maxWeightKg!.toInt()}kg',
                       if (e.sledMatters && e.emptyKg != null) '빈 기구 ${e.emptyKg!.toInt()}kg',
                       if (e.sledMatters && e.effectivePlateBasis == 'full') '기구 포함 기준',
@@ -1191,7 +1191,10 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
                 child: TextField(
                   controller: _step,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: '무게 한 칸 kg', hintText: '기본 ${_fmt(_mech.defaultStepKg)}'),
+                  decoration: InputDecoration(
+                    labelText: '무게 한 칸 kg',
+                    hintText: '기본 ${_fmt((GymEquipment(id: '_', type: widget.type, mechanism: _mech, weightBasis: _basis, dualStack: _dual)).effectiveStepFor(context.read<AppState>().currentUser?.sex ?? Sex.male))}',
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

@@ -766,6 +766,22 @@ class GymEquipment {
         _ => mechanism.defaultStepKg,
       };
 
+  /// 원판을 끼우는 기구(바벨·원판 머신 등). 덤벨·케틀벨·고정 바벨은 아님.
+  bool get platesLoaded =>
+      mechanism == LoadMechanism.plate ||
+      (mechanism == LoadMechanism.free &&
+          !const {EquipmentType.dumbbell, EquipmentType.kettlebell, EquipmentType.fixedBarbell}.contains(type));
+
+  /// 성별을 고려한 화면 기준 한 칸. 원판은 양쪽에 같이 끼우니 1.25kg 원판이 드문 걸 감안해
+  /// 남자 한쪽 5kg(합계 10kg), 여자 한쪽 2.5kg(합계 5kg). 한쪽에만 끼우는 랜드마인·썰매는 원판 한 장.
+  /// 직접 정한 한 칸(stepKg)이 있으면 그 값.
+  double effectiveStepFor(Sex sex) {
+    if (stepKg != null || !platesLoaded) return effectiveStep;
+    final plate = sex == Sex.female ? 2.5 : 5.0;
+    final oneSleeve = type == EquipmentType.landmine || type == EquipmentType.sled;
+    return effectiveBasis == 'perSide' || oneSleeve ? plate : plate * 2;
+  }
+
   /// 복합(짬뽕) 머신: 한 기구로 여러 종류 운동이 될 때 추가로 해당하는 기구 종류.
   /// 예) 레그 익스텐션 + 레그 컬 겸용, 랫풀다운 + 시티드 로우 겸용.
   final List<EquipmentType> extraTypes;

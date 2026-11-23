@@ -287,8 +287,9 @@ class AppState extends ChangeNotifier {
 
   Map<EquipmentType, double> stepForGym(Gym? g) {
     final m = <EquipmentType, double>{};
+    final sex = currentUser?.sex ?? Sex.male;
     for (final e in g?.equipment ?? const <GymEquipment>[]) {
-      final st = e.effectiveStep / e.displayFactor; // 한쪽 5kg 스택 2개 → 합계 10kg씩
+      final st = e.effectiveStepFor(sex) / e.displayFactor; // 한쪽 5kg 스택 2개 → 합계 10kg씩
       if (st > 0) {
         for (final t in e.allTypes) {
           m[t] = st;
@@ -296,9 +297,14 @@ class AppState extends ChangeNotifier {
       }
     }
     _fillImplied(g, m, (e) {
-      final st = e.effectiveStep / e.displayFactor;
+      final st = e.effectiveStepFor(sex) / e.displayFactor;
       return st > 0 ? st : null;
     });
+    // 헬스장에 따로 안 적힌 바벨류도 원판 기준 한 칸으로.
+    final bar = sex == Sex.female ? 5.0 : 10.0;
+    for (final t in const [EquipmentType.barbell, EquipmentType.ezBar, EquipmentType.trapBar, EquipmentType.safetySquatBar, EquipmentType.smithMachine]) {
+      m.putIfAbsent(t, () => bar);
+    }
     return m;
   }
 
