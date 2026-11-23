@@ -44,6 +44,9 @@ void main() {
     // 저장·복원
     final j = UserProfile.fromJson(s.currentUser!.toJson());
     expect(j.awakenTo, isNotNull);
+    final end = s.currentUser!.awakenTo!;
+    await s.extendAwakening(7);
+    expect(s.currentUser!.awakenTo, end.add(const Duration(days: 7)));
   });
 
   test('각성모드: 지난 못 한 운동일은 남은 휴식일로 밀린다', () async {

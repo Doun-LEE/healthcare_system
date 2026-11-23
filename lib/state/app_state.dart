@@ -3268,6 +3268,20 @@ class AppState extends ChangeNotifier {
     await _save();
   }
 
+  /// 각성모드 기간 늘리기(줄이기는 안 됨). 늘어난 날짜 루틴을 짜 둔다.
+  Future<void> extendAwakening(int days) async {
+    final u = currentUser;
+    if (u == null || !awakening || days <= 0) return;
+    final from = dateOnly(u.awakenTo!).add(const Duration(days: 1));
+    final to = dateOnly(u.awakenTo!).add(Duration(days: days));
+    for (final p in myPlans.where((p) => p.partnerName != null && !p.isFinished && !p.date.isBefore(from) && !p.date.isAfter(to)).toList()) {
+      await clearPartnerDay(p.date);
+    }
+    await generatePlans(from: from, to: to, restDays: manualRestDays);
+    u.awakenTo = to;
+    await _save();
+  }
+
   /// 각성모드 기간에 남은 운동일 수(오늘 포함, 안 끝낸 것).
   int get awakenLeft {
     final u = currentUser;

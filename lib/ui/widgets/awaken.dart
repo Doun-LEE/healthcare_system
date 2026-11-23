@@ -31,6 +31,12 @@ class AwakenCard extends StatelessWidget {
               '끝날 때까지 루틴을 빼거나 바꿀 수 없고, 쉬면 남은 휴식일로 옮겨서 다 끝내요.',
               style: text.bodySmall?.copyWith(color: cs.onErrorContainer),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('기간 늘리기'),
+              onPressed: () => _extend(context, state),
+            ),
           ]),
         ),
       );
@@ -44,6 +50,29 @@ class AwakenCard extends StatelessWidget {
         onTap: () => _start(context, state),
       ),
     );
+  }
+
+  Future<void> _extend(BuildContext context, AppState state) async {
+    final u = state.currentUser!;
+    final days = await showDialog<int>(
+      context: context,
+      builder: (c) => SimpleDialog(
+        title: const Text('🔥 각성모드 기간 늘리기'),
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Text('늘린 만큼은 다시 줄일 수 없어요.', style: TextStyle(fontSize: 13)),
+          ),
+          for (final (d, label) in [(7, '1주'), (14, '2주'), (28, '4주')])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, d),
+              child: Text('$label 더 (~${_md(dateOnly(u.awakenTo!).add(Duration(days: d)))})'),
+            ),
+        ],
+      ),
+    );
+    if (days == null) return;
+    await state.extendAwakening(days);
   }
 
   Future<void> _start(BuildContext context, AppState state) async {
