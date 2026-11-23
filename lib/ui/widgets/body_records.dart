@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
+import '../../services/inbody_parser.dart';
+import '../../services/ocr.dart';
 
 import '../../models/models.dart';
 import '../../state/app_state.dart';
@@ -60,6 +64,8 @@ class BodyRecordsCard extends StatelessWidget {
     final m = TextEditingController(text: u.skeletalMuscleKg == null ? '' : _n(u.skeletalMuscleKg!));
     final f = TextEditingController(text: u.bodyFatPct == null ? '' : _n(u.bodyFatPct!));
     var date = DateTime.now();
+    var reading = false;
+    String? readMsg;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -67,6 +73,56 @@ class BodyRecordsCard extends StatelessWidget {
           title: const Text('새로 측정'),
           scrollable: true,
           content: Column(mainAxisSize: MainAxisSize.min, children: [
+            OutlinedButton.icon(
+              icon: reading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.document_scanner_outlined),
+              label: const Text('인바디 결과지 사진으로 채우기'),
+              onPressed: reading
+                  ? null
+                  : () async {
+                      final src = await showModalBottomSheet<ImageSource>(
+                        context: c,
+                        builder: (b) => SafeArea(
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            ListTile(leading: const Icon(Icons.photo_camera), title: const Text('결과지 찍기'), onTap: () => Navigator.pop(b, ImageSource.camera)),
+                            ListTile(leading: const Icon(Icons.photo_library), title: const Text('앨범에서 고르기'), onTap: () => Navigator.pop(b, ImageSource.gallery)),
+                          ]),
+                        ),
+                      );
+                      if (src == null) return;
+                      final x = await ImagePicker().pickImage(source: src, maxWidth: 2200, maxHeight: 2200, imageQuality: 92);
+                      if (x == null) return;
+                      set(() {
+                        reading = true;
+                        readMsg = null;
+                      });
+                      InbodyResult? r;
+                      try {
+                        final t = await recognizeText(await x.readAsBytes());
+                        if (t != null) r = parseInbody(t);
+                      } catch (_) {}
+                      set(() {
+                        reading = false;
+                        if (r == null || r.isEmpty) {
+                          readMsg = '결과지에서 숫자를 못 읽었어요. 밝은 곳에서 결과지가 꽉 차게 다시 찍거나 직접 적어 주세요.';
+                          return;
+                        }
+                        if (r.weightKg != null) w.text = _n(r.weightKg!);
+                        if (r.skeletalMuscleKg != null) m.text = _n(r.skeletalMuscleKg!);
+                        if (r.bodyFatPct != null) f.text = _n(r.bodyFatPct!);
+                        if (r.date != null) date = r.date!;
+                        final miss = [
+                          if (r.weightKg == null) '체중',
+                          if (r.skeletalMuscleKg == null) '골격근량',
+                          if (r.bodyFatPct == null) '체지방률',
+                        ];
+                        readMsg = '읽은 값을 채웠어요. 결과지와 맞는지 확인하고 기록을 눌러요.${miss.isEmpty ? '' : ' (${miss.join('·')}은 못 읽었어요)'}';
+                      });
+                    },
+            ),
+            if (readMsg != null)
+              Padding(padding: const EdgeInsets.only(top: 6), child: Text(readMsg!, style: Theme.of(c).textTheme.bodySmall)),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.event_rounded),
