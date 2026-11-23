@@ -1451,11 +1451,13 @@ class _ExerciseCard extends StatelessWidget {
           .toList()
         ..sort((a, b) => rank(a).compareTo(rank(b)));
     } else {
-      // 주 부위가 같거나(보조 부위로 이 부위를 쓰는 운동 포함) 같은 역할의 운동.
+      // 처음엔 같은 부위(보조로 쓰는 운동 포함)만 보이고, 부위 칩으로 다른 부위로도 바꿀 수 있다.
+      // 각성모드에서는 같은 부위 안에서만.
+      final sameOnly = state.awakeningOn(plan.date);
       options = exerciseCatalog
           .where((e) =>
               e.id != ex.id &&
-              (e.group == ex.group || e.altGroups.contains(ex.group)) &&
+              (!sameOnly || e.group == ex.group || e.altGroups.contains(ex.group)) &&
               !e.warmupOnly &&
               (ex.activity || !e.activity) &&
               e.canDoWith(available))
@@ -1466,7 +1468,7 @@ class _ExerciseCard extends StatelessWidget {
         : recommendSwaps(plan.exercises, plan.exercises.indexOf(pe), available, recent: state.recentExerciseIds(plan.date));
     // 필터: 기구 종류(맨몸·프리·머신·케이블·유산소) · 부위(워밍업 칸만) · 검색.
     String? kind;
-    MuscleGroup? group;
+    MuscleGroup? group = pe.warmup ? null : ex.group;
     var query = '';
     final chosen = await showAppSheet<Exercise>(
       context: context,
@@ -1491,7 +1493,7 @@ class _ExerciseCard extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                child: Text(pe.warmup ? '워밍업 교체 (가볍게 처방돼요)' : '${ex.group.label} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
+                child: Text(pe.warmup ? '워밍업 교체 (가볍게 처방돼요)' : '${group?.label ?? '전체 부위'} 운동으로 교체', style: Theme.of(c).textTheme.titleMedium),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1521,7 +1523,7 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                 ]),
               ),
-              if (pe.warmup && groups.length > 1)
+              if (groups.length > 1)
                 SizedBox(
                   height: 40,
                   child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
@@ -1537,7 +1539,7 @@ class _ExerciseCard extends StatelessWidget {
                       ),
                   ]),
                 ),
-              if (picks.isNotEmpty && kind == null && group == null && q.isEmpty) ...[
+              if (picks.isNotEmpty && kind == null && (group == null || (!pe.warmup && group == ex.group)) && q.isEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                   child: Text('추천 · 앞뒤 운동을 보고 골랐어요', style: Theme.of(c).textTheme.labelLarge?.copyWith(color: cs.primary)),
