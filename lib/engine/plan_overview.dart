@@ -70,7 +70,16 @@ String compositionLine(DayPlan plan) => [
     ].join(' · ');
 
 Map<MuscleGroup, GroupTally> tallyPlan(DayPlan plan) {
-  final out = {for (final g in overviewGroups) g: GroupTally(g)};
+  // 루틴에 나오는 순서대로(직접 바꾼 순서를 따름), 안 나오는 부위는 뒤에.
+  final order = <MuscleGroup>[];
+  for (final p in plan.exercises) {
+    if (!countsInOverview(p)) continue;
+    final ex = exerciseById(p.exerciseId);
+    if (ex == null) continue;
+    final g = ex.loadType == LoadType.cardio ? MuscleGroup.cardio : p.effectiveGroup;
+    if (!order.contains(g) && overviewGroups.contains(g)) order.add(g);
+  }
+  final out = {for (final g in [...order, ...overviewGroups.where((g) => !order.contains(g))]) g: GroupTally(g)};
   for (final p in plan.exercises) {
     if (!countsInOverview(p)) continue;
     final ex = exerciseById(p.exerciseId);

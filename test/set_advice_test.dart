@@ -20,9 +20,12 @@ void main() {
     expect(a.reps, 11);
   });
 
-  test('2회 이상 모자라면 한 칸 내림, 목표대로면 추천 없음', () {
+  test('2회 이상 모자라면 한 횟수로 추정한 힘에 맞춰 내림, 목표대로면 추천 없음', () {
     final a = adviseNextSet(ex, s(10, 40, done: 7), SetEntry(targetReps: 9, targetWeight: 40), step: 2.5)!;
-    expect(a.weight, 37.5);
+    expect(a.weight, 35);
+    // 140kg 8회 목표에 5회 → 한 칸(137.5)이 아니라 8회 할 수 있는 무게로
+    final b = adviseNextSet(ex, s(8, 140, done: 5), SetEntry(targetReps: 8, targetWeight: 140), step: 2.5)!;
+    expect(b.weight, inInclusiveRange(120, 130));
     expect(a.up, isFalse);
     expect(adviseNextSet(ex, s(10, 40), SetEntry(targetReps: 9, targetWeight: 40), step: 2.5), isNull);
   });

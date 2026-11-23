@@ -377,6 +377,38 @@ class AppState extends ChangeNotifier {
       plan.exercises.isNotEmpty &&
       !plan.exercises.any((e) => e.anyCompleted);
 
+  MuscleGroup _groupOf(PlannedExercise pe) =>
+      exerciseById(pe.exerciseId)?.loadType == LoadType.cardio ? MuscleGroup.cardio : pe.effectiveGroup;
+
+  List<MuscleGroup> _groupOrder(DayPlan plan) {
+    final out = <MuscleGroup>[];
+    for (final pe in plan.exercises) {
+      if (pe.warmup) continue;
+      final g = _groupOf(pe);
+      if (!out.contains(g)) out.add(g);
+    }
+    return out;
+  }
+
+  /// 본운동을 [order] 부위 순서로(같은 부위 안 순서는 유지). 워밍업은 앞 그대로.
+  void _applyGroupOrder(DayPlan plan, List<MuscleGroup> order) {
+    if (order.length < 2) return;
+    int rank(PlannedExercise pe) {
+      final i = order.indexOf(_groupOf(pe));
+      return i < 0 ? order.length : i;
+    }
+    final warm = [for (final e in plan.exercises) if (e.warmup) e];
+    final main = [for (final e in plan.exercises) if (!e.warmup) e];
+    final idx = {for (var i = 0; i < main.length; i++) main[i]: i};
+    main.sort((a, b) {
+      final c = rank(a).compareTo(rank(b));
+      return c != 0 ? c : idx[a]!.compareTo(idx[b]!);
+    });
+    plan.exercises
+      ..clear()
+      ..addAll([...warm, ...main]);
+  }
+
   /// 오늘 갈 헬스장을 골랐다. 짜인 헬스장과 같으면 그대로, 다르면 그 헬스장 기구로 같은 부위를 다시 짠다.
   Future<void> pickDayGym(DayPlan plan, String gymId) async {
     if ((gymOf(plan)?.id ?? activeGym?.id) == gymId) {
@@ -385,10 +417,13 @@ class AppState extends ChangeNotifier {
       await _save();
       return;
     }
+    // 직접 정한 부위 순서(가슴 → 등 …)는 새로 짜도 그대로.
+    final order = _groupOrder(plan);
     await rebuildDayAtGym(plan, gymId);
     final p = planOn(plan.date);
-    if (p != null && !p.gymConfirmed) {
+    if (p != null) {
       p.gymConfirmed = true;
+      _applyGroupOrder(p, order);
       await _save();
     }
   }
@@ -2559,7 +2594,38 @@ class AppState extends ChangeNotifier {
     ));
     // 요청한 운동을 정확히 처방한다(예전엔 생성기가 고른 다른 운동이 들어가는 버그가 있었음).
     // 워밍업 칸이었으면 바꾼 운동도 워밍업(가볍게)으로.
-    final next = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
+    var next = old.warmup ? gen.planWarmup(to) : gen.planExercise(to);
+    // 손잡이·기구만 바꾼 것처럼 같은 부위로 바꾸면, 직접 맞춘 세트 구성(세트 수·횟수·무게 흐름)과
+    // 한쪽씩·고정은 그대로 두고 무게만 새 운동 기준으로 옮긴다.
+    final fromEx = exerciseById(old.exerciseId);
+    if (!old.warmup &&
+        !old.anyCompleted &&
+        fromEx != null &&
+        fromEx.group == to.group &&
+        fromEx.loadType != LoadType.cardio &&
+        to.loadType != LoadType.cardio &&
+        old.sets.isNotEmpty &&
+        next.sets.isNotEmpty) {
+      final oldTop = old.topSet.targetWeight;
+      final newTop = next.topSet.targetWeight;
+      final step = stepForPlan(plan)[next.equipmentType] ?? to.loadType.increment;
+      next = next.copyWith(sets: [
+        for (final s0 in old.sets)
+          SetEntry(
+            targetReps: s0.targetReps,
+            targetWeight: newTop <= 0
+                ? 0
+                : oldTop > 0
+                    ? max(step, LoadEstimator.roundTo(s0.targetWeight / oldTop * newTop, step))
+                    : newTop,
+            level: s0.level,
+            speed: s0.speed,
+            extra: s0.extra,
+          ),
+      ]);
+    }
+    next.oneSide = old.oneSide && canDoOneSide(to);
+    next.pinned = old.pinned;
     // 본 운동을 바꿨으면 선호도 학습: 뺀 운동은 덜, 넣은 운동은 더 자주.
     if (!old.warmup && old.exerciseId != to.id) {
       _bumpPref(u, old.exerciseId, -1);

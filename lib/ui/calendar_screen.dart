@@ -419,7 +419,7 @@ class _DaySummary extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     // 아직 안 온 날은 헬스장이 안 정해졌으니 구성(부위·세트)만.
-                    !p.isFinished && dateOnly(date).isAfter(context.read<AppState>().today)
+                    !p.isFinished && (dateOnly(date).isAfter(context.read<AppState>().today) || context.read<AppState>().needsGymPick(p))
                         ? compositionLine(p)
                         : p.exercises.map((e) => exerciseById(e.exerciseId)?.name ?? '').join(' · '),
                     style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),

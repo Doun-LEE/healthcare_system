@@ -42,13 +42,20 @@ SetAdvice? adviseNextSet(Exercise ex, SetEntry done, SetEntry next,
     return null;
   }
 
+  // 방금 세트로 1RM을 추정(Epley)하고, 다음 세트 목표 횟수에 맞는 무게를 거꾸로 계산한다.
+  // 세트가 이어지면 피로가 쌓이니 3% 덜어 둔다. 기구 눈금에 맞춰 반올림.
+  final e1rm = w * (1 + r / 30);
+  double forReps(int reps) => e1rm / (1 + reps / 30) * 0.97;
+
   // 무게를 올려서 목표 횟수까지 해냈으면 그 무게 그대로.
   if (w > done.targetWeight && diff >= 0 && w > next.effectiveWeight) {
-    return SetAdvice('올린 무게 성공! 다음 세트도 ${kg(w)} × ${next.effectiveReps}$unit로', weight: w, reps: next.effectiveReps);
+    final reps = next.targetReps >= done.targetReps ? next.effectiveReps : done.targetReps;
+    return SetAdvice('올린 무게 성공! 다음 세트도 ${kg(w)} × $reps$unit로', weight: w, reps: reps);
   }
   if (diff >= 3) {
-    // 3회 이상 남았으면 무게 한 칸(6회 이상이면 두 칸) 올리고 횟수는 원래 목표로.
-    final up = LoadEstimator.roundTo(w + step * (diff >= 6 ? 2 : 1), step);
+    // 3회 이상 남았으면 추정 1RM으로 다음 목표 횟수 무게를 잡는다(한 칸 이상, 10% 이하로).
+    final want = min(forReps(next.targetReps), w * 1.1);
+    final up = max(LoadEstimator.roundTo(w + step, step), (want / step).floor() * step);
     return SetAdvice('$diff회 더 했어요 → 다음 세트 ${kg(up)}로 올리고 ${next.targetReps}$unit',
         weight: up, reps: next.targetReps);
   }
@@ -56,7 +63,9 @@ SetAdvice? adviseNextSet(Exercise ex, SetEntry done, SetEntry next,
     return SetAdvice('여유 조금 → 무게는 ${kg(w)} 그대로, 횟수를 $r$unit로 늘려요', weight: w, reps: r);
   }
   if (diff <= -2) {
-    final down = max(step, LoadEstimator.roundTo(w - step, step));
+    // 모자랐으면 한 칸이 아니라, 방금 한 횟수로 추정한 힘에서 목표 횟수를 채울 무게로 내린다.
+    final want = r <= 0 ? w * 0.85 : forReps(next.targetReps);
+    final down = max(step, min(LoadEstimator.roundTo(w - step, step), (want / step).floor() * step));
     return SetAdvice('목표보다 ${-diff}회 모자랐어요 → 다음 세트 ${kg(down)}로 내리고 ${next.targetReps}$unit (또는 ${kg(w)} 그대로 $r$unit)',
         weight: down, reps: next.targetReps, up: false);
   }
