@@ -926,7 +926,9 @@ class AppState extends ChangeNotifier {
     if (data.updatedAt.isAfter(base)) {
       final local = _data;
       final rescued = _mergeSafe(from: local, into: data);
+      final aw = _awakenSnapshot();
       _data = data;
+      _restoreAwaken(aw);
       _mergeProgress(local);
       if (rescued > 0) _data.updatedAt = DateTime.now();
       _snapshotEntities();
@@ -978,7 +980,9 @@ class AppState extends ChangeNotifier {
       String msg;
       if (remote != null && !remote.$1.isEmpty) {
         final local = _data;
+        final aw = _awakenSnapshot();
         _data = remote.$1;
+        _restoreAwaken(aw);
         _mergeFrom(local);
         _snapshotEntities();
         msg = '계정의 데이터를 불러왔어요. 이제 어느 기기에서든 같은 데이터를 봅니다.';
@@ -1265,6 +1269,10 @@ class AppState extends ChangeNotifier {
   static String _kg(double v) => v % 1 == 0 ? '${v.toInt()}' : v.toStringAsFixed(1);
 
   Future<void> deleteProfile(String id) async {
+    if (id == currentUser?.id && awakening) {
+      _notice('🔥 각성모드: 기간이 끝날 때까지 프로필을 지울 수 없어요.');
+      return;
+    }
     _data.profiles.removeWhere((p) => p.id == id);
     _data.plans.removeWhere((p) => p.userId == id);
     _data.progress.remove(id);
@@ -2235,6 +2243,10 @@ class AppState extends ChangeNotifier {
     final u = currentUser;
     if (u == null) return;
     final f = dateOnly(from);
+    if (awakening) {
+      _notice('🔥 각성모드: 기간이 끝날 때까지 루틴을 지울 수 없어요.');
+      return;
+    }
     // 파트너와 약속한 날은 지우지 않는다(파트너 해제는 그 날에서 따로).
     _data.plans.removeWhere(
         (p) => p.userId == u.id && !p.date.isBefore(f) && !p.isFinished && p.partnerName == null);
@@ -3209,6 +3221,23 @@ class AppState extends ChangeNotifier {
 
   bool get awakening => awakeningOn(today);
 
+  /// 각성모드는 한번 켜면 기간이 끝날 때까지 못 끈다: 다른 기기·백업으로 데이터가 바뀌어도 기간을 살린다.
+  (String, DateTime, DateTime)? _awakenSnapshot() {
+    final u = currentUser;
+    if (u == null || !awakening) return null;
+    return (u.name, u.awakenFrom!, u.awakenTo!);
+  }
+
+  void _restoreAwaken((String, DateTime, DateTime)? snap) {
+    if (snap == null) return;
+    final u = currentUser;
+    if (u == null) return;
+    if (u.awakenTo == null || u.awakenTo!.isBefore(snap.$3)) {
+      u.awakenFrom = snap.$2;
+      u.awakenTo = snap.$3;
+    }
+  }
+
   /// 각성모드라 이 날 루틴을 줄이거나 바꿀 수 없으면 안내하고 true.
   bool _awakenBlocks(DateTime d, [String what = '루틴을 빼거나 바꿀']) {
     if (!awakeningOn(d)) return false;
@@ -3970,8 +3999,10 @@ class AppState extends ChangeNotifier {
     for (final e in _data.deleted.entries) {
       if (!e.key.startsWith('gym:') && !e.key.startsWith('profile:')) data.deleted.putIfAbsent(e.key, () => e.value);
     }
+    final aw = _awakenSnapshot();
     _data = data;
     _ensureProfileForAccount();
+    _restoreAwaken(aw);
     _authed = currentUser != null;
     _data.updatedAt = now;
     _snapshotEntities();
