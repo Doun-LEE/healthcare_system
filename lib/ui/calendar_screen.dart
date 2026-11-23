@@ -332,13 +332,13 @@ class _MonthGrid extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('$day', style: TextStyle(fontSize: 12, fontWeight: isToday ? FontWeight.bold : null, color: fg)),
-            if (plan != null && !plan.isRest)
+            if (plan != null && !plan.isRest && !plan.skipped)
               Flexible(
                 child: Text(
                   _focusLabel(plan),
-                  style: TextStyle(fontSize: plan.focus.length > 3 ? 8.5 : 10, height: 1.15, color: fg, decoration: plan.skipped ? TextDecoration.lineThrough : null),
+                  style: TextStyle(fontSize: plan.focus.length > 3 ? 8.5 : 10, height: 1.15, color: fg),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: plan.skipped ? 1 : 3,
+                  maxLines: 3,
                 ),
               ),
             if (plan != null && plan.isRest)
@@ -385,10 +385,11 @@ class _DaySummary extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final p = plan;
+    final rest = p != null && (p.isRest || p.skipped); // 쉬기로 바꾼 날도 휴식일로만 보여 준다
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Card(
-        color: p == null ? cs.surfaceContainerHigh : p.isRest ? cs.tertiaryContainer : cs.primaryContainer,
+        color: p == null ? cs.surfaceContainerHigh : rest ? cs.tertiaryContainer : cs.primaryContainer,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: p == null ? null : onOpen,
@@ -400,14 +401,14 @@ class _DaySummary extends StatelessWidget {
                 Row(children: [
                   Expanded(
                     child: Text(
-                      p == null ? '${date.month}/${date.day} 계획 없음' : p.isRest ? '${date.month}/${date.day} 휴식일' : p.displayTitle,
+                      p == null ? '${date.month}/${date.day} 계획 없음' : rest ? '${date.month}/${date.day} 휴식일' : p.displayTitle,
                       style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (p != null) const Icon(Icons.open_in_full, size: 18),
                 ]),
-                if (p != null && !p.isRest) ...[
+                if (p != null && !rest) ...[
                   const SizedBox(height: 4),
                   Text(
                     '${p.exercises.length}개 운동 · 약 ${p.estimatedMinutes}분'
@@ -433,11 +434,11 @@ class _DaySummary extends StatelessWidget {
                     FilledButton.tonalIcon(onPressed: onOpen, icon: const Icon(Icons.open_in_full, size: 16), label: const Text('자세히 · 수정')),
                   ]),
                 ],
-                if (p != null && p.isRest)
+                if (p != null && rest)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Row(children: [
-                      Expanded(child: Text(p.displayTitle, style: text.bodySmall)),
+                      Expanded(child: Text(p.skipped ? '쉬기로 한 날 · 길게 눌러 다시 운동일로' : p.displayTitle, style: text.bodySmall)),
                       TextButton(onPressed: onOpen, child: const Text('열기')),
                     ]),
                   ),

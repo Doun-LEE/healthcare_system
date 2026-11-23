@@ -256,7 +256,10 @@ class DayPlanView extends StatelessWidget {
         if (plan.partnerName != null) _PartnerStyleTile(plan: plan),
         const SizedBox(height: 8),
     ];
+    // 오늘·앞으로 쉬기로 한 날은 운동 목록·추가·완료 버튼을 숨긴다('운동하기'로 되돌리면 다시 보임).
+    final restNow = plan.skipped && !plan.isFinished && !plan.date.isBefore(state.today);
     final tail = <Widget>[
+      if (!restNow) ...[
         if (editable && !plan.isFinished && plan.exercises.length > 1)
           Padding(
             padding: const EdgeInsets.only(left: 6, top: 2),
@@ -323,9 +326,10 @@ class DayPlanView extends StatelessWidget {
                 ),
             ]),
           ]),
+      ],
     ];
-    final active = [for (final e in plan.exercises) if (!e.skipMine) e];
-    final shown = [...active, for (final e in plan.exercises) if (e.skipMine) e];
+    final active = [if (!restNow) for (final e in plan.exercises) if (!e.skipMine) e];
+    final shown = [...active, if (!restNow) for (final e in plan.exercises) if (e.skipMine) e];
     final list = ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       header: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: head),
