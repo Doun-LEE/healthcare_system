@@ -1,3 +1,4 @@
+import 'widgets/awaken.dart';
 import 'widgets/style_map.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -96,6 +97,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             BodyRecordsCard(user: u),
             LiftRecordsCard(user: u),
+            const AwakenCard(),
             SwitchListTile(
               value: u.showBodyInfo,
               contentPadding: EdgeInsets.zero,

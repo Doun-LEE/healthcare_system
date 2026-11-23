@@ -58,6 +58,7 @@ class FitRoutineApp extends StatelessWidget {
           // 프로필에 저장된 앱 디자인(기본·귀여운·상남자)을 루트에서 ThemeData 로 만든다.
           final style = AppThemeStyle.parse(s.currentUser?.theme);
           return MaterialApp(
+            scaffoldMessengerKey: AppState.messenger,
             title: 'FitRoutine',
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(style, Brightness.light),

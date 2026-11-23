@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show GlobalKey, ScaffoldMessengerState, SnackBar, Text;
 
 import '../core/store.dart';
 import '../data/catalog.dart';
@@ -543,6 +544,7 @@ class AppState extends ChangeNotifier {
     _snapshotEntities();
     final loadedAt = _data.updatedAt;
     _loaded = true;
+    _awakenCatchUp();
     if (!cloudSignedIn) _initialSyncDone = true;
     if (cloudSignedIn) {
       // 계정 세션이 살아 있으면 로그인 화면을 건너뛴다.
@@ -596,6 +598,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _save() async {
+    _awakenCatchUp();
     _syncAllAlcohol();
     _data.updatedAt = DateTime.now();
     if (cloudSignedIn) _data.unsynced = true;
@@ -1746,7 +1749,7 @@ class AppState extends ChangeNotifier {
     // 완료한 날과 파트너 운동일은 그대로 둔다(파트너와 같은 루틴이어야 하므로).
     final fixed = <String, DayPlan>{
       for (final p in myPlans)
-        if ((p.isFinished || p.partnerName != null || p.custom || p.skipped) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
+        if ((p.isFinished || p.partnerName != null || p.custom || p.skipped || awakeningOn(p.date)) && !p.date.isBefore(f) && !p.date.isAfter(t)) dateKey(p.date): p,
     };
     final keep = fixed.keys.toSet();
 
@@ -1796,6 +1799,20 @@ class AppState extends ChangeNotifier {
     if (u == null) return;
     final existing = planOn(date);
     if (existing != null && existing.isFinished) return;
+    if (existing != null && awakeningOn(date)) {
+      if (existing.isRest || existing.skipped) {
+        _notice('🔥 각성모드: 기간 동안 쉬는 날을 바꾸거나 되돌릴 수 없어요.');
+        return;
+      }
+      final to = _awakenMove(existing);
+      if (to == null) {
+        _notice('🔥 각성모드: 남은 기간에 옮길 휴식일이 없어 쉴 수 없어요. 루틴은 다 끝내야 해요.');
+        return;
+      }
+      await _save();
+      _notice('쉬어도 돼요. 이 루틴은 ${to.month}/${to.day} 휴식일로 옮겼어요.');
+      return;
+    }
     // 지난 날은 기록만 바꾼다(앞으로의 계획은 다시 짜지 않는다).
     final past = dateOnly(date).isBefore(today);
     // 쉬기로 했던 운동일 → 다시 운동하기
@@ -1950,6 +1967,8 @@ class AppState extends ChangeNotifier {
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return;
+    // 각성모드: 부위는 못 바꾼다(헬스장을 골라 같은 부위로 다시 짜는 건 괜찮음).
+    if (existing != null && !existing.isRest && !_sameGroups(existing.focus, groups) && _awakenBlocks(d, '부위를 바꿀')) return;
 
     // 부위를 '추가'만 했으면(예: 전신에 유산소 추가) 짜 둔 루틴(파트너와 맞춘 것 포함)은 그대로 두고
     // 새 부위 운동만 뒤에 붙인다. 통째로 다시 만드는 건 부위를 빼거나 바꿨을 때만.
@@ -2168,6 +2187,8 @@ class AppState extends ChangeNotifier {
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return existing;
+    // 각성모드: 다시 생성은 막고, 헬스장만 골라 그 기구로 맞추는 건 허용.
+    if (existing != null && !existing.isRest && gymId == null && _awakenBlocks(d, '루틴을 다시 만들')) return existing;
     if (existing != null && existing.partnerName != null) {
       final people = membersOf(existing);
       if (people.isNotEmpty && cloudSignedIn) {
@@ -2279,6 +2300,7 @@ class AppState extends ChangeNotifier {
 
   /// 마지막 세트를 뺀다(최소 1세트).
   Future<void> removeSet(DayPlan plan, PlannedExercise ex) async {
+    if (_awakenBlocks(plan.date, '세트를 뺄')) return;
     _markCustom(plan);
     if (ex.sets.length <= 1) return;
     ex.sets.removeLast();
@@ -2305,6 +2327,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> removeExercise(DayPlan plan, PlannedExercise ex) async {
+    if (_awakenBlocks(plan.date, '운동을 뺄')) return;
     _markCustom(plan);
     final u = currentUser;
     // 아직 하지 않은 본 운동을 지우면 그 운동은 조금 덜 넣는다.
@@ -2352,6 +2375,7 @@ class AppState extends ChangeNotifier {
   /// 한눈에 보기: [g] 부위에서 아직 안 한 운동 하나를 뺀다(뒤에서부터). 뺄 게 없으면 false.
   Future<bool> removeForGroup(DayPlan plan, MuscleGroup g) async {
     if (plan.isFinished) return false;
+    if (_awakenBlocks(plan.date, '운동을 뺄')) return false;
     for (final p in plan.exercises.reversed.toList()) {
       if (!countsInOverview(p) || p.anyCompleted) continue;
       final ex = exerciseById(p.exerciseId);
@@ -2546,6 +2570,7 @@ class AppState extends ChangeNotifier {
 
   /// 파트너 날에 나만 이 운동을 빼거나 다시 넣는다(파트너 루틴은 그대로).
   Future<void> toggleSkipMine(DayPlan plan, PlannedExercise pe) async {
+    if (!pe.skipMine && _awakenBlocks(plan.date, '운동을 뺄')) return;
     pe.skipMine = !pe.skipMine;
     plan.custom = true;
     plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
@@ -2691,35 +2716,32 @@ class AppState extends ChangeNotifier {
 
     List<PlannedExercise> exercises;
     var trimmed = false;
-    if (existing.partnerName != null) {
+    final keepAll = awakeningOn(existing.date); // 각성모드: 운동·세트는 그대로, 무게만
+    if (existing.partnerName != null || keepAll) {
       // 파트너 운동일: 운동 구성은 그대로 두고(파트너와 같은 운동), 내 무게만 배율 적용.
       exercises = [
         for (final pe in existing.exercises)
-          PlannedExercise(
-            exerciseId: pe.exerciseId,
-            equipmentType: pe.equipmentType,
-            restSeconds: pe.restSeconds,
-            note: pe.note,
-            sets: [
-              for (final s in pe.sets)
-                SetEntry(
-                  targetReps: s.targetReps,
-                  level: s.level,
-                  targetWeight: s.targetWeight > 0
-                      ? max(
+          pe.copyWith(sets: [
+            for (final s in pe.sets)
+              SetEntry(
+                targetReps: s.targetReps,
+                level: s.level,
+                speed: s.speed,
+                extra: s.extra,
+                targetWeight: s.targetWeight > 0
+                    ? max(
+                        exerciseById(pe.exerciseId)!.loadType.increment,
+                        LoadEstimator.roundTo(
+                          s.targetWeight / existing.loadFactor * loadFactor,
                           exerciseById(pe.exerciseId)!.loadType.increment,
-                          LoadEstimator.roundTo(
-                            s.targetWeight / existing.loadFactor * loadFactor,
-                            exerciseById(pe.exerciseId)!.loadType.increment,
-                          ),
-                        )
-                      : 0,
-                ),
-            ],
-          ),
+                        ),
+                      )
+                    : 0,
+              ),
+          ]),
       ];
       // 시간을 줄였으면 뒤쪽(보조) 운동부터 뺀다. 유산소는 마지막에 남긴다.
-      while (exercises.length > 1 && SessionGenerator.estimateMinutes(exercises) > minutes) {
+      while (!keepAll && exercises.length > 1 && SessionGenerator.estimateMinutes(exercises) > minutes) {
         final idx = exercises.lastIndexWhere((e) => exerciseById(e.exerciseId)!.loadType != LoadType.cardio);
         exercises.removeAt(idx < 0 ? exercises.length - 1 : idx);
         trimmed = true;
@@ -3165,6 +3187,94 @@ class AppState extends ChangeNotifier {
     if (changed) await _save();
   }
 
+  /// 화면 어디서든 짧은 안내를 띄울 때.
+  static final messenger = GlobalKey<ScaffoldMessengerState>();
+  String? lastNotice;
+  void _notice(String m) {
+    lastNotice = m;
+    try {
+      messenger.currentState
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(m)));
+    } catch (_) {} // 화면이 없을 때(테스트 등)
+  }
+
+  /// 각성모드 기간인 날인지.
+  bool awakeningOn(DateTime d) {
+    final u = currentUser;
+    if (u == null || u.awakenFrom == null || u.awakenTo == null) return false;
+    final x = dateOnly(d);
+    return !x.isBefore(dateOnly(u.awakenFrom!)) && !x.isAfter(dateOnly(u.awakenTo!));
+  }
+
+  bool get awakening => awakeningOn(today);
+
+  /// 각성모드라 이 날 루틴을 줄이거나 바꿀 수 없으면 안내하고 true.
+  bool _awakenBlocks(DateTime d, [String what = '루틴을 빼거나 바꿀']) {
+    if (!awakeningOn(d)) return false;
+    final p = planOn(d);
+    if (p != null && p.isFinished) return false;
+    _notice('🔥 각성모드: 기간 동안 $what 수 없어요.');
+    return true;
+  }
+
+  /// 각성모드 시작: 오늘부터 [days]일. 그 기간 루틴을 미리 짜 두고, 파트너 날은 혼자 하는 날로.
+  Future<void> startAwakening(int days) async {
+    final u = currentUser;
+    if (u == null || awakening) return;
+    final from = today;
+    final to = today.add(Duration(days: days - 1));
+    for (final p in myPlans.where((p) => p.partnerName != null && !p.isFinished && !p.date.isBefore(from) && !p.date.isAfter(to)).toList()) {
+      await clearPartnerDay(p.date);
+    }
+    await generatePlans(from: from, to: to, restDays: manualRestDays);
+    u.awakenFrom = from;
+    u.awakenTo = to;
+    await _save();
+  }
+
+  /// 각성모드 기간에 남은 운동일 수(오늘 포함, 안 끝낸 것).
+  int get awakenLeft {
+    final u = currentUser;
+    if (!awakening || u == null) return 0;
+    return myPlans.where((p) => awakeningOn(p.date) && !p.date.isBefore(today) && !p.isRest && !p.skipped && !p.isFinished).length;
+  }
+
+  /// [p] 루틴을 각성 기간의 다음 빈 날(휴식일·계획 없는 날, 오늘 이후)로 옮기고 [p]는 휴식 표시. 옮긴 날짜, 없으면 null.
+  DateTime? _awakenMove(DayPlan p) {
+    final u = currentUser;
+    if (u == null || u.awakenTo == null) return null;
+    final end = dateOnly(u.awakenTo!);
+    var d = dateOnly(p.date).isBefore(today) ? today : dateOnly(p.date).add(const Duration(days: 1));
+    while (!d.isAfter(end)) {
+      final there = planOn(d);
+      if (there == null || (there.isRest && !there.isFinished && !there.skipped)) {
+        final moved = DayPlan.fromJson({...p.toJson(), 'id': newId(), 'date': dateKey(d)})
+          ..skipped = false
+          ..gymConfirmed = false;
+        if (there != null) _data.plans.remove(there);
+        _data.plans.add(moved);
+        p.skipped = true;
+        return d;
+      }
+      d = d.add(const Duration(days: 1));
+    }
+    return null;
+  }
+
+  /// 각성 기간에 못 한 지난 운동일은 남은 휴식일로 밀어 넣는다.
+  void _awakenCatchUp() {
+    final u = currentUser;
+    if (u == null || u.awakenFrom == null || !awakening) return;
+    final missed = myPlans
+        .where((p) => awakeningOn(p.date) && p.date.isBefore(today) && !p.isRest && !p.skipped && !p.isFinished && !p.exercises.any((e) => e.anyCompleted))
+        .toList()
+      ..sort((x, y) => x.date.compareTo(y.date));
+    for (final p in missed) {
+      if (_awakenMove(p) == null) break;
+    }
+  }
+
   /// 그 날 운동 시각: 시작했으면 시작 시각, 아니면 보통 운동 시각.
   DateTime workoutTimeOf(DayPlan p) =>
       p.startedAt ?? DateTime(p.date.year, p.date.month, p.date.day, currentUser?.workoutHour ?? 19);
@@ -3173,7 +3283,12 @@ class AppState extends ChangeNotifier {
   AlcoholAdvice? alcoholFor(DayPlan p) {
     final u = currentUser;
     if (u == null || u.drinks.isEmpty || p.isRest) return null;
-    return alcoholAdvice(workoutTimeOf(p), u.drinks);
+    final a = alcoholAdvice(workoutTimeOf(p), u.drinks);
+    // 각성모드: 세트는 그대로(다 해야 하니까), 무게만 조절.
+    if (a != null && awakeningOn(p.date)) {
+      return AlcoholAdvice(label: a.label, tip: '${a.tip} (각성모드라 세트는 그대로)', volume: 1.0, load: a.load, restAdvised: a.restAdvised);
+    }
+    return a;
   }
 
   /// 그 날짜에 잡힌 술자리(시작 시각).
@@ -3390,6 +3505,7 @@ class AppState extends ChangeNotifier {
     void Function(String step)? onStep,
   }) async {
     final u = currentUser;
+    if (awakeningOn(date)) return '🔥 각성모드: 기간 동안은 나한테만 집중해요. 파트너 운동은 각성모드가 끝나고!';
     if (u == null || !cloudSignedIn) return '계정 로그인이 필요해요.';
     if (people.isEmpty) return '함께할 사람을 골라 주세요.';
     onStep?.call(people.length == 1 ? '파트너 정보 받는 중…' : '${people.length}명 정보 받는 중…');
@@ -3790,6 +3906,7 @@ class AppState extends ChangeNotifier {
   Future<void> deletePlan(DateTime date) async {
     final p = planOn(date);
     if (p == null) return;
+    if (_awakenBlocks(date, '루틴을 지울')) return;
     _data.plans.remove(p);
     if (_progressRank(p) >= 2) _data.deleted['${p.userId}|${dateKey(p.date)}'] = DateTime.now();
     await _save();
@@ -3919,6 +4036,7 @@ class AppState extends ChangeNotifier {
     final d = dateOnly(date);
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return null;
+    if (_awakenBlocks(d, '다른 루틴으로 바꿀')) return null;
     final did = source.isFinished || source.exercises.any((e) => e.anyCompleted);
     final exercises = <PlannedExercise>[
       for (final e in source.exercises)
@@ -3982,6 +4100,7 @@ class AppState extends ChangeNotifier {
     final shared = decodeRoutine(code);
     if (shared == null) return null;
     final d = dateOnly(date);
+    if (_awakenBlocks(d, '다른 루틴으로 바꿀')) return null;
     final existing = planOn(d);
     if (existing != null && existing.isFinished) return null;
 

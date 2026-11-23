@@ -21,6 +21,7 @@ import '../state/app_state.dart';
 import 'app_theme.dart';
 import 'chat_screen.dart';
 import 'widgets/condition_card.dart';
+import 'widgets/awaken.dart';
 import 'widgets/drink_sheet.dart';
 import 'widgets/marine_hero.dart';
 import 'widgets/mascot.dart';
@@ -205,6 +206,7 @@ class DayPlanView extends StatelessWidget {
     // 위·아래 내용은 header/footer 로 붙인다.
     final head = <Widget>[
         _Header(plan: plan),
+        AwakenBanner(plan: plan),
         if (!plan.isFinished) AlcoholBanner(plan: plan),
         if (plan.skipped)
           Card(
@@ -370,6 +372,17 @@ class DayPlanView extends StatelessWidget {
 
   Future<void> _finish(BuildContext context, AppState state) async {
     final ratio = plan.completionRatio;
+    if (ratio < 1.0 && state.awakeningOn(plan.date)) {
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('🔥 각성모드'),
+          content: Text('${(ratio * 100).round()}%만 했어요. 각성모드에서는 모든 세트를 끝내야 완료할 수 있어요.'),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('계속 운동'))],
+        ),
+      );
+      return;
+    }
     if (ratio < 1.0) {
       final ok = await showDialog<bool>(
         context: context,
@@ -664,7 +677,7 @@ class _Header extends StatelessWidget {
                   child: Text(plan.displayTitle,
                       style: text.titleLarge?.copyWith(color: cs.onPrimaryContainer, fontWeight: FontWeight.bold)),
                 ),
-                if (!plan.isFinished)
+                if (!plan.isFinished && !state.awakeningOn(plan.date))
                   IconButton(
                     tooltip: '부위 바꾸기',
                     icon: Icon(Icons.swap_horiz, color: cs.onPrimaryContainer),

@@ -337,6 +337,8 @@ class UserProfile {
     this.showBodyInfo = false,
     List<DateTime>? drinks,
     this.workoutHour = 19,
+    this.awakenFrom,
+    this.awakenTo,
     Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
@@ -444,6 +446,10 @@ class UserProfile {
   /// 보통 운동하는 시각(시). 술자리 전후 몇 시간인지 셀 때 쓴다.
   int workoutHour;
 
+  /// 각성모드 기간(이 기간엔 루틴을 줄이거나 바꿀 수 없고, 쉬면 남은 휴식일로 옮겨 다 끝낸다).
+  DateTime? awakenFrom;
+  DateTime? awakenTo;
+
   /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
   final Map<String, int> aiUsage;
 
@@ -526,6 +532,8 @@ class UserProfile {
         if (showBodyInfo) 'showBodyInfo': true,
         if (drinks.isNotEmpty) 'drinks': [for (final d in drinks) d.toIso8601String()],
         if (workoutHour != 19) 'wHour': workoutHour,
+        if (awakenFrom != null) 'awFrom': dateKey(awakenFrom!),
+        if (awakenTo != null) 'awTo': dateKey(awakenTo!),
         if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
@@ -576,6 +584,8 @@ class UserProfile {
         showBodyInfo: (j['showBodyInfo'] as bool?) ?? false,
         drinks: [for (final d in (j['drinks'] as List?) ?? const []) ?DateTime.tryParse(d as String)],
         workoutHour: (j['wHour'] as num?)?.toInt() ?? 19,
+        awakenFrom: j['awFrom'] == null ? null : DateTime.tryParse(j['awFrom'] as String),
+        awakenTo: j['awTo'] == null ? null : DateTime.tryParse(j['awTo'] as String),
         aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),
