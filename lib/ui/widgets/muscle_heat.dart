@@ -262,9 +262,73 @@ class MuscleRecoveryList extends StatefulWidget {
 
 class _MuscleRecoveryListState extends State<MuscleRecoveryList> {
   bool _all = false;
+  bool _detail = false;
+
+  Color _color(ColorScheme cs, int p) => p >= 100
+      ? cs.primary
+      : p >= 60
+          ? const Color(0xFFF57C00)
+          : cs.error;
+
+  /// 모든 근육을 한 화면에: 이름 · % · 막대를 격자로.
+  Widget _grid(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final tired = widget.items.where((r) => r.percent < 100).length;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(
+        tired == 0 ? '모든 근육이 회복됐어요. 뭐든 들 수 있는 날!' : '회복 중인 근육 $tired개. 100%가 아닌 근육은 오늘 가볍게 가거나 다른 부위를 추천해요.',
+        style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+      ),
+      const SizedBox(height: 8),
+      LayoutBuilder(builder: (context, c) {
+        final cols = c.maxWidth >= 700 ? 5 : c.maxWidth >= 480 ? 4 : 3;
+        const gap = 6.0;
+        final w = (c.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(spacing: gap, runSpacing: gap, children: [
+          for (final r in widget.items)
+            Container(
+              width: w,
+              padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
+              decoration: BoxDecoration(
+                color: _color(cs, r.percent).withValues(alpha: r.percent >= 100 ? 0.08 : 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(r.muscle.label, style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  Text('${r.percent}%', style: text.labelMedium?.copyWith(color: _color(cs, r.percent), fontWeight: FontWeight.w800)),
+                ]),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: (r.percent / 100).clamp(0.0, 1.0),
+                    minHeight: 4,
+                    color: _color(cs, r.percent),
+                    backgroundColor: cs.onSurface.withValues(alpha: 0.08),
+                  ),
+                ),
+              ]),
+            ),
+        ]);
+      }),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _detail = true),
+          icon: const Icon(Icons.unfold_more, size: 18),
+          label: const Text('자세히 (마지막 운동)'),
+        ),
+      ),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_detail) return _grid(context);
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     // 회복 중인 근육만 줄로 크게, 다 회복된 근육은 이름만 작게 모아서(스크롤 줄이기).
@@ -316,7 +380,14 @@ class _MuscleRecoveryListState extends State<MuscleRecoveryList> {
             ),
         ]),
       ],
-      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: () => setState(() => _detail = false),
+          icon: const Icon(Icons.grid_view, size: 18),
+          label: const Text('한눈에 보기'),
+        ),
+      ),
       Text('회복 % = 마지막 자극 후 지난 시간 ÷ 부위 권장 회복 시간(하체 72h · 가슴/등/어깨/팔 48h · 복근 24h). 보조근으로 쓰인 날은 절반만 쳐요.',
           style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
     ]);
