@@ -7,6 +7,7 @@ import '../engine/muscle_stats.dart';
 import '../engine/stats.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'widgets/deload.dart';
 import 'widgets/muscle_heat.dart';
 import 'widgets/seg_label.dart';
 
@@ -100,6 +101,12 @@ class _StatsScreenState extends State<StatsScreen> {
                   title: '근육별 회복 상태',
                   subtitle: '지금 기준. 피로한 근육부터 보여줘요.',
                   child: MuscleRecoveryList(items: MuscleRecovery.compute(state.myPlans)),
+                ),
+
+                _Card(
+                  title: '정체기 · 디로드',
+                  subtitle: '기록이 멈춘 운동과, 쉬어 갈 때인지 알려 줘요.',
+                  child: const PlateauSection(),
                 ),
 
                 // 근육별 열지도(해부도)

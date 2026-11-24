@@ -339,6 +339,10 @@ class UserProfile {
     this.workoutHour = 19,
     this.awakenFrom,
     this.awakenTo,
+    this.deloadFrom,
+    this.deloadTo,
+    this.deloadSnooze,
+    Map<String, DateTime>? plateauReset,
     Map<String, int>? aiUsage,
     this.warmupMode = 'auto',
     List<String>? warmupIds,
@@ -364,7 +368,8 @@ class UserProfile {
     Set<InjuryArea>? injuries,
     Set<InjuryArea>? cautions,
     this.theme = 'basic',
-  })  : drinks = drinks ?? [],
+  })  : plateauReset = plateauReset ?? {},
+        drinks = drinks ?? [],
         birthYear = birthYear ?? (DateTime.now().year - age),
         bodyLog = bodyLog ?? [],
         liftLog = liftLog ?? [],
@@ -450,6 +455,16 @@ class UserProfile {
   DateTime? awakenFrom;
   DateTime? awakenTo;
 
+  /// 디로드 주(세트 60% · 무게 90%). 끝난 뒤에도 마지막 디로드로 남겨 둔다.
+  DateTime? deloadFrom;
+  DateTime? deloadTo;
+
+  /// 디로드 추천을 '나중에' 한 날(일주일 동안 다시 안 물음).
+  DateTime? deloadSnooze;
+
+  /// 운동별 '낮춰서 다시 쌓기' 한 날(정체기 판정은 그 뒤 기록만).
+  Map<String, DateTime> plateauReset;
+
   /// AI 호출 횟수('yyyy-MM-dd|coach' → 횟수). 하루 한도 계산용, 오래된 날짜는 정리한다.
   final Map<String, int> aiUsage;
 
@@ -534,6 +549,10 @@ class UserProfile {
         if (workoutHour != 19) 'wHour': workoutHour,
         if (awakenFrom != null) 'awFrom': dateKey(awakenFrom!),
         if (awakenTo != null) 'awTo': dateKey(awakenTo!),
+        if (deloadFrom != null) 'dlFrom': dateKey(deloadFrom!),
+        if (deloadTo != null) 'dlTo': dateKey(deloadTo!),
+        if (deloadSnooze != null) 'dlSnooze': dateKey(deloadSnooze!),
+        if (plateauReset.isNotEmpty) 'plReset': {for (final e in plateauReset.entries) e.key: dateKey(e.value)},
         if (aiUsage.isNotEmpty) 'aiUsage': aiUsage,
         'warmupMode': warmupMode,
         'warmupIds': warmupIds,
@@ -586,6 +605,13 @@ class UserProfile {
         workoutHour: (j['wHour'] as num?)?.toInt() ?? 19,
         awakenFrom: j['awFrom'] == null ? null : DateTime.tryParse(j['awFrom'] as String),
         awakenTo: j['awTo'] == null ? null : DateTime.tryParse(j['awTo'] as String),
+        deloadFrom: j['dlFrom'] == null ? null : DateTime.tryParse(j['dlFrom'] as String),
+        deloadTo: j['dlTo'] == null ? null : DateTime.tryParse(j['dlTo'] as String),
+        deloadSnooze: j['dlSnooze'] == null ? null : DateTime.tryParse(j['dlSnooze'] as String),
+        plateauReset: {
+          for (final e in ((j['plReset'] as Map?) ?? const {}).entries)
+            if (DateTime.tryParse(e.value as String) != null) e.key as String: DateTime.parse(e.value as String),
+        },
         aiUsage: {for (final e in ((j['aiUsage'] as Map?) ?? const {}).entries) '${e.key}': (e.value as num).toInt()},
         warmupMode: (j['warmupMode'] as String?) ?? 'auto',
         warmupIds: (j['warmupIds'] as List?)?.cast<String>(),

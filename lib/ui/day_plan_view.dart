@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../engine/training_style.dart';
 import '../services/cloud_sync.dart';
 import '../services/partner.dart';
+import 'widgets/deload.dart';
 import 'widgets/style_map.dart';
 import '../data/catalog.dart';
 import '../engine/load_estimator.dart';
@@ -207,6 +208,7 @@ class DayPlanView extends StatelessWidget {
     final head = <Widget>[
         _Header(plan: plan),
         AwakenBanner(plan: plan),
+        DeloadBanner(plan: plan),
         if (!plan.isFinished) AlcoholBanner(plan: plan),
         if (plan.skipped)
           Card(

@@ -3,6 +3,7 @@ library;
 
 import '../engine/alcohol.dart';
 import '../engine/plan_overview.dart';
+import '../engine/plateau.dart';
 import '../engine/training_style.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -2976,7 +2977,9 @@ class AppState extends ChangeNotifier {
           cur.workingWeight = baseline;
         }
       }
-      final r = Progression.apply(pe, cur, now, loadFactor: plan.loadFactor, rpe: rpe);
+      // 술자리·디로드로 일부러 낮춘 날도 '가벼운 날'로 쳐서 기준 무게를 깎지 않는다.
+      final lf = (plan.loadFactor > 0 ? plan.loadFactor : 1.0) * (plan.alcLoad > 0 ? plan.alcLoad : 1.0);
+      final r = Progression.apply(pe, cur, now, loadFactor: lf, rpe: rpe);
       msgs.add('${ex.name}: ${r.message}');
       progressed.add(pe.exerciseId);
     }
@@ -3497,8 +3500,103 @@ class AppState extends ChangeNotifier {
     final to = today.add(const Duration(days: 8));
     for (final p in _data.plans) {
       if (p.userId != u.id || p.date.isBefore(from) || p.date.isAfter(to)) continue;
-      syncAlcohol(p, alcoholFor(p));
+      syncAlcohol(p, adjustFor(p));
     }
+  }
+
+  /// 술자리·디로드를 합친 그 날 세트·무게 배율(더 많이 줄이는 쪽).
+  AlcoholAdvice? adjustFor(DayPlan p) {
+    final a = alcoholFor(p);
+    if (!deloadOn(p.date) || p.isRest) return a;
+    final v = awakeningOn(p.date) ? 1.0 : deloadVolume;
+    return AlcoholAdvice(
+      label: a?.label ?? '디로드',
+      tip: a?.tip ?? '',
+      volume: min(a?.volume ?? 1.0, v),
+      load: min(a?.load ?? 1.0, deloadLoad),
+      restAdvised: a?.restAdvised ?? false,
+    );
+  }
+
+  // ── 정체기 · 디로드 ──
+
+  bool deloadOn(DateTime d) {
+    final u = currentUser;
+    if (u == null || u.deloadFrom == null || u.deloadTo == null) return false;
+    final x = dateOnly(d);
+    return !x.isBefore(dateOnly(u.deloadFrom!)) && !x.isAfter(dateOnly(u.deloadTo!));
+  }
+
+  bool get deloading => deloadOn(today);
+
+  List<Plateau> get plateaus => findPlateaus(myPlans, today, resetAt: currentUser?.plateauReset ?? const {});
+
+  /// 지금 디로드를 권하면 그 이유들(디로드 중·각성모드·'나중에' 일주일 안이면 null).
+  DeloadAdvice? get deloadSuggestion {
+    final u = currentUser;
+    if (u == null || deloading || awakening) return null;
+    if (u.deloadSnooze != null && today.difference(dateOnly(u.deloadSnooze!)).inDays < 7) return null;
+    final end = u.deloadTo != null && dateOnly(u.deloadTo!).isBefore(today) ? dateOnly(u.deloadTo!) : null;
+    final a = deloadAdvice(myPlans, today, lastDeloadEnd: end, plateaus: plateaus);
+    return a.recommended ? a : null;
+  }
+
+  /// 오늘부터 일주일 디로드: 그 기간 시작 안 한 루틴의 세트·무게를 줄인다(끝나면 저절로 되돌아감).
+  Future<void> startDeload() async {
+    final u = currentUser;
+    if (u == null || deloading) return;
+    if (awakening) {
+      _notice('🔥 각성모드 중엔 디로드를 할 수 없어요. 기간이 끝나고!');
+      return;
+    }
+    u.deloadFrom = today;
+    u.deloadTo = today.add(const Duration(days: deloadDays - 1));
+    await _save();
+  }
+
+  /// 디로드 일찍 끝내기: 내일부터 평소대로.
+  Future<void> endDeload() async {
+    final u = currentUser;
+    if (u == null || !deloading) return;
+    final p = planOn(today);
+    final keepToday = p != null && (p.isStarted || p.isFinished || p.exercises.any((e) => e.anyCompleted));
+    u.deloadTo = keepToday ? today : today.subtract(const Duration(days: 1));
+    if (dateOnly(u.deloadTo!).isBefore(dateOnly(u.deloadFrom!))) {
+      u.deloadFrom = null;
+      u.deloadTo = null;
+    }
+    await _save();
+  }
+
+  Future<void> snoozeDeload() async {
+    final u = currentUser;
+    if (u == null) return;
+    u.deloadSnooze = today;
+    await _save();
+  }
+
+  /// 정체기 운동: 기준 무게를 10% 낮춰 다시 쌓는다. 앞으로 짤 루틴부터 반영.
+  Future<void> resetPlateau(String exerciseId) async {
+    final u = currentUser;
+    final ex = exerciseById(exerciseId);
+    if (u == null || ex == null) return;
+    final pr = progress[exerciseId];
+    if (pr != null) {
+      final step = ex.loadType.increment;
+      double down(double w) => w <= 0 ? w : max(step, LoadEstimator.roundTo(w * 0.9, step));
+      pr.workingWeight = down(pr.workingWeight);
+      for (final k in pr.machineWeights.keys.toList()) {
+        pr.machineWeights[k] = down(pr.machineWeights[k]!);
+      }
+      pr.consecutiveFail = 0;
+      pr.consecutiveSuccess = 0;
+    }
+    u.plateauReset[exerciseId] = today;
+    // 아직 시작 안 한 앞으로의 루틴에 든 이 운동도 무게를 다시 맞춘다.
+    for (final p in myPlans.where((p) => !p.date.isBefore(today) && !p.isFinished && !p.isStarted && p.exercises.any((e) => e.exerciseId == exerciseId))) {
+      _rebalance(p);
+    }
+    await _save();
   }
 
   /// 술자리 배율을 루틴에 반영(이미 곱해 둔 배율은 나눠서 되돌린 뒤 새 배율). 바뀌면 true.
