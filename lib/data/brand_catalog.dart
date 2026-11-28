@@ -767,7 +767,7 @@ const List<BrandData> researchedBrands = [
     BrandModel('렉스코 스텝밀 (LCS8A)', EquipmentType.stairClimber, _none),
     BrandModel('렉스코 엘립티컬 (LE8A)', EquipmentType.elliptical, _none),
   ]),
-  BrandData('newtech', '뉴텍 (Newtech)', ['뉴텍', '뉴텍웰니스', '뉴택', '뉴테크', 'NEWTECH', 'Newtech', 'newtech', 'NEWTEC', '엠토쳐', '엠토처', 'M-TORTURE', '온힘', 'ON HIM', '어드밴스', 'ADVANCE'], Color(0xFFFE6B00), '경남 김해 국산 브랜드, 동네 헬스장에서 가장 흔함. 온힘·어드밴스(핀, 어드밴스는 온힘과 같은 구성)·엠토쳐(원판) 라인', [
+  BrandData('newtech', '뉴텍 (Newtech)', ['올림피아', 'OLYMPIA', 'Olympia', '뉴텍', '뉴텍웰니스', '뉴택', '뉴테크', 'NEWTECH', 'Newtech', 'newtech', 'NEWTEC', '엠토쳐', '엠토처', 'M-TORTURE', '온힘', 'ON HIM', '어드밴스', 'ADVANCE'], Color(0xFFFE6B00), '경남 김해 국산 브랜드, 동네 헬스장에서 가장 흔함. 온힘·어드밴스(핀, 어드밴스는 온힘과 같은 구성)·엠토쳐(원판) 라인', [
     BrandModel('뉴텍 온힘 펙덱 플라이 (리버스 겸용)', EquipmentType.pecDeck, _pin, extra: [EquipmentType.rearDeltMachine]),
     BrandModel('뉴텍 온힘 스탠딩 플라이 체스트&백', EquipmentType.pecDeck, _pin, extra: [EquipmentType.rearDeltMachine]),
     BrandModel('뉴텍 온힘 체스트 플라이', EquipmentType.pecDeck, _pin),
@@ -819,6 +819,9 @@ const List<BrandData> researchedBrands = [
     BrandModel('뉴텍 엠토쳐 벨트 스쿼트', EquipmentType.beltSquat, _plate),
     BrandModel('뉴텍 엠토쳐 스쿼트&카프 레이즈', EquipmentType.calfRaise, _plate),
     BrandModel('뉴텍 엠토쳐 드롭 스쿼트', EquipmentType.hackSquat, _plate),
+    BrandModel('뉴텍 엠토쳐 V 스쿼트 (브이 스쿼트)', EquipmentType.vSquat, _plate),
+    BrandModel('뉴텍 어드밴스 핵 스쿼트', EquipmentType.hackSquat, _plate),
+    BrandModel('뉴텍 올림피아 하이 로우', EquipmentType.highRow, _plate),
     BrandModel('뉴텍 엠토쳐 핵 프레스', EquipmentType.legPress, _plate),
     BrandModel('뉴텍 엠토쳐 레그 익스텐션', EquipmentType.legExtension, _plate),
     BrandModel('뉴텍 엠토쳐 닐링 레그 컬', EquipmentType.lyingLegCurl, _plate),
@@ -1301,5 +1304,16 @@ const List<BrandData> researchedBrands = [
     BrandModel('짐레코 360 글루테우스 원 레그 킥 (360 Gluteus, One Leg Kick)', EquipmentType.gluteKickback, _pin),
     BrandModel('짐레코 364 어덕터/어브덕터 (364 Adductor/Abductor)', EquipmentType.hipAbductor, _pin, extra: [EquipmentType.hipAdductor]),
     BrandModel('짐레코 365A 럼바/앱도미널 (365A Lumbar/Abdominal)', EquipmentType.backExtensionMachine, _pin, extra: [EquipmentType.abCrunchMachine]),
+  ]),
+  BrandData('vitalforce', '바이탈포스 (Vital Force)', ['바이탈포스', '바이탈 포스', '바이털포스', 'Vital Force', 'VitalForce', 'vitalforce'], Color(0xFF1F1F1F), '헬스장 웨이트 기구 브랜드', [
+    // 벤치에 앉아 발판을 딛고, 거치대에 올린 바벨을 몸 쪽으로 당기는 원판 로우 스테이션.
+    BrandModel('바이탈포스 시티드 바벨 로우 (Seated Barbell Row)', EquipmentType.lowRow, _plate),
+  ]),
+  BrandData('super', '슈퍼 (SUPER · S 로고)', ['슈퍼', 'SUPER', 'Super', '슈퍼 레버리지', 'Super Leverage', '슈퍼 멀티', 'Super Multi'], Color(0xFF2B2B2B), 'S 로고 명판의 SUPER LEVERAGE·SUPER MULTI 원판 머신', [
+    BrandModel('슈퍼 레버리지 풀다운 (Super Leverage Pulldown)', EquipmentType.latPulldownPlateLoaded, _plate),
+    BrandModel('슈퍼 멀티 숄더 프레스 · 바이킹 프레스 (Super Multi Shoulder Press)', EquipmentType.vikingPress, _plate, extra: [EquipmentType.shoulderPressPlateLoaded]),
+  ]),
+  BrandData('legendary', '레전더리 (Legendary)', ['레전더리', '레전드리', '레젼더리', 'Legendary', 'LEGENDARY'], Color(0xFF8B1E1E), '원판 머신 브랜드', [
+    BrandModel('레전더리 플레이트 로디드 숄더 프레스 (Plate Loaded Shoulder Press)', EquipmentType.shoulderPressPlateLoaded, _plate),
   ]),
 ];

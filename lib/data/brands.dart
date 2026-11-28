@@ -58,11 +58,31 @@ class EquipmentBrand {
   Color get badgeColor => color ?? style.frame;
 
   bool matches(String q) {
-    String n(String v) => v.toLowerCase().replaceAll(RegExp(r'\s+'), '');
-    final s = n(q);
+    final s = searchFold(q);
     if (s.isEmpty) return true;
-    return n(name).contains(s) || aliases.any((a) => n(a).contains(s));
+    return searchFold(name).contains(s) || aliases.any((a) => searchFold(a).contains(s));
   }
+}
+
+/// 기구 검색용: 띄어쓰기·대소문자를 없애고, 사람마다 다르게 쓰는 표기를 하나로(헥스쿼트=핵 스쿼트, 어드벤스=어드밴스, v스쿼트=브이 스쿼트).
+String searchFold(String v) {
+  var s = v.toLowerCase().replaceAll(RegExp(r'[\s\-·/]+'), '');
+  const pairs = {
+    '헥스': '핵스',
+    '헥프': '핵프',
+    '벤스': '밴스',
+    '브이': 'v',
+    '쇼울더': '숄더',
+    '숄더프래스': '숄더프레스',
+    '프래스': '프레스',
+    '레버레지': '레버리지',
+    '래버리지': '레버리지',
+    '엠토처': '엠토쳐',
+    '로우디드': '로디드',
+    '로드드': '로디드',
+  };
+  pairs.forEach((a, b) => s = s.replaceAll(a, b));
+  return s;
 }
 
 const _pin = LoadMechanism.pin;
