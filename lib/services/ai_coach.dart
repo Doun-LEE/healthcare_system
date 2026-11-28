@@ -195,7 +195,7 @@ class AiCoach {
     if (ctx.request != null && ctx.request!.trim().isNotEmpty) sb.writeln('request: ${ctx.request!.trim()}');
     if (ctx.partner != null) {
       final pp = ctx.partner!;
-      sb.writeln('partner: ${pp.name} (${pp.profile.level.label}, ${pp.profile.weightKg.round()}kg)'
+      sb.writeln('partner: ${pp.name} (${pp.profile.level.label}${pp.profile.showBodyInfo ? ', ${pp.profile.weightKg.round()}kg' : ''})'
           '${pp.profile.injuries.isNotEmpty ? ', 부상 ${pp.profile.injuries.map((i) => i.label).join(',')}' : ''}');
     }
     sb.writeln();

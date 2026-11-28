@@ -7,6 +7,7 @@ library;
 
 import '../engine/training_style.dart';
 import '../models/models.dart';
+import '../engine/level_assessor.dart';
 import '../engine/rank.dart';
 
 /// 계정의 공개 ID: `닉네임#1234`. uid 해시로 4자리를 만들어 닉네임이 같아도 구분된다.
@@ -73,7 +74,12 @@ class PartnerProfile {
     this.machineWeights = const {},
     this.publishedStyle,
     this.publishedRecent,
+    this.publishedLevel,
   });
+
+  /// 신체 정보를 숨긴 친구가 올린 레벨 판정(체중 없이 등급만). 없으면 프로필로 계산.
+  final LevelAssessment? publishedLevel;
+  LevelAssessment get assessment => publishedLevel ?? LevelAssessor.assess(profile);
 
   /// 상대 기기가 올린 최근 4주 요약(공개 루틴은 앞뒤 2주뿐이라 4주 통계는 따로 받는다).
   final RecentSummary? publishedRecent;
@@ -88,7 +94,7 @@ class PartnerProfile {
   TrainingStyle get style => publishedStyle ?? TrainingStyle.prior(profile);
 
   /// 랭크(힘 + 최근 4주 꾸준함).
-  Rank get rank => Rank.of(profile, sessions4w: recent.sessions);
+  Rank get rank => Rank.of(profile, sessions4w: recent.sessions, assessment: publishedLevel);
 
   /// 운동 선호도(교체·추가·삭제로 배운 값). 함께 할 루틴을 짤 때 모두의 평균을 쓴다.
   final Map<String, double> exercisePref;
@@ -154,23 +160,25 @@ class PartnerProfile {
       'handle': handle ?? makeHandle(me.name, uid),
       'profile': {
         'sex': me.sex.name,
-        'weightKg': me.weightKg,
-        'heightCm': me.heightCm,
-        'age': me.age,
+        // 신체 정보를 숨겼으면 체중·키·나이·체성분 수치는 아예 올리지 않는다(레벨은 판정 결과만 따로).
+        if (me.showBodyInfo) 'weightKg': me.weightKg,
+        if (me.showBodyInfo) 'heightCm': me.heightCm,
+        if (me.showBodyInfo) 'age': me.age,
         if (me.showBodyInfo) 'showBody': true,
         'level': me.level.name,
         'goal': me.goal.name,
         'splitDays': me.splitDays,
         'sessionMinutes': me.sessionMinutes,
         'includeCardio': me.includeCardio,
-        'skeletalMuscleKg': me.skeletalMuscleKg,
-        'bodyFatPct': me.bodyFatPct,
+        if (me.showBodyInfo) 'skeletalMuscleKg': me.skeletalMuscleKg,
+        if (me.showBodyInfo) 'bodyFatPct': me.bodyFatPct,
         'squat1rm': me.squat1rm,
         'bench1rm': me.bench1rm,
         'deadlift1rm': me.deadlift1rm,
         'ohp1rm': me.ohp1rm,
         'injuries': me.injuries.map((i) => i.name).toList(),
       },
+      if (!me.showBodyInfo) 'lv': LevelAssessor.assess(me).toPublicJson(),
       'available': available.map((e) => e.name).toList(),
       'gyms': [
         for (final g in gyms)
@@ -305,6 +313,7 @@ class PartnerProfile {
           if (e.value is String && DateTime.tryParse(e.value as String) != null) e.key as String: DateTime.parse(e.value as String),
       },
       publishedStyle: TrainingStyle.fromJson(j['style']),
+      publishedLevel: LevelAssessment.fromPublicJson(j['lv'], profile.goal),
       publishedRecent: RecentSummary.fromJson(j['recent']),
       machineWeights: {
         for (final e in ((j['mw'] as Map?) ?? const {}).entries)

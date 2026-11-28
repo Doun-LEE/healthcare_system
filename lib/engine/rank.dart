@@ -97,8 +97,8 @@ class Rank {
   }
 
   /// [p] 프로필(3대·체성분·숙련도)과 최근 4주 완료 운동 수 [sessions4w]로 계산.
-  static Rank of(UserProfile p, {required int sessions4w}) {
-    final a = LevelAssessor.assess(p);
+  static Rank of(UserProfile p, {required int sessions4w, LevelAssessment? assessment}) {
+    final a = assessment ?? LevelAssessor.assess(p);
     final strength = a.score ??
         switch (p.level) {
           TrainingLevel.beginner => 22.0,

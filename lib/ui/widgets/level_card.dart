@@ -5,7 +5,10 @@ import '../../models/models.dart';
 
 /// 레벨 판정 결과: 종합 등급 + 항목별 바.
 class LevelCard extends StatelessWidget {
-  const LevelCard({super.key, required this.profile, this.compact = false, this.onTap, this.hideBody = false});
+  const LevelCard({super.key, required this.profile, this.compact = false, this.onTap, this.hideBody = false, this.assessment});
+
+  /// 미리 판정된 결과(신체 정보를 숨긴 친구가 올린 것). 없으면 [profile]로 계산.
+  final LevelAssessment? assessment;
   final UserProfile profile;
 
   /// 친구가 신체 정보를 숨겼으면: '체중의 몇 배'처럼 체중을 거꾸로 알 수 있는 값과 골격근·체지방 수치는 숨기고 등급만.
@@ -25,7 +28,7 @@ class LevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final a = LevelAssessor.assess(profile);
+    final a = assessment ?? LevelAssessor.assess(profile);
     final gradeText = a.grade?.label ?? profile.level.label;
 
     if (compact) {

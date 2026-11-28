@@ -49,6 +49,58 @@ class LevelAssessment {
   final String intensity;
 
   bool get hasData => score != null;
+
+  /// 신체 정보를 숨긴 사람이 친구에게 올리는 판정 결과(체중·체성분 수치 없이 등급·점수만).
+  Map<String, dynamic> toPublicJson() => {
+        if (score != null) 's': score,
+        if (grade != null) 'g': grade!.name,
+        'l': level.name,
+        'i': [
+          for (final it in items)
+            {
+              'n': it.name,
+              'g': it.grade.name,
+              's': it.score,
+              'd': it.missing
+                  ? it.detail
+                  : (it.name == '골격근량' || it.name == '체지방률')
+                      ? '비공개'
+                      : it.detail.split(' · ').first,
+              if (it.missing) 'm': true,
+            },
+        ],
+      };
+
+  static LevelAssessment? fromPublicJson(Object? raw, TrainingGoal goal) {
+    if (raw is! Map) return null;
+    try {
+      Grade g(Object? n) => Grade.values.firstWhere((x) => x.name == n, orElse: () => Grade.novice);
+      final items = [
+        for (final e in (raw['i'] as List? ?? const []))
+          LevelItem(
+            name: (e as Map)['n'] as String,
+            grade: g(e['g']),
+            score: (e['s'] as num?)?.toDouble() ?? 0,
+            detail: (e['d'] as String?) ?? '',
+            missing: (e['m'] as bool?) ?? false,
+          ),
+      ];
+      final score = (raw['s'] as num?)?.toDouble();
+      final grade = raw['g'] == null ? null : g(raw['g']);
+      final level = TrainingLevel.values.firstWhere((l) => l.name == raw['l'], orElse: () => TrainingLevel.beginner);
+      final parts = items.where((i) => !i.missing).map((i) => '${i.name} ${i.grade.label}').toList();
+      return LevelAssessment(
+        score: score,
+        grade: grade,
+        level: level,
+        items: items,
+        summary: score == null ? '3대 기록이나 인바디를 입력하면 레벨을 자동으로 판정해요.' : '${parts.join(' · ')} → 종합 ${grade?.label ?? ''} (${score.round()}점)',
+        intensity: LevelAssessor.intensityFor(level, goal),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class LevelAssessor {
