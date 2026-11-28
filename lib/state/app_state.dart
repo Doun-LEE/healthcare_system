@@ -2446,6 +2446,71 @@ class AppState extends ChangeNotifier {
   }
 
   /// 운동을 하루 계획에 추가. 파트너 날에 [personal]이면 나만 하고 파트너에게 보내지 않는다.
+  /// 워밍업 하나 더: 그 날 부위 중 아직 워밍업이 없는 부위부터, 그 부위 활성화 운동을 가볍게 2세트.
+  Future<Exercise?> addWarmup(DayPlan plan) async {
+    final u = currentUser;
+    if (u == null || plan.isFinished) return null;
+    final available = availableFor(plan);
+    final inPlan = {for (final p in plan.exercises) p.exerciseId};
+    final groups = tallyPlan(plan).values.where((t) => t.exercises > 0 && t.group != MuscleGroup.cardio).map((t) => t.group).toList();
+    if (groups.isEmpty) groups.addAll(plan.focus.where((g) => g != MuscleGroup.cardio));
+    final warmed = {
+      for (final p in plan.exercises)
+        if (p.warmup)
+          for (final e in warmupByGroup.entries)
+            if (e.value.contains(p.exerciseId)) e.key,
+    };
+    final order = [...groups.where((g) => !warmed.contains(g)), ...groups.where(warmed.contains)];
+    Exercise? pick;
+    for (final g in order) {
+      for (final id in [...u.warmupByGroupIds[g.name] ?? const <String>[], ...warmupByGroup[g] ?? const <String>[]]) {
+        final ex = exerciseById(id);
+        if (ex == null || inPlan.contains(id) || !ex.canDoWith(available) || excludedByInjury(ex, u.injuries)) continue;
+        pick = ex;
+        break;
+      }
+      if (pick != null) break;
+    }
+    if (pick == null) {
+      final s = exerciseById('dyn_stretch');
+      if (s != null && !inPlan.contains(s.id) && s.canDoWith(available)) pick = s;
+    }
+    if (pick == null) return null;
+    final gen = SessionGenerator(SessionRequest(
+      groups: [pick.group],
+      available: {...available, ...pick.equipment},
+      progress: progress,
+      profile: u,
+      minutesBudget: 120,
+      equipmentMax: maxForPlan(plan),
+      equipmentStep: stepForPlan(plan),
+      machines: machinesForPlan(plan),
+    ));
+    final w = gen.planWarmup(pick);
+    _markCustom(plan);
+    final last = plan.exercises.lastIndexWhere((p) => p.warmup);
+    final firstMain = plan.exercises.indexWhere((p) => !p.warmup && SessionGenerator.sectionOf(p) == SessionGenerator.sectionOf(PlannedExercise(exerciseId: 'bb_bench', equipmentType: EquipmentType.barbell, restSeconds: 0, sets: const [])));
+    plan.exercises.insert(last >= 0 ? last + 1 : (firstMain >= 0 ? firstMain : 0), w);
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+    await resyncPartnerDay(plan);
+    return pick;
+  }
+
+  /// 워밍업 하나 빼기(안 한 것 중 마지막). 뺐으면 true.
+  Future<bool> removeWarmup(DayPlan plan) async {
+    if (plan.isFinished) return false;
+    if (_awakenBlocks(plan.date, '운동을 뺄')) return false;
+    final i = plan.exercises.lastIndexWhere((p) => p.warmup && !p.anyCompleted);
+    if (i < 0) return false;
+    _markCustom(plan);
+    plan.exercises.removeAt(i);
+    plan.estimatedMinutes = SessionGenerator.estimateMinutes(plan.exercises);
+    await _save();
+    await resyncPartnerDay(plan);
+    return true;
+  }
+
   Future<PlannedExercise?> addExercise(DayPlan plan, Exercise ex, {bool personal = false}) async {
     final u = currentUser;
     if (u == null || plan.isFinished) return null;

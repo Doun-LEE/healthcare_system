@@ -51,6 +51,7 @@ class PlanOverviewDrawer extends StatelessWidget {
           Text('부위별 운동 수', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
           Text(canEdit ? '+ 누르면 그 부위 운동을 골라 넣고, 세부 부위를 누르면 그 부위 운동을 넣어요.' : '부위·세부 부위별로 몇 개 하는지',
               style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          _WarmupRow(plan: plan, canEdit: canEdit, toast: toast),
           for (final g in overviewGroups)
             if (canEdit || tally[g]!.exercises > 0) _GroupRow(tally: tally[g]!, canEdit: canEdit, onAdd: add, onRemove: remove),
         ]),
@@ -97,6 +98,69 @@ class PlanOverviewDrawer extends StatelessWidget {
           itemBuilder: (c, i) => _OrderRow(key: ObjectKey(active[i]), index: i, pe: active[i], canEdit: canEdit),
         ),
       ),
+    );
+  }
+}
+
+/// 워밍업(스트레칭·활성화) 개수: 부위 칸과 따로.
+class _WarmupRow extends StatelessWidget {
+  const _WarmupRow({required this.plan, required this.canEdit, required this.toast});
+  final DayPlan plan;
+  final bool canEdit;
+  final void Function(String m) toast;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final cs = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final ws = [for (final e in plan.exercises) if (e.warmup && !e.skipMine) e];
+    final n = ws.length;
+    if (!canEdit && n == 0) return const SizedBox.shrink();
+    final names = [for (final e in ws) exerciseById(e.exerciseId)?.name ?? ''].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          SizedBox(
+            width: 56,
+            child: Text('워밍업', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700, color: n > 0 ? cs.onSurface : cs.onSurfaceVariant)),
+          ),
+          Expanded(
+            child: Text(n == 0 ? '없음' : '${ws.fold<int>(0, (a, e) => a + e.sets.length)}세트', style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+          ),
+          if (canEdit)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: '워밍업 빼기',
+              onPressed: n == 0
+                  ? null
+                  : () async {
+                      if (!await state.removeWarmup(plan)) toast('뺄 수 있는 워밍업이 없어요(이미 한 건 남겨요)');
+                    },
+              icon: const Icon(Icons.remove_circle_outline),
+            ),
+          SizedBox(
+            width: 28,
+            child: Text('$n', textAlign: TextAlign.center, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          ),
+          if (canEdit)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: '워밍업 추가',
+              onPressed: () async {
+                final ex = await state.addWarmup(plan);
+                toast(ex == null ? '이 헬스장 기구로 더 넣을 워밍업이 없어요' : '워밍업 · ${ex.name} 추가');
+              },
+              icon: Icon(Icons.add_circle, color: cs.primary),
+            ),
+        ]),
+        if (names.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 56),
+            child: Text(names, style: text.bodySmall?.copyWith(color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ),
+      ]),
     );
   }
 }
