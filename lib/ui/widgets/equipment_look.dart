@@ -8,6 +8,7 @@ import '../../core/photo_store.dart' as photos;
 import '../../data/brands.dart';
 import '../../data/equipment_models.dart';
 import '../../models/models.dart';
+import '../../services/photo_cloud.dart';
 import '../../state/app_state.dart';
 import 'equipment_3d.dart';
 import 'real_photos.dart';
@@ -129,7 +130,7 @@ class _EquipmentLookSectionState extends State<EquipmentLookSection> {
             segments: [
               ButtonSegment(
                   value: false,
-                  label: SegLabel(eq.hasPhoto ? '내가 찍은 사진' : '실제 사용 모습'),
+                  label: SegLabel(eq.hasPhoto ? (eq.photoBy != null && eq.photoBy != PhotoCloud.uid ? '친구가 찍은 사진' : '내가 찍은 사진') : '실제 사용 모습'),
                   icon: const Icon(Icons.photo_outlined)),
               const ButtonSegment(value: true, label: SegLabel('3D'), icon: Icon(Icons.view_in_ar_outlined)),
             ],

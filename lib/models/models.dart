@@ -760,6 +760,7 @@ class GymEquipment {
     this.padColor,
     this.shroud,
     this.hasPhoto = false,
+    this.photoBy,
     this.dualStack = false,
     this.weightBasis,
     this.plateBasis,
@@ -839,6 +840,9 @@ class GymEquipment {
   /// 이 기기에 실물 사진이 저장돼 있는지(사진 자체는 동기화하지 않는다).
   bool hasPhoto;
 
+  /// 클라우드에 올라간 이 기구 사진을 찍은 사람(uid). 친구 헬스장을 가져오면 이걸로 사진을 받아 온다.
+  String? photoBy;
+
   /// 좌우가 따로 움직이고 웨이트 스택(핀)도 양쪽에 따로 있는 머신. 무게는 한쪽(스택 하나) 기준,
   /// 한쪽씩도 할 수 있다.
   bool dualStack;
@@ -911,6 +915,7 @@ class GymEquipment {
         if (padColor != null) 'padColor': padColor,
         if (shroud != null) 'shroud': shroud,
         if (hasPhoto) 'hasPhoto': true,
+        if (photoBy != null) 'photoBy': photoBy,
         if (weightBasis != null) 'weightBasis': weightBasis,
         if (dualStack) 'dualStack': true,
         if (plateBasis != null) 'plateBasis': plateBasis,
@@ -957,6 +962,7 @@ class GymEquipment {
         padColor: (j['padColor'] as num?)?.toInt(),
         shroud: j['shroud'] as bool?,
         hasPhoto: (j['hasPhoto'] as bool?) ?? false,
+        photoBy: j['photoBy'] as String?,
         weightBasis: j['weightBasis'] as String?,
         dualStack: (j['dualStack'] as bool?) ?? false,
         plateBasis: j['plateBasis'] as String?,
@@ -967,7 +973,12 @@ class GymEquipment {
 
 /// 기구 목록 비교용 문자열(사진 유무 제외, id 순). 공개 프로필로 받은 친구 기구와 그대로 비교된다.
 String equipmentSignature(List<GymEquipment> list) {
-  final rows = [for (final e in list) e.toJson()..remove('hasPhoto')]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}'));
+  final rows = [
+    for (final e in list)
+      e.toJson()
+        ..remove('hasPhoto')
+        ..remove('photoBy'),
+  ]..sort((a, b) => '${a['id']}'.compareTo('${b['id']}'));
   return jsonEncode(rows);
 }
 

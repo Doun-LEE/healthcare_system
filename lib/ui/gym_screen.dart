@@ -1319,6 +1319,7 @@ class _EquipmentEditorState extends State<_EquipmentEditor> {
               padColor: widget.existing?.padColor,
               shroud: widget.existing?.shroud,
               hasPhoto: widget.existing?.hasPhoto ?? false,
+              photoBy: widget.existing?.photoBy,
               weightBasis: multi ? null : _basis,
               dualStack: !multi && _dual,
               plateBasis: isMachine && _mech == LoadMechanism.plate ? _plateBasis : null,

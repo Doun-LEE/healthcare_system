@@ -27,6 +27,7 @@ import '../services/ai_coach.dart';
 import '../services/chat.dart';
 import '../services/cloud_sync.dart';
 import '../services/partner.dart';
+import '../services/photo_cloud.dart';
 import '../services/record_code.dart';
 import '../services/routine_share.dart';
 import '../services/supa_rows.dart';
@@ -1368,6 +1369,7 @@ class AppState extends ChangeNotifier {
     target.equipEditedAt = target.equipSignature == equipmentSignature(copies) ? g.editedAt : DateTime.now();
     _equipSig[target.id] = target.equipSignature;
     await _save();
+    unawaited(syncEquipmentPhotos().catchError((_) {}));
     return target;
   }
 
@@ -1385,10 +1387,16 @@ class AppState extends ChangeNotifier {
       return '${g.sharedName ?? '친구'} 님 앱이 아직 새 버전이 아니라 기구 데이터가 없어요. 지금 기구 ${g.equipment.length}개는 그대로 뒀어요.';
     }
     await _backupBefore('헬스장 동기화 전 자동 저장');
-    final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
+    final mine = {for (final e in g.equipment) if (e.hasPhoto) e.id: e.photoBy};
     g.equipment
       ..clear()
-      ..addAll([for (final e in src.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = photos.contains(e.id))]);
+      ..addAll([
+        for (final e in src.equipment)
+          GymEquipment.fromJson(e.toJson()
+            ..['hasPhoto'] = mine.containsKey(e.id)
+            ..['photoBy'] = mine.containsKey(e.id) ? mine[e.id] : e.photoBy),
+      ]);
+    unawaited(syncEquipmentPhotos().catchError((_) {}));
     g.name = src.name;
     g.syncedAt = DateTime.now();
     g.equipEditedAt = src.editedAt;
@@ -1414,6 +1422,7 @@ class AppState extends ChangeNotifier {
     final myUid = CloudSync.instance.user!.uid;
     final out = <GymUpdate>[];
     final links = <String, List<GymUpdate>>{};
+    var photoHint = false;
     for (final p in partners.where((p) => !p.pending)) {
       PartnerProfile? pp;
       try {
@@ -1427,6 +1436,14 @@ class AppState extends ChangeNotifier {
           final linked = (g.sharedFrom == p.uid && g.sharedGymId == rg.id) || (rg.linkFrom == myUid && rg.linkGym == g.id);
           if (linked && rg.equipment.isNotEmpty) {
             links.putIfAbsent(g.id, () => []).add(GymUpdate(gym: g, friendUid: p.uid, friendName: p.display, remote: rg));
+            // 친구가 찍어 올린 사진: 내가 따로 찍은 게 없는 같은 기구면 받아 오게 표시만(기구 내용은 안 바꿈).
+            for (final re in rg.equipment) {
+              if (re.photoBy == null) continue;
+              for (final e in g.equipment.where((e) => e.id == re.id && !e.hasPhoto && e.photoBy != re.photoBy)) {
+                e.photoBy = re.photoBy;
+                photoHint = true;
+              }
+            }
           }
           final u = gymUpdateFor(g, p.uid, p.display, rg, myUid);
           if (u != null) out.add(u);
@@ -1436,6 +1453,8 @@ class AppState extends ChangeNotifier {
     gymUpdates = out;
     gymLinks = links;
     notifyListeners();
+    if (photoHint) await _save();
+    unawaited(syncEquipmentPhotos().catchError((_) {}));
   }
 
   /// [g]와 친구 헬스장 [rg]가 연결돼 있고, 친구가 나보다 나중에 기구를 고쳤으면 알림을 만든다.
@@ -1456,10 +1475,16 @@ class AppState extends ChangeNotifier {
     await _backupBefore('헬스장 동기화 전 자동 저장');
     final g = gymById(u.gym.id);
     if (g == null) return;
-    final photos = {for (final e in g.equipment) if (e.hasPhoto) e.id};
+    final mine = {for (final e in g.equipment) if (e.hasPhoto) e.id: e.photoBy};
     g.equipment
       ..clear()
-      ..addAll([for (final e in u.remote.equipment) GymEquipment.fromJson(e.toJson()..['hasPhoto'] = photos.contains(e.id))]);
+      ..addAll([
+        for (final e in u.remote.equipment)
+          GymEquipment.fromJson(e.toJson()
+            ..['hasPhoto'] = mine.containsKey(e.id)
+            ..['photoBy'] = mine.containsKey(e.id) ? mine[e.id] : e.photoBy),
+      ]);
+    unawaited(syncEquipmentPhotos().catchError((_) {}));
     g.equipEditedAt = u.remote.editedAt;
     g.syncedAt = DateTime.now();
     _equipSig[g.id] = g.equipSignature;
@@ -1605,18 +1630,67 @@ class AppState extends ChangeNotifier {
     return e.id;
   }
 
-  /// 기구 실물 사진 저장/삭제(이 기기에만 저장).
+  /// 기구 실물 사진 저장/삭제. 이 기기에 저장하고, 로그인돼 있으면 클라우드에도 올려 친구가 받아 갈 수 있게 한다.
   Future<void> setEquipmentPhoto(String gymId, String equipmentId, Uint8List? bytes) async {
     final e = _data.gyms.where((g) => g.id == gymId).firstOrNull?.equipment.where((e) => e.id == equipmentId).firstOrNull;
     if (e == null) return;
+    final me = PhotoCloud.uid;
     if (bytes == null) {
       await photos.deletePhoto(equipmentId);
-      e.hasPhoto = false;
+      if (e.photoBy != null && e.photoBy == me) unawaited(PhotoCloud.remove(equipmentId));
+      _samePhotoEverywhere(equipmentId, false, null);
     } else {
       await photos.savePhoto(equipmentId, bytes);
-      e.hasPhoto = true;
+      final up = await PhotoCloud.upload(equipmentId, bytes);
+      _samePhotoEverywhere(equipmentId, true, up ? me : null);
     }
     await _save();
+  }
+
+  /// 같은 기구 id(친구에게서 가져온 헬스장 복사본 등)는 사진을 같이 쓴다.
+  void _samePhotoEverywhere(String equipmentId, bool has, String? by) {
+    for (final g in _data.gyms) {
+      for (final x in g.equipment) {
+        if (x.id != equipmentId) continue;
+        x.hasPhoto = has;
+        x.photoBy = by;
+      }
+    }
+  }
+
+  bool _photoSyncRunning = false;
+
+  /// 사진 맞추기: 내 사진 중 아직 안 올린 건 올리고, 친구가 찍어 올린 사진(이 기기에 없는 것)은 받아 둔다.
+  Future<void> syncEquipmentPhotos() async {
+    if (_photoSyncRunning || !cloudSignedIn || !PhotoCloud.ready) return;
+    _photoSyncRunning = true;
+    var changed = false;
+    try {
+      final me = PhotoCloud.uid;
+      final seen = <String>{};
+      for (final g in _data.gyms.toList()) {
+        for (final e in g.equipment.toList()) {
+          if (!seen.add(e.id)) continue;
+          if (e.hasPhoto && e.photoBy == null) {
+            final b = await photos.loadPhoto(e.id);
+            if (b != null && await PhotoCloud.upload(e.id, b)) {
+              _samePhotoEverywhere(e.id, true, me);
+              changed = true;
+            }
+          } else if (!e.hasPhoto && e.photoBy != null) {
+            final b = await PhotoCloud.download(e.photoBy!, e.id);
+            if (b != null) {
+              await photos.savePhoto(e.id, b);
+              _samePhotoEverywhere(e.id, true, e.photoBy);
+              changed = true;
+            }
+          }
+        }
+      }
+    } finally {
+      _photoSyncRunning = false;
+    }
+    if (changed) await _save();
   }
 
   /// 기구 3D 색상·커버 변경.
