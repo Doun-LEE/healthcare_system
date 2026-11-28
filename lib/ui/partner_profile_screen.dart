@@ -153,7 +153,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('레벨', style: text.titleMedium),
                     const SizedBox(height: 8),
-                    LevelCard(profile: u),
+                    LevelCard(profile: u, hideBody: !u.showBodyInfo),
                   ]),
                 ),
               ),

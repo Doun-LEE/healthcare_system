@@ -5,8 +5,17 @@ import '../../models/models.dart';
 
 /// 레벨 판정 결과: 종합 등급 + 항목별 바.
 class LevelCard extends StatelessWidget {
-  const LevelCard({super.key, required this.profile, this.compact = false, this.onTap});
+  const LevelCard({super.key, required this.profile, this.compact = false, this.onTap, this.hideBody = false});
   final UserProfile profile;
+
+  /// 친구가 신체 정보를 숨겼으면: '체중의 몇 배'처럼 체중을 거꾸로 알 수 있는 값과 골격근·체지방 수치는 숨기고 등급만.
+  final bool hideBody;
+
+  String _detail(LevelItem it) {
+    if (!hideBody || it.missing) return it.detail;
+    if (it.name == '골격근량' || it.name == '체지방률') return '비공개';
+    return it.detail.split(' · ').first;
+  }
 
   /// 홈 화면용 한 줄 요약.
   final bool compact;
@@ -90,7 +99,7 @@ class LevelCard extends StatelessWidget {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 _Bar(value: it.missing ? 0 : it.score / 100, color: it.missing ? cs.outlineVariant : _gradeColor(it.grade, cs), height: 6),
                 const SizedBox(height: 2),
-                Text(it.detail, style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                Text(_detail(it), style: text.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
               ]),
             ),
             const SizedBox(width: 8),
