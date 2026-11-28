@@ -40,7 +40,23 @@ void main() {
     expect(titles.where((t) => t!.startsWith('가슴')).length, lessThanOrEqualTo(1));
   });
 
-  test('titles with an added part or a partner suffix still map to the split day', () {
+  test('회복된 분할 날이 여럿이면 먼저 풀린 근육의 날부터', () {
+    final u = UserProfile(id: 'u', name: 'x', splitDays: 4, includeCardio: false, warmupMode: 'off');
+    final history = [
+      _h(DateTime(2026, 10, 15), '하체', [MuscleGroup.legs]),
+      _h(DateTime(2026, 10, 20), '어깨·복근', [MuscleGroup.shoulder, MuscleGroup.abs]),
+      _h(DateTime(2026, 10, 24), '친구랑 등', [MuscleGroup.back, MuscleGroup.arms]),
+      _h(DateTime(2026, 10, 25), '가슴·삼두', [MuscleGroup.chest, MuscleGroup.arms]),
+    ];
+    final plans = Planner(PlannerInput(
+      profile: u, from: DateTime(2026, 10, 27), to: DateTime(2026, 10, 27), restDays: const {},
+      available: _gym, progress: {}, history: history, newId: _id,
+    )).build();
+    // 순서상 다음은 등이지만, 하체가 열흘 넘게 먼저 풀려 있으니 하체.
+    expect(plans.first.title, '하체');
+  });
+
+    test('titles with an added part or a partner suffix still map to the split day', () {
     final cycle = splitCycles[4]!;
     expect(Planner.cycleIndexOf(_h(DateTime(2026), '등·이두 + 하체', [MuscleGroup.back, MuscleGroup.arms, MuscleGroup.legs]), cycle), 1);
     expect(Planner.cycleIndexOf(_h(DateTime(2026), '가슴·삼두 · 유주연와 함께', [MuscleGroup.chest, MuscleGroup.arms]), cycle), 0);

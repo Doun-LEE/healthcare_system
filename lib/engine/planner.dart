@@ -256,12 +256,18 @@ class Planner {
       }
 
       // 회복이 끝난 분할 날을 고른다. 전부 회복 중이면 원래 순서대로.
+      // 회복된 날이 여럿이면 먼저 풀린 근육(회복 끝난 지 오래된 날)을 우선한다.
+      // 분할 순서와 하루 넘게 차이 날 때만 앞당겨서, 평소엔 순서가 흔들리지 않게.
       var chosen = cycleIdx;
+      DateTime? chosenReady;
       for (var k = 0; k < cycle.length; k++) {
         final idx = (cycleIdx + k) % cycle.length;
-        if (_recovered(cycle[idx].groups, lastTrained, date)) {
+        if (!_recovered(cycle[idx].groups, lastTrained, date)) continue;
+        final ready = _readyAt(cycle[idx].groups, lastTrained);
+        // 순서상 처음 회복된 날이 기본, 그보다 하루 넘게 먼저 풀린 날이 있으면 그 날.
+        if (chosenReady == null || ready.isBefore(chosenReady.subtract(const Duration(hours: 24)))) {
           chosen = idx;
-          break;
+          chosenReady = ready;
         }
       }
       final day = cycle[chosen];
@@ -362,6 +368,21 @@ class Planner {
       if (hours < restRules[g]!.recoveryHours) return false;
     }
     return true;
+  }
+
+  /// 그 날 부위가 모두 회복되는 시각(이력 없는 부위는 아주 예전에 회복된 걸로).
+  DateTime _readyAt(List<MuscleGroup> groups, Map<MuscleGroup, DateTime> last) {
+    var at = DateTime(2000);
+    for (var i = 0; i < groups.length; i++) {
+      final g = groups[i];
+      if (g == MuscleGroup.abs || g == MuscleGroup.cardio) continue;
+      if (g == MuscleGroup.arms && i > 0) continue;
+      final l = last[g];
+      if (l == null) continue;
+      final r = l.add(Duration(hours: restRules[g]!.recoveryHours));
+      if (r.isAfter(at)) at = r;
+    }
+    return at;
   }
 
   List<MuscleGroup> _idleGroups(
